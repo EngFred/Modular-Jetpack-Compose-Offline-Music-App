@@ -4,7 +4,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
-import com.engfred.musicplayer.feature_library.domain.model.AudioFile
+import com.engfred.musicplayer.core.domain.model.AudioFile
 import javax.inject.Inject
 import javax.inject.Singleton
 

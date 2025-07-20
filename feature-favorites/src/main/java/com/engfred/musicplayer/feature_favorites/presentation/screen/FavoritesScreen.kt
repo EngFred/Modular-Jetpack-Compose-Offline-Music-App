@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.feature_favorites.domain.model.FavoriteAudioFile
 import com.engfred.musicplayer.feature_favorites.presentation.viewmodel.FavoritesEvent
 import com.engfred.musicplayer.feature_favorites.presentation.viewmodel.FavoritesViewModel
@@ -138,7 +139,7 @@ fun FavoritesScreen(
 @Composable
 fun FavoriteAudioFileItem(
     favoriteAudioFile: FavoriteAudioFile,
-    onClick: (com.engfred.musicplayer.feature_library.domain.model.AudioFile) -> Unit,
+    onClick: (AudioFile) -> Unit,
     onRemoveClick: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {

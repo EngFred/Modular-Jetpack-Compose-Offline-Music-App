@@ -6,7 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.engfred.musicplayer.core.common.Resource
-import com.engfred.musicplayer.feature_library.domain.model.AudioFile
+import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.feature_search.domain.usecases.SearchAudioFilesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job

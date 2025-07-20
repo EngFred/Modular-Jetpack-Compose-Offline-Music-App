@@ -1,7 +1,7 @@
 package com.engfred.musicplayer.feature_library.domain.usecases
 
 import com.engfred.musicplayer.core.common.Resource
-import com.engfred.musicplayer.feature_library.domain.model.AudioFile
+import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.feature_library.domain.repository.AudioFileRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow

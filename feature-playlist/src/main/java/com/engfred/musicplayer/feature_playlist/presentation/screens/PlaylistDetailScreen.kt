@@ -44,7 +44,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.engfred.musicplayer.feature_library.domain.model.AudioFile
+import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.PlaylistDetailEvent
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.PlaylistDetailViewModel
 import java.text.SimpleDateFormat

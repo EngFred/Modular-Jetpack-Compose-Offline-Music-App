@@ -1,4 +1,4 @@
-package com.engfred.musicplayer.feature_library.domain.model
+package com.engfred.musicplayer.core.domain.model
 
 import android.net.Uri
 

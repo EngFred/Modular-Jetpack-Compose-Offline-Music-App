@@ -1,6 +1,6 @@
 package com.engfred.musicplayer.feature_player.presentation.viewmodel
 
-import com.engfred.musicplayer.feature_library.domain.model.AudioFile
+import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.feature_player.domain.model.RepeatMode
 import com.engfred.musicplayer.feature_player.domain.model.ShuffleMode
 

@@ -1,6 +1,6 @@
 package com.engfred.musicplayer.feature_playlist.data.repository
 
-import com.engfred.musicplayer.feature_library.domain.model.AudioFile
+import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.feature_playlist.data.local.dao.PlaylistDao
 import com.engfred.musicplayer.feature_playlist.data.local.entity.PlaylistEntity
 import com.engfred.musicplayer.feature_playlist.data.local.entity.PlaylistSongEntity

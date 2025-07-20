@@ -21,7 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.engfred.musicplayer.feature_library.domain.model.AudioFile // Import AudioFile
+import com.engfred.musicplayer.core.domain.model.AudioFile // Import AudioFile
 import com.engfred.musicplayer.feature_library.presentation.components.AudioFileItem
 import com.engfred.musicplayer.feature_library.presentation.viewmodel.LibraryEvent
 import com.engfred.musicplayer.feature_library.presentation.viewmodel.LibraryScreenState

@@ -1,6 +1,6 @@
 package com.engfred.musicplayer.feature_playlist.presentation.viewmodel
 
-import com.engfred.musicplayer.feature_library.domain.model.AudioFile
+import com.engfred.musicplayer.core.domain.model.AudioFile
 
 /**
  * Sealed class representing all possible events that can occur on the Playlists Screen.

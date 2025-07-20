@@ -1,5 +1,5 @@
 package com.engfred.musicplayer.feature_favorites.domain.model
-import com.engfred.musicplayer.feature_library.domain.model.AudioFile
+import com.engfred.musicplayer.core.domain.model.AudioFile
 
 /**
  * Represents an audio file that has been marked as a favorite.

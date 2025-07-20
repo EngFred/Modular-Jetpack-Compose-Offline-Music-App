@@ -1,6 +1,6 @@
 package com.engfred.musicplayer.feature_favorites.domain.repository
 
-import com.engfred.musicplayer.feature_library.domain.model.AudioFile
+import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.feature_favorites.domain.model.FavoriteAudioFile
 import kotlinx.coroutines.flow.Flow
 

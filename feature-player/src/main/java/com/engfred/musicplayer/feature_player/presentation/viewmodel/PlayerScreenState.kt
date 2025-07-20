@@ -3,7 +3,7 @@ package com.engfred.musicplayer.feature_player.presentation.viewmodel
 import com.engfred.musicplayer.feature_player.domain.model.RepeatMode
 import com.engfred.musicplayer.feature_player.domain.model.ShuffleMode
 import com.engfred.musicplayer.feature_player.domain.model.PlaybackState // Import PlaybackState
-import com.engfred.musicplayer.feature_library.domain.model.AudioFile // Keep AudioFile import for PlaybackState
+import com.engfred.musicplayer.core.domain.model.AudioFile // Keep AudioFile import for PlaybackState
 import kotlin.time.Duration
 /**
  * Data class representing the complete UI state for the Player Screen.

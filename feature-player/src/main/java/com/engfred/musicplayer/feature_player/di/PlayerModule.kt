@@ -2,14 +2,13 @@ package com.engfred.musicplayer.feature_player.di
 
 import android.content.ComponentName
 import android.content.Context
-import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
 import com.engfred.musicplayer.feature_player.data.repository.PlayerRepositoryImpl
 import com.engfred.musicplayer.feature_player.data.service.AudioFileMapper
 import com.engfred.musicplayer.feature_player.data.service.MusicNotificationProvider
@@ -20,7 +19,6 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
 @Module
@@ -66,11 +64,14 @@ object PlayerModule {
         return MusicNotificationProvider(context)
     }
 
+    @OptIn(UnstableApi::class)
     @Provides
     @Singleton
     fun providePlayerRepository(
+        @ApplicationContext context: Context,
+        sharedAudioDataSource: SharedAudioDataSource,
         audioFileMapper: AudioFileMapper
     ): PlayerRepository {
-        return PlayerRepositoryImpl(audioFileMapper)
+        return PlayerRepositoryImpl(context, sharedAudioDataSource, audioFileMapper)
     }
 }

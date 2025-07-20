@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.engfred.musicplayer.core.common.Resource
+import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
 import com.engfred.musicplayer.feature_library.domain.usecases.GetAllAudioFilesUseCase
 import com.engfred.musicplayer.feature_library.domain.usecases.PermissionHandlerUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -20,45 +21,33 @@ import javax.inject.Inject
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
     private val getAudioFilesUseCase: GetAllAudioFilesUseCase,
-    private val permissionHandlerUseCase: PermissionHandlerUseCase
+    private val permissionHandlerUseCase: PermissionHandlerUseCase,
+    private val sharedAudioDataSource: SharedAudioDataSource
 ) : ViewModel() {
 
-    // UI state for the list of audio files
     var uiState by mutableStateOf(LibraryScreenState())
-        private set // Only this ViewModel can modify this state
+        private set
 
     init {
-        // Initial check for permission when the ViewModel is created
-        // This will trigger a re-composition if permission status changes
-        // and the LaunchedEffect in the screen will react.
         uiState = uiState.copy(hasStoragePermission = permissionHandlerUseCase.hasAudioPermission())
         if (uiState.hasStoragePermission) {
             onEvent(LibraryEvent.LoadAudioFiles)
         }
     }
 
-    /**
-     * Processes events from the UI and updates the ViewModel's state accordingly.
-     */
     fun onEvent(event: LibraryEvent) {
         when (event) {
             LibraryEvent.LoadAudioFiles -> {
                 loadAudioFiles()
             }
             LibraryEvent.PermissionGranted -> {
-                // Update permission status and load files if not already loading/loaded
                 if (!uiState.hasStoragePermission) {
                     uiState = uiState.copy(hasStoragePermission = true)
                     loadAudioFiles()
                 }
             }
             is LibraryEvent.OnAudioFileClick -> {
-                // Handle audio file click event, e.g., pass to a shared player ViewModel
-                // For now, we'll just log or prepare for navigation/playback
-                // The actual playback logic will be in feature-player
                 println("Audio file clicked: ${event.audioFile.title}")
-                // You might emit a one-time event here for navigation
-                // For example: _navigationEvents.emit(NavigationEvent.ToPlayer(event.audioFile.uri.toString()))
             }
             LibraryEvent.CheckPermission -> {
                 uiState = uiState.copy(hasStoragePermission = permissionHandlerUseCase.hasAudioPermission())
@@ -76,28 +65,31 @@ class LibraryViewModel @Inject constructor(
                     )
                 }
                 is Resource.Success -> {
+                    val audioFiles = result.data ?: emptyList()
                     uiState = uiState.copy(
-                        audioFiles = result.data ?: emptyList(),
+                        audioFiles = audioFiles,
                         isLoading = false,
                         error = null
                     )
+                    // *** IMPORTANT: Publish the loaded files to the shared data source ***
+                    sharedAudioDataSource.setAudioFiles(audioFiles)
+                    android.util.Log.d("LibraryViewModel", "Loaded and published ${audioFiles.size} audio files to SharedAudioDataSource.")
                 }
                 is Resource.Error -> {
                     uiState = uiState.copy(
                         isLoading = false,
                         error = result.message
                     )
+                    // Clear shared data on error to prevent using stale data
+                    sharedAudioDataSource.clearAudioFiles()
+                    android.util.Log.e("LibraryViewModel", "Error loading audio files: ${result.message}. Cleared SharedAudioDataSource.")
                 }
             }
         }.launchIn(viewModelScope)
     }
 
-    /**
-     * Returns the permission string required for accessing audio files.
-     */
     fun getRequiredPermission(): String {
         return permissionHandlerUseCase.getRequiredPermission()
     }
 }
-
 

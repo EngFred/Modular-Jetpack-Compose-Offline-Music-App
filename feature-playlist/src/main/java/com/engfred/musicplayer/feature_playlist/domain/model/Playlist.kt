@@ -1,7 +1,7 @@
 package com.engfred.musicplayer.feature_playlist.domain.model
 
 
-import com.engfred.musicplayer.feature_library.domain.model.AudioFile
+import com.engfred.musicplayer.core.domain.model.AudioFile
 
 /**
  * Represents a user-created playlist in the domain layer.

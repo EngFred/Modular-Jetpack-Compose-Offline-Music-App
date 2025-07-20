@@ -7,6 +7,5 @@ import com.engfred.musicplayer.core.ui.theme.AppThemeType
  * This is a pure domain model.
  */
 data class AppSettings(
-    val selectedTheme: AppThemeType = AppThemeType.LIGHT // Default theme is Light
-    // Add other settings here as they are introduced (e.g., playback speed, notification preferences)
+    val selectedTheme: AppThemeType = AppThemeType.FROSTBYTE
 )

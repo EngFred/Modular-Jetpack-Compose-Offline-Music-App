@@ -1,4 +1,4 @@
-package com.engfred.musicplayer.feature_player.domain.model
+package com.engfred.musicplayer.core.domain.model.repository
 
 import com.engfred.musicplayer.core.domain.model.AudioFile
 
@@ -17,6 +17,7 @@ data class PlaybackState(
     val playbackSpeed: Float = 1.0f,
     val isLoading: Boolean = false,
     val error: String? = null,
+    val isFavorite: Boolean = false
 )
 
 enum class RepeatMode {

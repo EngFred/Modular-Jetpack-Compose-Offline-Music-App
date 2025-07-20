@@ -8,6 +8,7 @@ import com.engfred.musicplayer.core.domain.model.AudioFile
 sealed class LibraryEvent {
     data object LoadAudioFiles : LibraryEvent()
     data object PermissionGranted : LibraryEvent()
-    data object CheckPermission : LibraryEvent() // Event to re-check permission status
+    data object CheckPermission : LibraryEvent()
     data class OnAudioFileClick(val audioFile: AudioFile) : LibraryEvent()
+    data class OnSearchQueryChanged(val query: String) : LibraryEvent()
 }

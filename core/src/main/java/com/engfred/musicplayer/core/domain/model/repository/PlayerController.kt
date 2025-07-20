@@ -1,0 +1,16 @@
+package com.engfred.musicplayer.core.domain.model.repository
+
+import android.net.Uri
+import kotlinx.coroutines.flow.Flow
+
+interface PlayerController {
+    fun getPlaybackState(): Flow<PlaybackState>
+    suspend fun initiatePlayback(initialAudioFileUri: Uri)
+    suspend fun playPause()
+    suspend fun skipToNext()
+    suspend fun skipToPrevious()
+    suspend fun seekTo(positionMs: Long)
+    suspend fun setRepeatMode(mode: RepeatMode)
+    suspend fun setShuffleMode(mode: ShuffleMode)
+    suspend fun releasePlayer()
+}

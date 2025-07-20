@@ -1,7 +1,6 @@
-package com.engfred.musicplayer.feature_favorites.domain.repository
+package com.engfred.musicplayer.core.domain.model.repository
 
 import com.engfred.musicplayer.core.domain.model.AudioFile
-import com.engfred.musicplayer.feature_favorites.domain.model.FavoriteAudioFile
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -12,7 +11,7 @@ interface FavoritesRepository {
     /**
      * Gets a flow of all favorite audio files.
      */
-    fun getFavoriteAudioFiles(): Flow<List<FavoriteAudioFile>>
+    fun getFavoriteAudioFiles(): Flow<List<AudioFile>>
 
     /**
      * Adds an audio file to favorites.

@@ -44,10 +44,14 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.media3.common.util.UnstableApi
 import coil.compose.AsyncImage
-import com.engfred.musicplayer.feature_player.domain.model.RepeatMode
-import com.engfred.musicplayer.feature_player.domain.model.ShuffleMode
 import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerEvent
 import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerViewModel
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.runtime.LaunchedEffect
+import com.engfred.musicplayer.core.domain.model.repository.RepeatMode
+import com.engfred.musicplayer.core.domain.model.repository.ShuffleMode
+import com.engfred.musicplayer.core.util.formatDuration
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -57,8 +61,7 @@ fun PlayerScreen(
     val uiState by viewModel.uiState.collectAsState()
     var sliderValue by remember { mutableFloatStateOf(uiState.playbackPositionMs.toFloat()) }
 
-    // Update slider value when playback position changes
-    if (!uiState.isLoading && uiState.playbackPositionMs.toFloat() != sliderValue) {
+    LaunchedEffect(uiState.playbackPositionMs) {
         sliderValue = uiState.playbackPositionMs.toFloat()
     }
 
@@ -117,6 +120,29 @@ fun PlayerScreen(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                IconButton(onClick = {
+                    uiState.currentAudioFile?.let {
+                        if (uiState.isFavorite) {
+                            viewModel.onEvent(PlayerEvent.RemoveFromFavorites(it.id))
+                        } else {
+                            viewModel.onEvent(PlayerEvent.AddToFavorites(it))
+                        }
+                    }
+                }) {
+                    Icon(
+                        imageVector = if (uiState.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = if (uiState.isFavorite) "Remove from Favorites" else "Add to Favorites",
+                        tint = if (uiState.isFavorite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(24.dp))
 
             Slider(
@@ -221,11 +247,4 @@ fun PlayerScreen(
             }
         }
     }
-}
-
-@Composable
-private fun formatDuration(milliseconds: Long): String {
-    val minutes = (milliseconds / 1000) / 60
-    val seconds = (milliseconds / 1000) % 60
-    return String.format("%02d:%02d", minutes, seconds)
 }

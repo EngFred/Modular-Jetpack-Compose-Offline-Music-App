@@ -6,9 +6,6 @@ import androidx.core.net.toUri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.engfred.musicplayer.feature_library.domain.usecases.PermissionHandlerUseCase
-import com.engfred.musicplayer.feature_player.domain.model.PlaybackState
-import com.engfred.musicplayer.feature_player.domain.repository.PlayerRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,131 +17,133 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import androidx.media3.common.util.UnstableApi
+import com.engfred.musicplayer.core.domain.model.repository.FavoritesRepository
+import com.engfred.musicplayer.core.domain.model.repository.PlaybackState
+import com.engfred.musicplayer.core.domain.model.repository.PlayerController
 
 object PlayerArgs {
     const val AUDIO_FILE_URI = "audioFileUri"
+    const val FROM_MINI_PLAYER = "fromMiniPlayer"
 }
 
 @UnstableApi
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
-    private val playerRepository: PlayerRepository,
-    private val permissionHandlerUseCase: PermissionHandlerUseCase,
+    private val playerController: PlayerController,
+    private val favoritesRepository: FavoritesRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PlaybackState())
     val uiState: StateFlow<PlaybackState> = _uiState.asStateFlow()
-    private var isInitialLoadComplete = false
 
     init {
         viewModelScope.launch {
-            playerRepository.getPlaybackState().onEach { playbackState ->
-                if (isInitialLoadComplete) {
-                    // Ignore isLoading updates after initial load, except for new song playback
-                    _uiState.update { currentState ->
-                        playbackState.copy(
-                            isLoading = if (playbackState.currentAudioFile != currentState.currentAudioFile) {
-                                playbackState.isLoading
-                            } else {
-                                false
-                            }
-                        )
+            playerController.getPlaybackState().onEach { playbackState ->
+                _uiState.update { currentState ->
+                    val isFavorite = if (playbackState.currentAudioFile != null) {
+                        favoritesRepository.isFavorite(playbackState.currentAudioFile!!.id)
+                    } else {
+                        false
                     }
-                } else {
-                    _uiState.update { playbackState }
-                    if (!playbackState.isLoading && playbackState.currentAudioFile != null) {
-                        isInitialLoadComplete = true
-                    }
+                    playbackState.copy(
+                        isLoading = if (playbackState.currentAudioFile != currentState.currentAudioFile) {
+                            playbackState.isLoading
+                        } else {
+                            currentState.isLoading
+                        },
+                        isFavorite = isFavorite
+                    )
                 }
             }.launchIn(this)
         }
 
-        if (permissionHandlerUseCase.hasAudioPermission()) {
-            savedStateHandle.get<String>(PlayerArgs.AUDIO_FILE_URI)?.let { uriString ->
-                val initialAudioFileUri = Uri.decode(uriString).toUri()
-                viewModelScope.launch {
-                    // Only initiate playback if the URI is different from the currently playing song
-                    if (initialAudioFileUri != _uiState.value.currentAudioFile?.uri) {
-                        try {
-                            playerRepository.initiatePlayback(initialAudioFileUri)
-                        } catch (e: Exception) {
-                            _uiState.update {
-                                it.copy(
-                                    error = "Failed to initiate playback: ${e.message}",
-                                    isLoading = false
-                                )
-                            }
-                            isInitialLoadComplete = true
-                            Log.e("PlayerViewModel", "Playback initiation failed: ${e.message}", e)
+        savedStateHandle.get<String>(PlayerArgs.AUDIO_FILE_URI)?.let { uriString ->
+            val initialAudioFileUri = Uri.decode(uriString).toUri()
+            val fromMiniPlayer = savedStateHandle.get<Boolean>(PlayerArgs.FROM_MINI_PLAYER) ?: false
+            viewModelScope.launch {
+                // Skip initiatePlayback only if fromMiniPlayer=true and URI matches
+                if (!fromMiniPlayer) {
+                    try {
+                        playerController.initiatePlayback(initialAudioFileUri)
+                        Log.d("PlayerViewModel", "Initiating playback for URI: $initialAudioFileUri, fromMiniPlayer: $fromMiniPlayer")
+                    } catch (e: Exception) {
+                        _uiState.update {
+                            it.copy(
+                                error = "Failed to initiate playback: ${e.message}",
+                                isLoading = false
+                            )
                         }
-                    } else {
-                        Log.d("PlayerViewModel", "Song already playing, skipping initiatePlayback for URI: $initialAudioFileUri")
+                        Log.e("PlayerViewModel", "Playback initiation failed: ${e.message}", e)
                     }
+                } else {
+                    Log.d("PlayerViewModel", "Song already playing, skipping initiatePlayback for URI: $initialAudioFileUri from MiniPlayer")
                 }
-            } ?: run {
+            }
+        } ?: run {
+            // If no URI is provided, rely on existing playback state
+            if (_uiState.value.currentAudioFile == null) {
                 _uiState.update {
                     it.copy(
                         error = "No audio file URI provided to play.",
                         isLoading = false
                     )
                 }
-                isInitialLoadComplete = true
                 Log.w("PlayerViewModel", "No audio file URI provided via navigation.")
+            } else {
+                Log.d("PlayerViewModel", "No URI provided, continuing with current song: ${_uiState.value.currentAudioFile?.title}")
             }
-        } else {
-            _uiState.update {
-                it.copy(
-                    error = "Storage permission required to play audio files.",
-                    isLoading = false
-                )
-            }
-            isInitialLoadComplete = true
-            Log.w("PlayerViewModel", "Permissions not granted, skipping initialization")
         }
     }
-
     fun onEvent(event: PlayerEvent) {
         viewModelScope.launch(Dispatchers.Main) {
             try {
                 when (event) {
                     is PlayerEvent.PlayAudioFile -> {
-                        if (permissionHandlerUseCase.hasAudioPermission()) {
-                            // Reset isInitialLoadComplete for new song playback
-                            isInitialLoadComplete = false
-                            playerRepository.initiatePlayback(event.audioFile.uri)
-                            Log.d("PlayerViewModel", "PlayAudioFile event: Initiating playback for ${event.audioFile.title}")
+                        val fromMiniPlayer = event.fromMiniPlayer ?: false
+                        if (!fromMiniPlayer) {
+                            playerController.initiatePlayback(event.audioFile.uri)
+                            Log.d(
+                                "PlayerViewModel",
+                                "PlayAudioFile event: Initiating playback for ${event.audioFile.title}, fromMiniPlayer: $fromMiniPlayer"
+                            )
                         } else {
-                            _uiState.update {
-                                it.copy(
-                                    error = "Storage permission required to play audio.",
-                                    isLoading = false
-                                )
-                            }
-                            isInitialLoadComplete = true
+                            Log.d(
+                                "PlayerViewModel",
+                                "PlayAudioFile event: Song already playing, skipping for ${event.audioFile.title}"
+                            )
                         }
                     }
                     PlayerEvent.PlayPause -> {
-                        playerRepository.playPause()
+                        playerController.playPause()
                     }
                     PlayerEvent.SkipToNext -> {
-                        playerRepository.skipToNext()
+                        playerController.skipToNext()
                     }
                     PlayerEvent.SkipToPrevious -> {
-                        playerRepository.skipToPrevious()
+                        playerController.skipToPrevious()
                     }
                     is PlayerEvent.SeekTo -> {
-                        playerRepository.seekTo(event.positionMs)
+                        playerController.seekTo(event.positionMs)
                     }
                     is PlayerEvent.SetRepeatMode -> {
-                        playerRepository.setRepeatMode(event.mode)
+                        playerController.setRepeatMode(event.mode)
                     }
                     is PlayerEvent.SetShuffleMode -> {
-                        playerRepository.setShuffleMode(event.mode)
+                        playerController.setShuffleMode(event.mode)
                     }
                     PlayerEvent.ReleasePlayer -> {
-                        playerRepository.releasePlayer()
-                        isInitialLoadComplete = true
+                        playerController.releasePlayer()
+                    }
+                    is PlayerEvent.AddToFavorites -> {
+                        favoritesRepository.addFavoriteAudioFile(event.audioFile)
+                        _uiState.update { it.copy(isFavorite = true) }
+                        Log.d("PlayerViewModel", "Added to favorites: ${event.audioFile.title}")
+                    }
+                    is PlayerEvent.RemoveFromFavorites -> {
+                        favoritesRepository.removeFavoriteAudioFile(event.audioFileId)
+                        _uiState.update { it.copy(isFavorite = false) }
+                        Log.d("PlayerViewModel", "Removed from favorites: ID $event.audioFileId")
                     }
                 }
             } catch (e: Exception) {
@@ -155,7 +154,6 @@ class PlayerViewModel @Inject constructor(
                         isLoading = false
                     )
                 }
-                isInitialLoadComplete = true
             }
         }
     }
@@ -163,7 +161,7 @@ class PlayerViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         viewModelScope.launch {
-            playerRepository.releasePlayer()
+            playerController.releasePlayer()
             Log.d("PlayerViewModel", "PlayerRepository.releasePlayer() called from onCleared")
         }
     }

@@ -7,6 +7,8 @@ import com.engfred.musicplayer.core.domain.model.AudioFile
  */
 data class LibraryScreenState(
     val audioFiles: List<AudioFile> = emptyList(),
+    val filteredAudioFiles: List<AudioFile> = emptyList(),
+    val searchQuery: String = "",
     val isLoading: Boolean = false,
     val error: String? = null,
     val hasStoragePermission: Boolean = false

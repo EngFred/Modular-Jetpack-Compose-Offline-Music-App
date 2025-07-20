@@ -5,7 +5,6 @@ import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.DefaultMediaNotificationProvider
 import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * Custom MediaNotification.Provider for Media3 to manage music playback notifications.

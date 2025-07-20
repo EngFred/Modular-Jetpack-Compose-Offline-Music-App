@@ -2,10 +2,10 @@ package com.engfred.musicplayer.feature_favorites.di
 
 import android.content.Context
 import androidx.room.Room
+import com.engfred.musicplayer.core.domain.model.repository.FavoritesRepository
 import com.engfred.musicplayer.feature_favorites.data.local.dao.FavoriteAudioFileDao
 import com.engfred.musicplayer.feature_favorites.data.local.db.FavoritesDatabase
 import com.engfred.musicplayer.feature_favorites.data.repository.FavoritesRepositoryImpl
-import com.engfred.musicplayer.feature_favorites.domain.repository.FavoritesRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -35,7 +35,9 @@ object FavoritesModule {
 
     @Provides
     @Singleton
-    fun provideFavoritesRepository(repositoryImpl: FavoritesRepositoryImpl): FavoritesRepository {
-        return repositoryImpl
+    fun provideFavoritesRepository(
+        dao: FavoriteAudioFileDao
+    ): FavoritesRepository {
+        return FavoritesRepositoryImpl(dao);
     }
 }

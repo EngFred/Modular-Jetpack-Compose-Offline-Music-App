@@ -29,8 +29,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,37 +41,28 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.engfred.musicplayer.core.util.formatDate
 import com.engfred.musicplayer.feature_playlist.domain.model.Playlist
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.PlaylistEvent
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.PlaylistViewModel
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 /**
  * Composable screen for displaying and managing music playlists.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaylistsScreen(
     viewModel: PlaylistViewModel = hiltViewModel(),
-    onPlaylistClick: (Long) -> Unit // Callback when a playlist is clicked (pass playlistId)
+    onPlaylistClick: (Long) -> Unit
 ) {
     val uiState = viewModel.uiState
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Playlists") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            )
-        },
         floatingActionButton = {
             FloatingActionButton(onClick = { viewModel.onEvent(PlaylistEvent.ShowCreatePlaylistDialog) }) {
-                Icon(Icons.Default.Add, "Create new playlist")
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Create new playlist"
+                )
             }
         }
     ) { paddingValues ->
@@ -111,7 +100,7 @@ fun PlaylistsScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "No playlists found. Create one!",
+                            text = "No playlists found. Create one by tapping the '+' button!",
                             color = MaterialTheme.colorScheme.onBackground,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.padding(16.dp)
@@ -253,10 +242,4 @@ fun CreatePlaylistDialog(
             }
         }
     )
-}
-
-// Helper function to format date
-fun formatDate(timestamp: Long): String {
-    val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-    return sdf.format(Date(timestamp))
 }

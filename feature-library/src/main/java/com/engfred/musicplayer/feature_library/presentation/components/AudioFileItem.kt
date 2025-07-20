@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.engfred.musicplayer.core.domain.model.AudioFile
+import com.engfred.musicplayer.core.util.formatDuration
 import java.util.concurrent.TimeUnit
 
 /**
@@ -118,14 +119,4 @@ fun AudioFileItem(
             )
         }
     }
-}
-
-/**
- * Helper function to format duration from milliseconds to MM:SS.
- */
-fun formatDuration(durationMs: Long): String {
-    val minutes = TimeUnit.MILLISECONDS.toMinutes(durationMs)
-    val seconds = TimeUnit.MILLISECONDS.toSeconds(durationMs) -
-            TimeUnit.MINUTES.toSeconds(minutes)
-    return String.format("%02d:%02d", minutes, seconds)
 }

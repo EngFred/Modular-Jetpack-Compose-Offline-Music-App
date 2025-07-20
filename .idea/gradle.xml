@@ -16,7 +16,6 @@
             <option value="$PROJECT_DIR$/feature-library" />
             <option value="$PROJECT_DIR$/feature-player" />
             <option value="$PROJECT_DIR$/feature-playlist" />
-            <option value="$PROJECT_DIR$/feature-search" />
             <option value="$PROJECT_DIR$/feature-settings" />
           </set>
         </option>

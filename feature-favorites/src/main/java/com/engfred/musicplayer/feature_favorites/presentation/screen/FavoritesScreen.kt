@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -22,14 +21,11 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,36 +38,19 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.engfred.musicplayer.core.domain.model.AudioFile
-import com.engfred.musicplayer.feature_favorites.domain.model.FavoriteAudioFile
 import com.engfred.musicplayer.feature_favorites.presentation.viewmodel.FavoritesEvent
 import com.engfred.musicplayer.feature_favorites.presentation.viewmodel.FavoritesViewModel
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.concurrent.TimeUnit
 
 /**
  * Composable screen for displaying the list of favorite audio files.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FavoritesScreen(
     viewModel: FavoritesViewModel = hiltViewModel(),
-    onAudioFileClick: (String) -> Unit // Callback to play a song
 ) {
     val uiState = viewModel.uiState
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Favorites") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            )
-        }
-    ) { paddingValues ->
+    Scaffold{ paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -118,11 +97,15 @@ fun FavoritesScreen(
                         contentPadding = PaddingValues(vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        items(uiState.favoriteAudioFiles, key = { it.audioFile.id }) { favoriteAudioFile ->
+                        items(
+                            count = uiState.favoriteAudioFiles.size,
+                            key = { index -> uiState.favoriteAudioFiles[index].id }
+                        ) {
+                            val favoriteAudioFile = uiState.favoriteAudioFiles[it]
                             FavoriteAudioFileItem(
                                 favoriteAudioFile = favoriteAudioFile,
                                 onClick = { clickedAudioFile ->
-                                    onAudioFileClick(clickedAudioFile.uri.toString())
+                                    viewModel.onEvent(FavoritesEvent.OnAudioFileClick(clickedAudioFile))
                                 },
                                 onRemoveClick = { audioFileId ->
                                     viewModel.onEvent(FavoritesEvent.RemoveFavorite(audioFileId))
@@ -138,7 +121,7 @@ fun FavoritesScreen(
 
 @Composable
 fun FavoriteAudioFileItem(
-    favoriteAudioFile: FavoriteAudioFile,
+    favoriteAudioFile: AudioFile,
     onClick: (AudioFile) -> Unit,
     onRemoveClick: (Long) -> Unit,
     modifier: Modifier = Modifier
@@ -146,7 +129,9 @@ fun FavoriteAudioFileItem(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onClick(favoriteAudioFile.audioFile) }
+            .clickable {
+                onClick(favoriteAudioFile)
+            }
             .padding(horizontal = 8.dp, vertical = 4.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
@@ -161,9 +146,9 @@ fun FavoriteAudioFileItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Album Art or Placeholder Icon
-            if (favoriteAudioFile.audioFile.albumArtUri != null) {
+            if (favoriteAudioFile.albumArtUri != null) {
                 AsyncImage(
-                    model = favoriteAudioFile.audioFile.albumArtUri,
+                    model = favoriteAudioFile.albumArtUri,
                     contentDescription = "Album Art",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
@@ -185,7 +170,7 @@ fun FavoriteAudioFileItem(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = favoriteAudioFile.audioFile.title,
+                    text = favoriteAudioFile.title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -194,16 +179,8 @@ fun FavoriteAudioFileItem(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = favoriteAudioFile.audioFile.artist ?: "Unknown Artist",
+                    text = favoriteAudioFile.artist ?: "Unknown Artist",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = "Favorited: ${formatDate(favoriteAudioFile.favoritedAt)}",
-                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -213,7 +190,7 @@ fun FavoriteAudioFileItem(
             Spacer(modifier = Modifier.width(12.dp))
 
             // Remove from Favorites Button
-            IconButton(onClick = { onRemoveClick(favoriteAudioFile.audioFile.id) }) {
+            IconButton(onClick = { onRemoveClick(favoriteAudioFile.id) }) {
                 Icon(
                     imageVector = Icons.Default.Delete,
                     contentDescription = "Remove from Favorites",
@@ -222,20 +199,4 @@ fun FavoriteAudioFileItem(
             }
         }
     }
-}
-
-// Re-using formatDate helper from PlaylistsScreen.kt
-// If this function is used in multiple screens, consider moving it to a common utility in :core
-fun formatDate(timestamp: Long): String {
-    val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-    return sdf.format(Date(timestamp))
-}
-
-// Re-using formatDuration helper from feature-library/presentation/components/AudioFileItem.kt
-// If this function is used in multiple screens, consider moving it to a common utility in :core
-fun formatDuration(durationMs: Long): String {
-    val minutes = TimeUnit.MILLISECONDS.toMinutes(durationMs)
-    val seconds = TimeUnit.MILLISECONDS.toSeconds(durationMs) -
-            TimeUnit.MINUTES.toSeconds(minutes)
-    return String.format("%02d:%02d", minutes, seconds)
 }

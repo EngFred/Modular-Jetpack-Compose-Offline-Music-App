@@ -8,14 +8,12 @@ import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import com.engfred.musicplayer.core.ui.theme.AppThemeType
 import com.engfred.musicplayer.core.ui.theme.MusicPlayerAppTheme
@@ -23,6 +21,7 @@ import com.engfred.musicplayer.feature_settings.domain.model.AppSettings
 import com.engfred.musicplayer.feature_settings.domain.usecases.GetAppSettingsUseCase
 import com.engfred.musicplayer.navigation.AppNavHost
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -33,12 +32,30 @@ class MainActivity : ComponentActivity() {
 
     @RequiresApi(Build.VERSION_CODES.S)
     override fun onCreate(savedInstanceState: Bundle?) {
-        installSplashScreen()
+        // Create a mutable state to track if settings are loaded
+        var appSettingsLoaded by mutableStateOf(false)
+        var initialAppSettings: AppSettings? by mutableStateOf(null)
+
+        val splashScreen = installSplashScreen()
+
+        splashScreen.setKeepOnScreenCondition {
+            // Keep the splash screen on screen as long as appSettingsLoaded is false
+            !appSettingsLoaded
+        }
+
         super.onCreate(savedInstanceState)
 
+        // Use a LifecycleScope to collect the flow and update the state
+        lifecycleScope.launch {
+            getAppSettingsUseCase().collect { settings ->
+                initialAppSettings = settings
+                appSettingsLoaded = true // Settings are loaded, dismiss splash screen
+            }
+        }
+
         setContent {
-            val appSettingsState = getAppSettingsUseCase().collectAsState(initial = AppSettings(AppThemeType.LIGHT))
-            val selectedTheme by remember { derivedStateOf { appSettingsState.value.selectedTheme } }
+            // Use the initialAppSettings once it's available
+            val selectedTheme = initialAppSettings?.selectedTheme ?: AppThemeType.FROSTBYTE
 
             MusicPlayerAppTheme(
                 selectedTheme = selectedTheme

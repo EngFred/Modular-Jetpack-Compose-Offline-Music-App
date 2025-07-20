@@ -1,26 +1,17 @@
 package com.engfred.musicplayer.ui
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -32,15 +23,25 @@ import com.engfred.musicplayer.feature_favorites.presentation.screen.FavoritesSc
 import com.engfred.musicplayer.feature_library.presentation.screens.LibraryScreen
 import com.engfred.musicplayer.feature_playlist.presentation.screens.PlaylistsScreen
 import com.engfred.musicplayer.navigation.AppDestinations
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import com.engfred.musicplayer.core.ui.CustomTopBar
+
 
 /**
  * Main screen of the application, hosting the bottom navigation bar and
  * managing the primary feature screens.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+
 @Composable
 fun MainScreen(
-    onAudioClick: (String) -> Unit,
+    onAudioClick: (String, Boolean) -> Unit,
     onPlaylistClick: (Long) -> Unit,
     onSettingsClick: () -> Unit
 ) {
@@ -49,30 +50,23 @@ fun MainScreen(
         AppDestinations.BottomNavItem.Library,
         AppDestinations.BottomNavItem.Playlists,
         AppDestinations.BottomNavItem.Favorites,
-        AppDestinations.BottomNavItem.Search
     )
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Music Player") },
-                actions = {
-                    IconButton(onClick = onSettingsClick) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
-                    }
-                }
-            )
-        },
         bottomBar = {
             Column {
                 // MiniPlayer placed above the NavigationBar
                 MiniPlayer(
-                    onMiniPlayerClick = onAudioClick,
+                    onMiniPlayerClick =  { uri -> onAudioClick(uri, true) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .zIndex(1f), // Ensure MiniPlayer is above NavigationBar,
+                        .zIndex(1f), // Ensure MiniPlayer is above NavigationBar
                 )
-                NavigationBar {
+                NavigationBar(
+                    // Apply theme colors to the NavigationBar
+                    containerColor = MaterialTheme.colorScheme.surface, // Background of the nav bar
+                    contentColor = MaterialTheme.colorScheme.onSurface, // Default color for unselected items/labels
+                ) {
                     val navBackStackEntry by bottomNavController.currentBackStackEntryAsState()
                     val currentDestination = navBackStackEntry?.destination
 
@@ -93,42 +87,65 @@ fun MainScreen(
                                 }
                             },
                             icon = { Icon(item.icon, contentDescription = item.label) },
-                            label = { Text(item.label) }
+                            label = { Text(item.label) },
+                            // Apply theme colors to NavigationBarItem
+                            colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer, // Color of selected icon
+                                selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer, // Color of selected label
+                                indicatorColor = MaterialTheme.colorScheme.primaryContainer, // Background color for selected item
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, // Color of unselected icon
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant // Color of unselected label
+                            )
                         )
                     }
                 }
             }
         }
     ) { paddingValues ->
-        // Main content respects the top bar and system insets, but not the bottom bar
-        NavHost(
-            navController = bottomNavController,
-            startDestination = AppDestinations.BottomNavItem.Library.baseRoute,
+        // The main content area of the Scaffold
+        Column(
             modifier = Modifier
                 .fillMaxSize()
+                // Apply horizontal padding from Scaffold, but manage top/bottom manually
                 .padding(
-                    top = paddingValues.calculateTopPadding(),
-                    bottom = 0.dp, // Let MiniPlayer handle bottom spacing
                     start = paddingValues.calculateStartPadding(LocalLayoutDirection.current),
                     end = paddingValues.calculateEndPadding(LocalLayoutDirection.current)
                 )
         ) {
-            composable(AppDestinations.BottomNavItem.Library.baseRoute) {
-                LibraryScreen(onAudioFileClick = onAudioClick)
-            }
+            // --- Custom Top Bar ---
+            CustomTopBar(
+                title = "Music Player", // Title for the main screen
+                showNavigationIcon = false, // No back button on the main screen
+                onNavigateBack = null, // No back action
+                actions = { // Slot for actions
+                    IconButton(onClick = onSettingsClick) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    }
+                }
+            )
+            // --- End Custom Top Bar ---
 
-            composable(AppDestinations.BottomNavItem.Playlists.baseRoute) {
-                PlaylistsScreen(onPlaylistClick = onPlaylistClick)
-            }
+            // NavHost needs to account for the CustomTopBar's height
+            NavHost(
+                navController = bottomNavController,
+                startDestination = AppDestinations.BottomNavItem.Library.baseRoute,
+                modifier = Modifier
+                    .fillMaxSize()
+                    // Set top padding to 0.dp as CustomTopBar takes its own space
+                    .padding(top = 0.dp, bottom = paddingValues.calculateBottomPadding())
+            ) {
+                composable(AppDestinations.BottomNavItem.Library.baseRoute) {
+                    LibraryScreen()
+                }
 
-            composable(AppDestinations.BottomNavItem.Favorites.baseRoute) {
-                FavoritesScreen(onAudioFileClick = onAudioClick)
-            }
+                composable(AppDestinations.BottomNavItem.Playlists.baseRoute) {
+                    PlaylistsScreen(onPlaylistClick = onPlaylistClick)
+                }
 
-            composable(AppDestinations.BottomNavItem.Search.baseRoute) {
-                Text("Search Screen Placeholder")
+                composable(AppDestinations.BottomNavItem.Favorites.baseRoute) {
+                    FavoritesScreen()
+                }
             }
         }
     }
 }
-

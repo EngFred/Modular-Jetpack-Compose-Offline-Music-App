@@ -5,8 +5,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerArgs
 
 /**
  * Sealed class defining all the navigation destinations in the application.
@@ -16,13 +16,14 @@ sealed class AppDestinations(val route: String) {
 
     data object MainGraph : AppDestinations("main_graph") // New: Represents the graph with bottom nav
 
-    data object Player : AppDestinations("player/{audioFileUri}") {
-        // Function to create the route with arguments
-        fun createRoute(audioFileUri: String): String {
-            return "player/${Uri.encode(audioFileUri)}" // Ensure URI is encoded
+    data object Player {
+        const val route = "player?${PlayerArgs.AUDIO_FILE_URI}={${PlayerArgs.AUDIO_FILE_URI}}&${PlayerArgs.FROM_MINI_PLAYER}={${PlayerArgs.FROM_MINI_PLAYER}}"
+        fun createRoute(audioFileUri: String?, fromMiniPlayer: Boolean): String {
+            val encodedUri = audioFileUri?.let { Uri.encode(it) } ?: ""
+            return "player?${PlayerArgs.AUDIO_FILE_URI}=$encodedUri&${PlayerArgs.FROM_MINI_PLAYER}=$fromMiniPlayer"
         }
     }
-    data object Playlists : AppDestinations("playlists")
+
     data object PlaylistDetail : AppDestinations("playlist_detail/{playlistId}") {
         fun createRoute(playlistId: Long): String {
             return "playlist_detail/$playlistId"
@@ -38,7 +39,6 @@ sealed class AppDestinations(val route: String) {
         data object Library : BottomNavItem("library", Icons.Default.Home, "Library")
         data object Playlists : BottomNavItem("playlists", Icons.Default.List, "Playlists")
         data object Favorites : BottomNavItem("favorites", Icons.Default.Favorite, "Favorites")
-        data object Search : BottomNavItem("search", Icons.Default.Search, "Search")
     }
 
     // Settings screen

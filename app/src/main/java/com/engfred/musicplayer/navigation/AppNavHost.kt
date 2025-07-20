@@ -23,9 +23,9 @@ fun AppNavHost(rootNavController: NavHostController) {
         // Main Graph (with bottom nav)
         composable(AppDestinations.MainGraph.route) {
             MainScreen(
-                onAudioClick = { audioFileUri ->
+                onAudioClick = { audioFileUri, fromMiniPlayer ->
                     val encodedUri = Uri.encode(audioFileUri)
-                    rootNavController.navigate(AppDestinations.Player.createRoute(encodedUri))
+                    rootNavController.navigate(AppDestinations.Player.createRoute(encodedUri, fromMiniPlayer = fromMiniPlayer))
                 },
                 onPlaylistClick = { playlistId ->
                     rootNavController.navigate(AppDestinations.PlaylistDetail.createRoute(playlistId))
@@ -43,6 +43,10 @@ fun AppNavHost(rootNavController: NavHostController) {
                 navArgument(PlayerArgs.AUDIO_FILE_URI) {
                     type = NavType.StringType
                     nullable = true
+                },
+                navArgument(PlayerArgs.FROM_MINI_PLAYER) {
+                    type = NavType.BoolType
+                    defaultValue = false
                 }
             )
         ) {
@@ -62,7 +66,7 @@ fun AppNavHost(rootNavController: NavHostController) {
                 onNavigateBack = { rootNavController.popBackStack() },
                 onAudioFileClick = { audioFileUri ->
                     val encodedUri = Uri.encode(audioFileUri)
-                    rootNavController.navigate(AppDestinations.Player.createRoute(encodedUri))
+                    rootNavController.navigate(AppDestinations.Player.createRoute(encodedUri, fromMiniPlayer = false))
                 }
             )
         }

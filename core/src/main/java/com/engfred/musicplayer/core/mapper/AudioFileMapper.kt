@@ -1,4 +1,4 @@
-package com.engfred.musicplayer.feature_player.data.service
+package com.engfred.musicplayer.core.mapper
 
 import android.net.Uri
 import android.util.Log

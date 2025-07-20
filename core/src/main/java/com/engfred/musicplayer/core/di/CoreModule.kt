@@ -1,6 +1,7 @@
 package com.engfred.musicplayer.core.di
 
 import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
+import com.engfred.musicplayer.core.mapper.AudioFileMapper
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -15,5 +16,11 @@ object CoreModule {
     @Singleton
     fun provideSharedAudioDataSource(): SharedAudioDataSource {
         return SharedAudioDataSource()
+    }
+
+    @Provides
+    @Singleton
+    fun provideAudioFileMapper(): AudioFileMapper {
+        return AudioFileMapper()
     }
 }

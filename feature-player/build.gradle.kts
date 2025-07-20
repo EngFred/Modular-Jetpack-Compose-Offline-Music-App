@@ -45,8 +45,6 @@ dependencies {
 
     // Dependency on the core module for shared utilities, themes, etc.
     implementation(project(":core"))
-    // Dependency on feature-library to access AudioFile domain model
-    implementation(project(":feature-library"))
 
     // Android Core & Lifecycle
     implementation(libs.androidx.core.ktx)

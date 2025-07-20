@@ -15,7 +15,6 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
-import com.engfred.musicplayer.feature_library.domain.usecases.PermissionHandlerUseCase
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -34,13 +33,7 @@ class MusicService : MediaSessionService() {
     lateinit var exoPlayer: ExoPlayer
 
     @Inject
-    lateinit var audioFileMapper: AudioFileMapper
-
-    @Inject
     lateinit var musicNotificationProvider: MusicNotificationProvider
-
-    @Inject
-    lateinit var permissionHandlerUseCase: PermissionHandlerUseCase
 
     @Inject
     lateinit var sharedAudioDataSource: SharedAudioDataSource
@@ -71,12 +64,6 @@ class MusicService : MediaSessionService() {
                 stopSelf()
                 return
             }
-        }
-
-        if (!permissionHandlerUseCase.hasAudioPermission()) {
-            Log.w("MusicService", "Audio permissions not granted, stopping service")
-            stopSelf()
-            return
         }
 
         try {

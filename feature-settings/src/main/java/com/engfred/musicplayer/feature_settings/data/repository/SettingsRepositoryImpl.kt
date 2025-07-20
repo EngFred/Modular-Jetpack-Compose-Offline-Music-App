@@ -28,7 +28,7 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override fun getAppSettings(): Flow<AppSettings> {
         return dataStore.data.map { preferences -> // Use injected dataStore
-            val selectedThemeString = preferences[PreferencesKeys.SELECTED_THEME] ?: AppThemeType.LIGHT.name
+            val selectedThemeString = preferences[PreferencesKeys.SELECTED_THEME] ?: AppThemeType.FROSTBYTE.name
             AppSettings(
                 selectedTheme = AppThemeType.valueOf(selectedThemeString)
             )

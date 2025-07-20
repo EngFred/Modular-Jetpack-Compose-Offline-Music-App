@@ -51,12 +51,11 @@ import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerViewM
 @OptIn(UnstableApi::class)
 @Composable
 fun MiniPlayer(
-    onMiniPlayerClick: (String) -> Unit, // Callback to navigate to full PlayerScreen
+    onMiniPlayerClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: PlayerViewModel = hiltViewModel()
 ) {
     // Only show the mini-player if there's a current audio file in the nested PlaybackState
-
     val uiState by viewModel.uiState.collectAsState()
 
     AnimatedVisibility(
@@ -70,7 +69,7 @@ fun MiniPlayer(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 8.dp, vertical = 2.dp)
-                    .clickable { onMiniPlayerClick(audioFile.uri.toString()) },
+                    .clickable { onMiniPlayerClick(audioFile.uri.toString()) }, // Pass fromMiniPlayer=true
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
                 ),
@@ -136,8 +135,8 @@ fun MiniPlayer(
                         // Play/Pause Button
                         IconButton(onClick = { viewModel.onEvent(PlayerEvent.PlayPause) }) {
                             Icon(
-                                imageVector = if (uiState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, // Access nested playbackState
-                                contentDescription = if (uiState.isPlaying) "Pause" else "Play", // Access nested playbackState
+                                imageVector = if (uiState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                contentDescription = if (uiState.isPlaying) "Pause" else "Play",
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(40.dp)
                             )

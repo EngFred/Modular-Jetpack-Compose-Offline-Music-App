@@ -1,56 +1,46 @@
 package com.engfred.musicplayer.core.ui.theme
 
 import android.app.Activity
-import android.os.Build
-import androidx.annotation.RequiresApi
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-// Define your custom theme types
+// Updated Theme Types
 enum class AppThemeType {
-    LIGHT,
+    FROSTBYTE,
     DARK,
     DEEP_BLUE,
-    VIBRANT_GREEN,
-    WARM_AMBER
+    NEON_PULSE,
+    SUNSET_GROOVE
 }
 
-// Light color scheme
+// --- Existing Themes ---
+
 private val LightColorScheme = lightColorScheme(
-    primary = LightPrimary,
-    onPrimary = LightOnPrimary,
-    primaryContainer = LightPrimaryContainer,
-    onPrimaryContainer = LightOnPrimaryContainer,
-    secondary = LightSecondary,
-    onSecondary = LightOnSecondary,
-    secondaryContainer = LightSecondaryContainer,
-    onSecondaryContainer = LightOnSecondaryContainer,
-    tertiary = LightTertiary,
-    onTertiary = LightOnTertiary,
-    tertiaryContainer = LightTertiaryContainer,
-    onTertiaryContainer = LightOnTertiaryContainer,
-    background = LightBackground,
-    onBackground = LightOnBackground,
-    surface = LightSurface,
-    onSurface = LightOnSurface,
-    surfaceVariant = LightSurfaceVariant,
-    onSurfaceVariant = LightOnSurfaceVariant,
-    error = LightError,
-    onError = LightOnError,
-    outline = LightOutline,
+    primary = FrostPrimary,
+    onPrimary = FrostOnPrimary,
+    primaryContainer = FrostPrimaryContainer,
+    onPrimaryContainer = FrostOnPrimaryContainer,
+    secondary = FrostSecondary,
+    onSecondary = FrostOnSecondary,
+    secondaryContainer = FrostSecondaryContainer,
+    onSecondaryContainer = FrostOnSecondaryContainer,
+    background = FrostBackground,
+    onBackground = FrostOnBackground,
+    surface = FrostSurface,
+    onSurface = FrostOnSurface,
+    surfaceVariant = FrostSurfaceVariant,
+    onSurfaceVariant = FrostOnSurfaceVariant,
+    error = FrostError,
+    onError = FrostOnError,
+    outline = FrostOutline,
 )
 
-// Dark color scheme
 private val DarkColorScheme = darkColorScheme(
     primary = DarkPrimary,
     onPrimary = DarkOnPrimary,
@@ -75,8 +65,7 @@ private val DarkColorScheme = darkColorScheme(
     outline = DarkOutline,
 )
 
-// Deep Blue color scheme
-private val DeepBlueColorScheme = darkColorScheme( // Often custom themes are dark-based
+private val DeepBlueColorScheme = darkColorScheme(
     primary = DeepBluePrimary,
     onPrimary = DeepBlueOnPrimary,
     primaryContainer = DeepBluePrimaryContainer,
@@ -96,70 +85,77 @@ private val DeepBlueColorScheme = darkColorScheme( // Often custom themes are da
     outline = DeepBlueOutline,
 )
 
-// Vibrant Green color scheme
-private val VibrantGreenColorScheme = darkColorScheme(
-    primary = VibrantGreenPrimary,
-    onPrimary = VibrantGreenOnPrimary,
-    primaryContainer = VibrantGreenPrimaryContainer,
-    onPrimaryContainer = VibrantGreenOnPrimaryContainer,
-    secondary = VibrantGreenSecondary,
-    onSecondary = VibrantGreenOnSecondary,
-    secondaryContainer = VibrantGreenSecondaryContainer,
-    onSecondaryContainer = VibrantGreenOnSecondaryContainer,
-    background = VibrantGreenBackground,
-    onBackground = VibrantGreenOnBackground,
-    surface = VibrantGreenSurface,
-    onSurface = VibrantGreenOnSurface,
-    surfaceVariant = VibrantGreenSurfaceVariant,
-    onSurfaceVariant = VibrantGreenOnSurfaceVariant,
-    error = VibrantGreenError,
-    onError = VibrantGreenOnError,
-    outline = VibrantGreenOutline,
+private val NeonPulseColorScheme = darkColorScheme(
+    primary = NeonPrimary,
+    onPrimary = NeonOnPrimary,
+    primaryContainer = NeonPrimaryContainer,
+    onPrimaryContainer = NeonOnPrimaryContainer,
+    secondary = NeonSecondary,
+    onSecondary = NeonOnSecondary,
+    secondaryContainer = NeonSecondaryContainer,
+    onSecondaryContainer = NeonOnSecondaryContainer,
+    background = NeonBackground,
+    onBackground = NeonOnBackground,
+    surface = NeonSurface,
+    onSurface = NeonOnSurface,
+    surfaceVariant = NeonSurfaceVariant,
+    onSurfaceVariant = NeonOnSurfaceVariant,
+    error = NeonError,
+    onError = NeonOnError,
+    outline = NeonOutline,
 )
 
-// Warm Amber color scheme
-private val WarmAmberColorScheme = darkColorScheme(
-    primary = WarmAmberPrimary,
-    onPrimary = WarmAmberOnPrimary,
-    primaryContainer = WarmAmberPrimaryContainer,
-    onPrimaryContainer = WarmAmberOnPrimaryContainer,
-    secondary = WarmAmberSecondary,
-    onSecondary = WarmAmberOnSecondary,
-    secondaryContainer = WarmAmberSecondaryContainer,
-    onSecondaryContainer = WarmAmberOnSecondaryContainer,
-    background = WarmAmberBackground,
-    onBackground = WarmAmberOnBackground,
-    surface = WarmAmberSurface,
-    onSurface = WarmAmberOnSurface,
-    surfaceVariant = WarmAmberSurfaceVariant,
-    onSurfaceVariant = WarmAmberOnSurfaceVariant,
-    error = WarmAmberError,
-    onError = WarmAmberOnError,
-    outline = WarmAmberOutline,
+private val SunsetGrooveColorScheme = darkColorScheme(
+    primary = SunsetPrimary,
+    onPrimary = SunsetOnPrimary,
+    primaryContainer = SunsetPrimaryContainer,
+    onPrimaryContainer = SunsetOnPrimaryContainer,
+    secondary = SunsetSecondary,
+    onSecondary = SunsetOnSecondary,
+    secondaryContainer = SunsetSecondaryContainer,
+    onSecondaryContainer = SunsetOnSecondaryContainer,
+    background = SunsetBackground,
+    onBackground = SunsetOnBackground,
+    surface = SunsetSurface,
+    onSurface = SunsetOnSurface,
+    surfaceVariant = SunsetSurfaceVariant,
+    onSurfaceVariant = SunsetOnSurfaceVariant,
+    error = SunsetError,
+    onError = SunsetOnError,
+    outline = SunsetOutline,
 )
 
-@RequiresApi(Build.VERSION_CODES.S)
+// --- Apply Theme ---
+
 @Composable
 fun MusicPlayerAppTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
     selectedTheme: AppThemeType,
-    dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when (selectedTheme) {
-        AppThemeType.LIGHT -> if (dynamicColor) dynamicLightColorScheme(LocalContext.current) else LightColorScheme
-        AppThemeType.DARK -> if (dynamicColor) dynamicDarkColorScheme(LocalContext.current) else DarkColorScheme
+        AppThemeType.FROSTBYTE -> LightColorScheme
+        AppThemeType.DARK -> DarkColorScheme
         AppThemeType.DEEP_BLUE -> DeepBlueColorScheme
-        AppThemeType.VIBRANT_GREEN -> VibrantGreenColorScheme
-        AppThemeType.WARM_AMBER -> WarmAmberColorScheme
+        AppThemeType.NEON_PULSE -> NeonPulseColorScheme
+        AppThemeType.SUNSET_GROOVE -> SunsetGrooveColorScheme
+    }
+
+    val isColorSchemeDark = when (selectedTheme) {
+        AppThemeType.FROSTBYTE -> false
+        else -> true
     }
 
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.primary.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            window.statusBarColor = colorScheme.background.toArgb()
+            window.navigationBarColor = colorScheme.surface.toArgb()
+
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = !isColorSchemeDark
+                isAppearanceLightNavigationBars = !isColorSchemeDark
+            }
         }
     }
 

@@ -9,11 +9,11 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.SessionToken
 import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
+import com.engfred.musicplayer.core.domain.model.repository.PlayerController
+import com.engfred.musicplayer.core.mapper.AudioFileMapper
 import com.engfred.musicplayer.feature_player.data.repository.PlayerRepositoryImpl
-import com.engfred.musicplayer.feature_player.data.service.AudioFileMapper
 import com.engfred.musicplayer.feature_player.data.service.MusicNotificationProvider
 import com.engfred.musicplayer.feature_player.data.service.MusicService
-import com.engfred.musicplayer.feature_player.domain.repository.PlayerRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -49,11 +49,6 @@ object PlayerModule {
         return SessionToken(context, ComponentName(context, MusicService::class.java))
     }
 
-    @Provides
-    @Singleton
-    fun provideAudioFileMapper(): AudioFileMapper {
-        return AudioFileMapper()
-    }
 
     @OptIn(UnstableApi::class)
     @Provides
@@ -67,11 +62,11 @@ object PlayerModule {
     @OptIn(UnstableApi::class)
     @Provides
     @Singleton
-    fun providePlayerRepository(
+    fun providePlayerController(
         @ApplicationContext context: Context,
         sharedAudioDataSource: SharedAudioDataSource,
         audioFileMapper: AudioFileMapper
-    ): PlayerRepository {
+    ): PlayerController {
         return PlayerRepositoryImpl(context, sharedAudioDataSource, audioFileMapper)
     }
 }

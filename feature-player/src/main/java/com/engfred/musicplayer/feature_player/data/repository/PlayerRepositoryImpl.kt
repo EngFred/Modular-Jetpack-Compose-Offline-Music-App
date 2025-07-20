@@ -7,19 +7,18 @@ import android.net.Uri
 import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.media3.common.C
-import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
-import com.engfred.musicplayer.feature_player.data.service.AudioFileMapper
+import com.engfred.musicplayer.core.domain.model.repository.PlaybackState
+import com.engfred.musicplayer.core.domain.model.repository.PlayerController
+import com.engfred.musicplayer.core.domain.model.repository.RepeatMode
+import com.engfred.musicplayer.core.domain.model.repository.ShuffleMode
+import com.engfred.musicplayer.core.mapper.AudioFileMapper
 import com.engfred.musicplayer.feature_player.data.service.MusicService
-import com.engfred.musicplayer.feature_player.domain.model.PlaybackState
-import com.engfred.musicplayer.feature_player.domain.model.RepeatMode
-import com.engfred.musicplayer.feature_player.domain.model.ShuffleMode
-import com.engfred.musicplayer.feature_player.domain.repository.PlayerRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -36,14 +35,13 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
-@OptIn(UnstableApi::class)
 @UnstableApi
 @Singleton
 class PlayerRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val sharedAudioDataSource: SharedAudioDataSource,
     private val audioFileMapper: AudioFileMapper
-) : PlayerRepository {
+) : PlayerController {
 
     private var mediaController: MediaController? = null
     private val _playbackState = MutableStateFlow(PlaybackState())
@@ -147,60 +145,60 @@ class PlayerRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun setMediaItems(audioFileUris: List<Uri>, startIndex: Int) {
-        withContext(Dispatchers.Main) {
-            mediaController?.let { controller ->
-                try {
-                    val allAudioFiles = sharedAudioDataSource.allAudioFiles.value
-                    val mediaItems = audioFileUris.mapNotNull { uri ->
-                        allAudioFiles.find { it.uri == uri }?.let { audioFileMapper.mapAudioFileToMediaItem(it) }
-                    }
-                    controller.setMediaItems(mediaItems, startIndex.coerceAtLeast(0), C.TIME_UNSET)
-                    controller.prepare()
-                    Log.d("PlayerRepositoryImpl", "Set ${mediaItems.size} media items, startIndex: $startIndex")
-                } catch (e: Exception) {
-                    Log.e("PlayerRepositoryImpl", "Failed to set media items: ${e.message}", e)
-                    _playbackState.update { it.copy(error = "Failed to set media items: ${e.message}") }
-                }
-            } ?: run {
-                Log.w("PlayerRepositoryImpl", "MediaController not set when trying to set media items.")
-                _playbackState.update { it.copy(error = "Player not initialized. Cannot set media items.") }
-            }
-        }
-    }
+//    override suspend fun setMediaItems(audioFileUris: List<Uri>, startIndex: Int) {
+//        withContext(Dispatchers.Main) {
+//            mediaController?.let { controller ->
+//                try {
+//                    val allAudioFiles = sharedAudioDataSource.allAudioFiles.value
+//                    val mediaItems = audioFileUris.mapNotNull { uri ->
+//                        allAudioFiles.find { it.uri == uri }?.let { audioFileMapper.mapAudioFileToMediaItem(it) }
+//                    }
+//                    controller.setMediaItems(mediaItems, startIndex.coerceAtLeast(0), C.TIME_UNSET)
+//                    controller.prepare()
+//                    Log.d("PlayerRepositoryImpl", "Set ${mediaItems.size} media items, startIndex: $startIndex")
+//                } catch (e: Exception) {
+//                    Log.e("PlayerRepositoryImpl", "Failed to set media items: ${e.message}", e)
+//                    _playbackState.update { it.copy(error = "Failed to set media items: ${e.message}") }
+//                }
+//            } ?: run {
+//                Log.w("PlayerRepositoryImpl", "MediaController not set when trying to set media items.")
+//                _playbackState.update { it.copy(error = "Player not initialized. Cannot set media items.") }
+//            }
+//        }
+//    }
 
-    override suspend fun addMediaItems(audioFileUris: List<Uri>) {
-        withContext(Dispatchers.Main) {
-            mediaController?.let { controller ->
-                try {
-                    val allAudioFiles = sharedAudioDataSource.allAudioFiles.value
-                    val mediaItems = audioFileUris.mapNotNull { uri ->
-                        allAudioFiles.find { it.uri == uri }?.let { audioFileMapper.mapAudioFileToMediaItem(it) }
-                    }
-                    controller.addMediaItems(mediaItems)
-                    Log.d("PlayerRepositoryImpl", "Added ${mediaItems.size} media items to playlist")
-                } catch (e: Exception) {
-                    Log.e("PlayerRepositoryImpl", "Failed to add media items: ${e.message}", e)
-                    _playbackState.update { it.copy(error = "Failed to add media items: ${e.message}") }
-                }
-            } ?: run {
-                Log.w("PlayerRepositoryImpl", "MediaController not set when trying to add media items.")
-                _playbackState.update { it.copy(error = "Player not initialized. Cannot add media items.") }
-            }
-        }
-    }
+//    override suspend fun addMediaItems(audioFileUris: List<Uri>) {
+//        withContext(Dispatchers.Main) {
+//            mediaController?.let { controller ->
+//                try {
+//                    val allAudioFiles = sharedAudioDataSource.allAudioFiles.value
+//                    val mediaItems = audioFileUris.mapNotNull { uri ->
+//                        allAudioFiles.find { it.uri == uri }?.let { audioFileMapper.mapAudioFileToMediaItem(it) }
+//                    }
+//                    controller.addMediaItems(mediaItems)
+//                    Log.d("PlayerRepositoryImpl", "Added ${mediaItems.size} media items to playlist")
+//                } catch (e: Exception) {
+//                    Log.e("PlayerRepositoryImpl", "Failed to add media items: ${e.message}", e)
+//                    _playbackState.update { it.copy(error = "Failed to add media items: ${e.message}") }
+//                }
+//            } ?: run {
+//                Log.w("PlayerRepositoryImpl", "MediaController not set when trying to add media items.")
+//                _playbackState.update { it.copy(error = "Player not initialized. Cannot add media items.") }
+//            }
+//        }
+//    }
 
-    override suspend fun play() {
-        withContext(Dispatchers.Main) {
-            mediaController?.play() ?: Log.w("PlayerRepositoryImpl", "MediaController not set when trying to play.")
-        }
-    }
-
-    override suspend fun pause() {
-        withContext(Dispatchers.Main) {
-            mediaController?.pause() ?: Log.w("PlayerRepositoryImpl", "MediaController not set when trying to pause.")
-        }
-    }
+//    override suspend fun play() {
+//        withContext(Dispatchers.Main) {
+//            mediaController?.play() ?: Log.w("PlayerRepositoryImpl", "MediaController not set when trying to play.")
+//        }
+//    }
+//
+//    override suspend fun pause() {
+//        withContext(Dispatchers.Main) {
+//            mediaController?.pause() ?: Log.w("PlayerRepositoryImpl", "MediaController not set when trying to pause.")
+//        }
+//    }
 
     override suspend fun playPause() {
         withContext(Dispatchers.Main) {
@@ -231,11 +229,11 @@ class PlayerRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun seekToItem(index: Int) {
-        withContext(Dispatchers.Main) {
-            mediaController?.seekTo(index, C.TIME_UNSET) ?: Log.w("PlayerRepositoryImpl", "MediaController not set when trying to seek to item.")
-        }
-    }
+//    override suspend fun seekToItem(index: Int) {
+//        withContext(Dispatchers.Main) {
+//            mediaController?.seekTo(index, C.TIME_UNSET) ?: Log.w("PlayerRepositoryImpl", "MediaController not set when trying to seek to item.")
+//        }
+//    }
 
     override suspend fun setRepeatMode(mode: RepeatMode) {
         withContext(Dispatchers.Main) {
@@ -297,7 +295,7 @@ class PlayerRepositoryImpl @Inject constructor(
         }
     }
 
-    private suspend fun updatePlaybackState() {
+    private fun updatePlaybackState() {
         mediaController?.let { controller ->
             val currentMediaItem = controller.currentMediaItem
             val audioFiles = sharedAudioDataSource.allAudioFiles.value

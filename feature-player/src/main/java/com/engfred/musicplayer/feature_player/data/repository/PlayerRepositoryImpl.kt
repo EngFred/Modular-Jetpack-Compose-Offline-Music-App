@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
-import androidx.annotation.OptIn
 import androidx.core.content.ContextCompat
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -15,7 +14,6 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
-import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.feature_player.data.service.AudioFileMapper
 import com.engfred.musicplayer.feature_player.data.service.MusicService
 import com.engfred.musicplayer.feature_player.domain.model.PlaybackState
@@ -31,19 +29,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.Dispatcher
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * Concrete implementation of PlayerRepository that interacts with the MusicService
- * via a MediaController to control playback.
- */
 @OptIn(UnstableApi::class)
 @UnstableApi
 @Singleton
@@ -54,25 +46,15 @@ class PlayerRepositoryImpl @Inject constructor(
 ) : PlayerRepository {
 
     private var mediaController: MediaController? = null
-    private val _currentPlaybackState = MutableStateFlow(PlaybackState())
-    override fun getPlaybackState(): Flow<PlaybackState> = _currentPlaybackState.asStateFlow()
+    private val _playbackState = MutableStateFlow(PlaybackState())
+    override fun getPlaybackState(): Flow<PlaybackState> = _playbackState.asStateFlow()
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
-    // allCachedAudioFiles is now observed from SharedAudioDataSource
-    // private var allCachedAudioFiles: List<AudioFile> = emptyList() // REMOVE THIS
 
     init {
         repositoryScope.launch {
             connectToMediaService()
-            // Observe the shared data source for all audio files
-            // The initial value might be empty, and it will update when LibraryViewModel loads them.
-            sharedAudioDataSource.allAudioFiles
-                .onEach { files ->
-                    // This will update the internal state if needed, but we mostly just rely on it
-                    // being available when initiatePlayback is called.
-                    Log.d("PlayerRepositoryImpl", "Received ${files.size} files from SharedAudioDataSource.")
-                }.launchIn(repositoryScope)
+            startPlaybackPositionUpdates()
         }
     }
 
@@ -81,33 +63,29 @@ class PlayerRepositoryImpl @Inject constructor(
         Log.d("PlayerRepositoryImpl", "Connecting to MediaSessionService...")
 
         try {
-            // 1. Start MusicService
             val serviceIntent = Intent(context, MusicService::class.java)
             ContextCompat.startForegroundService(context, serviceIntent)
             Log.d("PlayerRepositoryImpl", "MusicService start requested")
 
-            // 2. Build SessionToken
             val sessionToken = SessionToken(context, ComponentName(context, MusicService::class.java))
             val timeoutMs = 15000L
             val pollIntervalMs = 500L
             val maxAttempts = (timeoutMs / pollIntervalMs).toInt()
 
-            // 3. Retry building MediaController until the service is ready
             repeat(maxAttempts) { attempt ->
                 try {
                     val controller = MediaController.Builder(context, sessionToken)
                         .buildAsync()
-                        .get(3, TimeUnit.SECONDS) // Short timeout per attempt
+                        .get(3, TimeUnit.SECONDS)
 
                     if (controller != null) {
                         mediaController = controller
                         controller.addListener(ControllerCallback())
                         Log.d("PlayerRepositoryImpl", "MediaController connected on attempt ${attempt + 1} in ${System.currentTimeMillis() - startTime}ms")
-
                         withContext(Dispatchers.Main) {
                             updatePlaybackState()
                         }
-                        return // ✅ Success — exit function
+                        return
                     }
                 } catch (e: Exception) {
                     Log.w("PlayerRepositoryImpl", "MediaController not available yet (attempt ${attempt + 1}): ${e.message}")
@@ -115,50 +93,56 @@ class PlayerRepositoryImpl @Inject constructor(
                 }
             }
 
-            // 4. All attempts failed
             Log.e("PlayerRepositoryImpl", "Failed to connect MediaController after ${timeoutMs}ms.")
             withContext(Dispatchers.Main) {
-                _currentPlaybackState.value = _currentPlaybackState.value.copy(
-                    error = "Failed to connect to player service."
-                )
+                _playbackState.update { it.copy(error = "Failed to connect to player service.") }
             }
         } catch (e: Exception) {
             Log.e("PlayerRepositoryImpl", "MediaService connection failed: ${e.message}", e)
             withContext(Dispatchers.Main) {
-                _currentPlaybackState.value = _currentPlaybackState.value.copy(
-                    error = "Player connection error: ${e.message}"
-                )
+                _playbackState.update { it.copy(error = "Player connection error: ${e.message}") }
             }
         }
     }
 
-    // UPDATED: initiatePlayback now uses sharedAudioDataSource
+    private suspend fun startPlaybackPositionUpdates() {
+        withContext(Dispatchers.Main) {
+            while (true) {
+                mediaController?.let { controller ->
+                    if (controller.playbackState != Player.STATE_IDLE && controller.playbackState != Player.STATE_ENDED) {
+                        updatePlaybackState()
+                    }
+                }
+                delay(500)
+            }
+        }
+    }
+
     override suspend fun initiatePlayback(initialAudioFileUri: Uri) {
         withContext(Dispatchers.Main) {
             if (mediaController == null) {
                 Log.e("PlayerRepositoryImpl", "MediaController not available for playback initiation.")
-                _currentPlaybackState.value = _currentPlaybackState.value.copy(error = "Player not initialized.")
+                _playbackState.update { it.copy(error = "Player not initialized.") }
                 return@withContext
             }
 
-            val allAudioFiles = sharedAudioDataSource.allAudioFiles.value // GET LATEST LIST FROM SHARED SOURCE
+            val allAudioFiles = sharedAudioDataSource.allAudioFiles.value
             if (allAudioFiles.isEmpty()) {
                 Log.w("PlayerRepositoryImpl", "Shared audio files are empty. Cannot initiate playback.")
-                _currentPlaybackState.value = _currentPlaybackState.value.copy(error = "No audio files available to play.")
+                _playbackState.update { it.copy(error = "No audio files available to play.") }
                 return@withContext
             }
 
-            val allAudioFileUris = allAudioFiles.map { it.uri }
-            val startIndex = allAudioFileUris.indexOf(initialAudioFileUri).coerceAtLeast(0)
-
+            val startIndex = allAudioFiles.indexOfFirst { it.uri == initialAudioFileUri }.coerceAtLeast(0)
             try {
-                mediaController?.setMediaItems(allAudioFileUris.map { MediaItem.Builder().setUri(it).build() }, startIndex, C.TIME_UNSET)
+                val mediaItems = allAudioFiles.map { audioFileMapper.mapAudioFileToMediaItem(it) }
+                mediaController?.setMediaItems(mediaItems, startIndex, C.TIME_UNSET)
                 mediaController?.prepare()
                 mediaController?.play()
                 Log.d("PlayerRepositoryImpl", "Initiated playback for: $initialAudioFileUri")
             } catch (e: Exception) {
                 Log.e("PlayerRepositoryImpl", "Error setting media items or playing during initiation: ${e.message}", e)
-                _currentPlaybackState.value = _currentPlaybackState.value.copy(error = "Playback error: ${e.message}")
+                _playbackState.update { it.copy(error = "Playback error: ${e.message}") }
             }
         }
     }
@@ -167,21 +151,20 @@ class PlayerRepositoryImpl @Inject constructor(
         withContext(Dispatchers.Main) {
             mediaController?.let { controller ->
                 try {
-                    val mediaItems = audioFileUris.map { uri -> MediaItem.Builder().setUri(uri).build() }
-                    controller.setMediaItems(mediaItems, startIndex, C.TIME_UNSET)
+                    val allAudioFiles = sharedAudioDataSource.allAudioFiles.value
+                    val mediaItems = audioFileUris.mapNotNull { uri ->
+                        allAudioFiles.find { it.uri == uri }?.let { audioFileMapper.mapAudioFileToMediaItem(it) }
+                    }
+                    controller.setMediaItems(mediaItems, startIndex.coerceAtLeast(0), C.TIME_UNSET)
                     controller.prepare()
                     Log.d("PlayerRepositoryImpl", "Set ${mediaItems.size} media items, startIndex: $startIndex")
                 } catch (e: Exception) {
                     Log.e("PlayerRepositoryImpl", "Failed to set media items: ${e.message}", e)
-                    _currentPlaybackState.value = _currentPlaybackState.value.copy(
-                        error = "Failed to set media items: ${e.message}"
-                    )
+                    _playbackState.update { it.copy(error = "Failed to set media items: ${e.message}") }
                 }
             } ?: run {
                 Log.w("PlayerRepositoryImpl", "MediaController not set when trying to set media items.")
-                _currentPlaybackState.value = _currentPlaybackState.value.copy(
-                    error = "Player not initialized. Cannot set media items."
-                )
+                _playbackState.update { it.copy(error = "Player not initialized. Cannot set media items.") }
             }
         }
     }
@@ -190,20 +173,19 @@ class PlayerRepositoryImpl @Inject constructor(
         withContext(Dispatchers.Main) {
             mediaController?.let { controller ->
                 try {
-                    val mediaItems = audioFileUris.map { uri -> MediaItem.Builder().setUri(uri).build() }
+                    val allAudioFiles = sharedAudioDataSource.allAudioFiles.value
+                    val mediaItems = audioFileUris.mapNotNull { uri ->
+                        allAudioFiles.find { it.uri == uri }?.let { audioFileMapper.mapAudioFileToMediaItem(it) }
+                    }
                     controller.addMediaItems(mediaItems)
                     Log.d("PlayerRepositoryImpl", "Added ${mediaItems.size} media items to playlist")
                 } catch (e: Exception) {
                     Log.e("PlayerRepositoryImpl", "Failed to add media items: ${e.message}", e)
-                    _currentPlaybackState.value = _currentPlaybackState.value.copy(
-                        error = "Failed to add media items: ${e.message}"
-                    )
+                    _playbackState.update { it.copy(error = "Failed to add media items: ${e.message}") }
                 }
             } ?: run {
                 Log.w("PlayerRepositoryImpl", "MediaController not set when trying to add media items.")
-                _currentPlaybackState.value = _currentPlaybackState.value.copy(
-                    error = "Player not initialized. Cannot add media items."
-                )
+                _playbackState.update { it.copy(error = "Player not initialized. Cannot add media items.") }
             }
         }
     }
@@ -242,7 +224,10 @@ class PlayerRepositoryImpl @Inject constructor(
 
     override suspend fun seekTo(positionMs: Long) {
         withContext(Dispatchers.Main) {
-            mediaController?.seekTo(positionMs) ?: Log.w("PlayerRepositoryImpl", "MediaController not set when trying to seek.")
+            mediaController?.let { controller ->
+                controller.seekTo(positionMs)
+                updatePlaybackState()
+            } ?: Log.w("PlayerRepositoryImpl", "MediaController not set when trying to seek.")
         }
     }
 
@@ -306,36 +291,39 @@ class PlayerRepositoryImpl @Inject constructor(
 
         override fun onPlayerError(error: PlaybackException) {
             repositoryScope.launch(Dispatchers.Main) {
-                _currentPlaybackState.value = _currentPlaybackState.value.copy(
-                    error = error.message ?: "Player error"
-                )
+                _playbackState.update { it.copy(error = error.message ?: "Player error") }
                 Log.e("PlayerRepositoryImpl", "Playback error from ExoPlayer: ${error.message}", error)
             }
         }
     }
 
-    private fun updatePlaybackState() {
+    private suspend fun updatePlaybackState() {
         mediaController?.let { controller ->
             val currentMediaItem = controller.currentMediaItem
-            val currentAudioFile = currentMediaItem?.let { audioFileMapper.mapMediaItemToAudioFile(it) }
+            val audioFiles = sharedAudioDataSource.allAudioFiles.value
+            val currentAudioFile = currentMediaItem?.let { mediaItem ->
+                val mediaUri = mediaItem.localConfiguration?.uri
+                audioFiles.find { it.uri == mediaUri } ?: audioFileMapper.mapMediaItemToAudioFile(mediaItem)
+            }
 
-            _currentPlaybackState.value = PlaybackState(
-                currentAudioFile = currentAudioFile,
-                isPlaying = controller.isPlaying,
-                playbackPositionMs = controller.currentPosition,
-                totalDurationMs = controller.duration.coerceAtLeast(0L),
-                bufferedPositionMs = controller.bufferedPosition,
-                repeatMode = when (controller.repeatMode) {
-                    Player.REPEAT_MODE_OFF -> RepeatMode.OFF
-                    Player.REPEAT_MODE_ONE -> RepeatMode.ONE
-                    Player.REPEAT_MODE_ALL -> RepeatMode.ALL
-                    else -> RepeatMode.OFF
-                },
-                shuffleMode = if (controller.shuffleModeEnabled) ShuffleMode.ON else ShuffleMode.OFF,
-                playbackSpeed = controller.playbackParameters.speed,
-                error = _currentPlaybackState.value.error,
-                isLoading = controller.playbackState == Player.STATE_BUFFERING
-            )
+            _playbackState.update {
+                it.copy(
+                    currentAudioFile = currentAudioFile,
+                    isPlaying = controller.isPlaying,
+                    playbackPositionMs = controller.currentPosition,
+                    totalDurationMs = controller.duration.coerceAtLeast(0L),
+                    bufferedPositionMs = controller.bufferedPosition,
+                    repeatMode = when (controller.repeatMode) {
+                        Player.REPEAT_MODE_OFF -> RepeatMode.OFF
+                        Player.REPEAT_MODE_ONE -> RepeatMode.ONE
+                        Player.REPEAT_MODE_ALL -> RepeatMode.ALL
+                        else -> RepeatMode.OFF
+                    },
+                    shuffleMode = if (controller.shuffleModeEnabled) ShuffleMode.ON else ShuffleMode.OFF,
+                    playbackSpeed = controller.playbackParameters.speed,
+                    isLoading = controller.playbackState == Player.STATE_BUFFERING
+                )
+            }
         }
     }
 }

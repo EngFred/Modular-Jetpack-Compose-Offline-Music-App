@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.ui
 
+import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -29,6 +30,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,34 +40,36 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.media3.common.util.UnstableApi
 import coil.compose.AsyncImage
 import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerEvent
 import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerViewModel
 
-
 /**
  * Composable for the mini-player bar displayed at the bottom of the main screens.
  */
+@OptIn(UnstableApi::class)
 @Composable
 fun MiniPlayer(
     onMiniPlayerClick: (String) -> Unit, // Callback to navigate to full PlayerScreen
     modifier: Modifier = Modifier,
-    viewModel: PlayerViewModel = hiltViewModel() // Get ViewModel from Hilt
+    viewModel: PlayerViewModel = hiltViewModel()
 ) {
-    val uiState = viewModel.uiState // Observe the player's UI state (PlayerScreenState)
-
     // Only show the mini-player if there's a current audio file in the nested PlaybackState
+
+    val uiState by viewModel.uiState.collectAsState()
+
     AnimatedVisibility(
-        visible = uiState.playbackState.currentAudioFile != null, // Access nested playbackState
+        visible = uiState.currentAudioFile != null,
         enter = slideInVertically(initialOffsetY = { it }),
         exit = slideOutVertically(targetOffsetY = { it }),
         modifier = modifier
     ) {
-        uiState.playbackState.currentAudioFile?.let { audioFile -> // Access nested playbackState
+        uiState.currentAudioFile?.let { audioFile ->
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                    .padding(horizontal = 8.dp, vertical = 2.dp)
                     .clickable { onMiniPlayerClick(audioFile.uri.toString()) },
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
@@ -131,8 +136,8 @@ fun MiniPlayer(
                         // Play/Pause Button
                         IconButton(onClick = { viewModel.onEvent(PlayerEvent.PlayPause) }) {
                             Icon(
-                                imageVector = if (uiState.playbackState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, // Access nested playbackState
-                                contentDescription = if (uiState.playbackState.isPlaying) "Pause" else "Play", // Access nested playbackState
+                                imageVector = if (uiState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, // Access nested playbackState
+                                contentDescription = if (uiState.isPlaying) "Pause" else "Play", // Access nested playbackState
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(40.dp)
                             )
@@ -151,7 +156,7 @@ fun MiniPlayer(
 
                     // Progress Bar
                     LinearProgressIndicator(
-                        progress = { uiState.playbackState.playbackProgress }, // Access nested playbackState
+                        progress = { uiState.playbackPositionMs.toFloat() },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(2.dp),

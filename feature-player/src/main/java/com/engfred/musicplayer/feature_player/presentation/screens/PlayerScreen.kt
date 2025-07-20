@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.feature_player.presentation.screens
 
+import androidx.annotation.OptIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,7 +21,6 @@ import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -28,6 +28,11 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,23 +42,25 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.media3.common.util.UnstableApi
 import coil.compose.AsyncImage
-import com.engfred.musicplayer.feature_player.domain.model.PlaybackState
 import com.engfred.musicplayer.feature_player.domain.model.RepeatMode
 import com.engfred.musicplayer.feature_player.domain.model.ShuffleMode
 import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerEvent
 import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerViewModel
-import java.util.concurrent.TimeUnit
-import kotlin.time.DurationUnit // Import for DurationUnit
 
-/**
- * Composable screen for displaying the music player controls and current song information.
- */
+@OptIn(UnstableApi::class)
 @Composable
 fun PlayerScreen(
     viewModel: PlayerViewModel = hiltViewModel()
 ) {
-    val uiState = viewModel.uiState
+    val uiState by viewModel.uiState.collectAsState()
+    var sliderValue by remember { mutableFloatStateOf(uiState.playbackPositionMs.toFloat()) }
+
+    // Update slider value when playback position changes
+    if (!uiState.isLoading && uiState.playbackPositionMs.toFloat() != sliderValue) {
+        sliderValue = uiState.playbackPositionMs.toFloat()
+    }
 
     Column(
         modifier = Modifier
@@ -63,7 +70,6 @@ fun PlayerScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // uiState.error is the screen-level error
         if (uiState.error != null) {
             Text(
                 text = "Error: ${uiState.error}",
@@ -71,38 +77,31 @@ fun PlayerScreen(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(16.dp)
             )
-        } else if (uiState.playbackState.currentAudioFile == null) { // Access nested playbackState
+        } else if (uiState.currentAudioFile == null) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                // uiState.isLoading is the screen-level loading
-                if (uiState.isLoading) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                } else {
-                    Text(
-                        text = "No song selected or loading...",
-                        color = MaterialTheme.colorScheme.onBackground,
-                        textAlign = TextAlign.Center
-                    )
-                }
+                Text(
+                    text = "No song selected!!",
+                    color = MaterialTheme.colorScheme.onBackground,
+                    textAlign = TextAlign.Center
+                )
             }
         } else {
-            // Album Art
             AsyncImage(
-                model = uiState.playbackState.currentAudioFile?.albumArtUri, // Access nested playbackState
+                model = uiState.currentAudioFile?.albumArtUri,
                 contentDescription = "Album Art",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(250.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant) // Placeholder background
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
             )
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Song Title
             Text(
-                text = uiState.playbackState.currentAudioFile?.title ?: "Unknown Title", // Access nested playbackState
+                text = uiState.currentAudioFile?.title ?: "Unknown Title",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,
@@ -111,9 +110,8 @@ fun PlayerScreen(
             )
             Spacer(modifier = Modifier.height(4.dp))
 
-            // Artist Name
             Text(
-                text = uiState.playbackState.currentAudioFile?.artist ?: "Unknown Artist", // Access nested playbackState
+                text = uiState.currentAudioFile?.artist ?: "Unknown Artist",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                 maxLines = 1,
@@ -121,13 +119,15 @@ fun PlayerScreen(
             )
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Seek Bar
             Slider(
-                value = uiState.playbackState.playbackPositionMs.toFloat(), // Access nested playbackState
+                value = sliderValue,
                 onValueChange = { newValue ->
-                    viewModel.onEvent(PlayerEvent.SeekTo(newValue.toLong()))
+                    sliderValue = newValue
                 },
-                valueRange = 0f..uiState.playbackState.totalDurationMs.toFloat().coerceAtLeast(0f), // Access nested playbackState
+                onValueChangeFinished = {
+                    viewModel.onEvent(PlayerEvent.SeekTo(sliderValue.toLong()))
+                },
+                valueRange = 0f..uiState.totalDurationMs.toFloat().coerceAtLeast(0f),
                 colors = SliderDefaults.colors(
                     thumbColor = MaterialTheme.colorScheme.primary,
                     activeTrackColor = MaterialTheme.colorScheme.primary,
@@ -140,44 +140,36 @@ fun PlayerScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Using currentPlaybackTime and totalPlaybackDuration from nested playbackState
                 Text(
-                    text = uiState.playbackState.currentPlaybackTime.toComponents { minutes, seconds, _, _ ->
-                        String.format("%02d:%02d", minutes, seconds)
-                    },
+                    text = formatDuration(uiState.playbackPositionMs),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                 )
                 Text(
-                    text = uiState.playbackState.totalPlaybackDuration.toComponents { minutes, seconds, _, _ ->
-                        String.format("%02d:%02d", minutes, seconds)
-                    },
+                    text = formatDuration(uiState.totalDurationMs),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                 )
             }
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Playback Controls
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Shuffle Button
                 IconButton(onClick = {
-                    val newShuffleMode = if (uiState.playbackState.shuffleMode == ShuffleMode.ON) ShuffleMode.OFF else ShuffleMode.ON // Access nested playbackState
+                    val newShuffleMode = if (uiState.shuffleMode == ShuffleMode.ON) ShuffleMode.OFF else ShuffleMode.ON
                     viewModel.onEvent(PlayerEvent.SetShuffleMode(newShuffleMode))
                 }) {
                     Icon(
                         imageVector = Icons.Default.Shuffle,
                         contentDescription = "Shuffle",
-                        tint = if (uiState.playbackState.shuffleMode == ShuffleMode.ON) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground, // Access nested playbackState
+                        tint = if (uiState.shuffleMode == ShuffleMode.ON) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground,
                         modifier = Modifier.size(36.dp)
                     )
                 }
 
-                // Previous Button
                 IconButton(onClick = { viewModel.onEvent(PlayerEvent.SkipToPrevious) }) {
                     Icon(
                         imageVector = Icons.Rounded.SkipPrevious,
@@ -187,17 +179,17 @@ fun PlayerScreen(
                     )
                 }
 
-                // Play/Pause Button
-                IconButton(onClick = { viewModel.onEvent(PlayerEvent.PlayPause) }) {
+                IconButton(onClick = {
+                    viewModel.onEvent(PlayerEvent.PlayPause)
+                }) {
                     Icon(
-                        imageVector = if (uiState.playbackState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, // Access nested playbackState
-                        contentDescription = if (uiState.playbackState.isPlaying) "Pause" else "Play", // Access nested playbackState
+                        imageVector = if (uiState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = if (uiState.isPlaying) "Pause" else "Play",
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(72.dp)
                     )
                 }
 
-                // Next Button
                 IconButton(onClick = { viewModel.onEvent(PlayerEvent.SkipToNext) }) {
                     Icon(
                         imageVector = Icons.Rounded.SkipNext,
@@ -207,9 +199,8 @@ fun PlayerScreen(
                     )
                 }
 
-                // Repeat Button
                 IconButton(onClick = {
-                    val newRepeatMode = when (uiState.playbackState.repeatMode) { // Access nested playbackState
+                    val newRepeatMode = when (uiState.repeatMode) {
                         RepeatMode.OFF -> RepeatMode.ALL
                         RepeatMode.ALL -> RepeatMode.ONE
                         RepeatMode.ONE -> RepeatMode.OFF
@@ -217,17 +208,24 @@ fun PlayerScreen(
                     viewModel.onEvent(PlayerEvent.SetRepeatMode(newRepeatMode))
                 }) {
                     Icon(
-                        imageVector = when (uiState.playbackState.repeatMode) { // Access nested playbackState
+                        imageVector = when (uiState.repeatMode) {
                             RepeatMode.OFF -> Icons.Default.Repeat
                             RepeatMode.ONE -> Icons.Default.RepeatOne
                             RepeatMode.ALL -> Icons.Default.Repeat
                         },
                         contentDescription = "Repeat Mode",
-                        tint = if (uiState.playbackState.repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground, // Access nested playbackState
+                        tint = if (uiState.repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground,
                         modifier = Modifier.size(36.dp)
                     )
                 }
             }
         }
     }
+}
+
+@Composable
+private fun formatDuration(milliseconds: Long): String {
+    val minutes = (milliseconds / 1000) / 60
+    val seconds = (milliseconds / 1000) % 60
+    return String.format("%02d:%02d", minutes, seconds)
 }

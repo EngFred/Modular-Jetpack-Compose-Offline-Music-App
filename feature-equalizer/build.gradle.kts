@@ -4,10 +4,11 @@ plugins {
     alias(libs.plugins.kotlin.compose) // Required for Kotlin 2.0+ Compose plugin
     alias(libs.plugins.ksp) // For Hilt annotation processing if used in core
     alias(libs.plugins.hilt.android) // Hilt plugin for the core module
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
 
 android {
-    namespace = "com.engfred.musicplayer.core"
+    namespace = "com.engfred.musicplayer.feature_equalizer"
     compileSdk = 36
 
     defaultConfig {
@@ -42,10 +43,14 @@ android {
 }
 
 dependencies {
+
     // Android Core & Lifecycle
     implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.appcompat) // Useful for general Android compatibility
+    implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.compose) // For ViewModels in Compose
+
+    implementation(project(":core"))
 
     // Jetpack Compose UI (for shared UI components like themes, common Composables)
     implementation(platform(libs.androidx.compose.bom))
@@ -55,8 +60,10 @@ dependencies {
     implementation(libs.androidx.material3)
 
     // Hilt (if core module provides app-wide singletons or common dependencies)
+    // Hilt (Dependency Injection for this feature)
     implementation(libs.hilt.android)
     ksp(libs.hilt.android.compiler)
+    implementation(libs.hilt.navigation.compose)
 
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.ui) // For player UI components if needed
@@ -66,6 +73,12 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
 
+    //
+    implementation(libs.kotlinx.serialization.json)
+
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.material)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

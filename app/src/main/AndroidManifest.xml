@@ -13,6 +13,9 @@
     <!-- Permission for showing notifications (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
+    <!-- Permissions for modifying audio settings -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
     <application
         android:name=".MusicPlayerApplication"
         android:allowBackup="true"

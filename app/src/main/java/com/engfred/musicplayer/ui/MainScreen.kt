@@ -31,14 +31,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import com.engfred.musicplayer.feature_equalizer.presentation.screens.EqualizerScreen
 import com.engfred.musicplayer.core.ui.CustomTopBar
-
 
 /**
  * Main screen of the application, hosting the bottom navigation bar and
  * managing the primary feature screens.
  */
-
 @Composable
 fun MainScreen(
     onAudioClick: (String, Boolean) -> Unit,
@@ -50,6 +49,7 @@ fun MainScreen(
         AppDestinations.BottomNavItem.Library,
         AppDestinations.BottomNavItem.Playlists,
         AppDestinations.BottomNavItem.Favorites,
+        AppDestinations.BottomNavItem.Equalizer
     )
 
     Scaffold(
@@ -57,15 +57,14 @@ fun MainScreen(
             Column {
                 // MiniPlayer placed above the NavigationBar
                 MiniPlayer(
-                    onMiniPlayerClick =  { uri -> onAudioClick(uri, true) },
+                    onMiniPlayerClick = { uri -> onAudioClick(uri, true) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .zIndex(1f), // Ensure MiniPlayer is above NavigationBar
                 )
                 NavigationBar(
-                    // Apply theme colors to the NavigationBar
-                    containerColor = MaterialTheme.colorScheme.surface, // Background of the nav bar
-                    contentColor = MaterialTheme.colorScheme.onSurface, // Default color for unselected items/labels
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.onSurface
                 ) {
                     val navBackStackEntry by bottomNavController.currentBackStackEntryAsState()
                     val currentDestination = navBackStackEntry?.destination
@@ -88,13 +87,12 @@ fun MainScreen(
                             },
                             icon = { Icon(item.icon, contentDescription = item.label) },
                             label = { Text(item.label) },
-                            // Apply theme colors to NavigationBarItem
                             colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer, // Color of selected icon
-                                selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer, // Color of selected label
-                                indicatorColor = MaterialTheme.colorScheme.primaryContainer, // Background color for selected item
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, // Color of unselected icon
-                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant // Color of unselected label
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         )
                     }
@@ -102,48 +100,42 @@ fun MainScreen(
             }
         }
     ) { paddingValues ->
-        // The main content area of the Scaffold
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                // Apply horizontal padding from Scaffold, but manage top/bottom manually
                 .padding(
                     start = paddingValues.calculateStartPadding(LocalLayoutDirection.current),
                     end = paddingValues.calculateEndPadding(LocalLayoutDirection.current)
                 )
         ) {
-            // --- Custom Top Bar ---
             CustomTopBar(
-                title = "Music Player", // Title for the main screen
-                showNavigationIcon = false, // No back button on the main screen
-                onNavigateBack = null, // No back action
-                actions = { // Slot for actions
+                title = "Music Player",
+                showNavigationIcon = false,
+                onNavigateBack = null,
+                actions = {
                     IconButton(onClick = onSettingsClick) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
                 }
             )
-            // --- End Custom Top Bar ---
-
-            // NavHost needs to account for the CustomTopBar's height
             NavHost(
                 navController = bottomNavController,
                 startDestination = AppDestinations.BottomNavItem.Library.baseRoute,
                 modifier = Modifier
                     .fillMaxSize()
-                    // Set top padding to 0.dp as CustomTopBar takes its own space
                     .padding(top = 0.dp, bottom = paddingValues.calculateBottomPadding())
             ) {
                 composable(AppDestinations.BottomNavItem.Library.baseRoute) {
                     LibraryScreen()
                 }
-
                 composable(AppDestinations.BottomNavItem.Playlists.baseRoute) {
                     PlaylistsScreen(onPlaylistClick = onPlaylistClick)
                 }
-
                 composable(AppDestinations.BottomNavItem.Favorites.baseRoute) {
                     FavoritesScreen()
+                }
+                composable(AppDestinations.BottomNavItem.Equalizer.baseRoute) {
+                    EqualizerScreen()
                 }
             }
         }

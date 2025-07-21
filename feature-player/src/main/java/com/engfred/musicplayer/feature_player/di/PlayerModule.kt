@@ -8,10 +8,11 @@ import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.SessionToken
+import com.engfred.musicplayer.core.data.session.MediaControllerProvider
 import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
 import com.engfred.musicplayer.core.domain.model.repository.PlayerController
 import com.engfred.musicplayer.core.mapper.AudioFileMapper
-import com.engfred.musicplayer.feature_player.data.repository.PlayerRepositoryImpl
+import com.engfred.musicplayer.feature_player.data.repository.PlayerControllerImpl
 import com.engfred.musicplayer.feature_player.data.service.MusicNotificationProvider
 import com.engfred.musicplayer.feature_player.data.service.MusicService
 import dagger.Module
@@ -65,8 +66,9 @@ object PlayerModule {
     fun providePlayerController(
         @ApplicationContext context: Context,
         sharedAudioDataSource: SharedAudioDataSource,
-        audioFileMapper: AudioFileMapper
+        audioFileMapper: AudioFileMapper,
+        mediaControllerProvider: MediaControllerProvider
     ): PlayerController {
-        return PlayerRepositoryImpl(context, sharedAudioDataSource, audioFileMapper)
+        return PlayerControllerImpl(context, sharedAudioDataSource, audioFileMapper, mediaControllerProvider)
     }
 }

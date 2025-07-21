@@ -2,6 +2,7 @@ package com.engfred.musicplayer.navigation
 
 import android.net.Uri
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
@@ -14,7 +15,7 @@ import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerArgs
  */
 sealed class AppDestinations(val route: String) {
 
-    data object MainGraph : AppDestinations("main_graph") // New: Represents the graph with bottom nav
+    data object MainGraph : AppDestinations("main_graph") // Represents the graph with bottom nav
 
     data object Player {
         const val route = "player?${PlayerArgs.AUDIO_FILE_URI}={${PlayerArgs.AUDIO_FILE_URI}}&${PlayerArgs.FROM_MINI_PLAYER}={${PlayerArgs.FROM_MINI_PLAYER}}"
@@ -39,6 +40,7 @@ sealed class AppDestinations(val route: String) {
         data object Library : BottomNavItem("library", Icons.Default.Home, "Library")
         data object Playlists : BottomNavItem("playlists", Icons.Default.List, "Playlists")
         data object Favorites : BottomNavItem("favorites", Icons.Default.Favorite, "Favorites")
+        data object Equalizer : BottomNavItem("equalizer", Icons.Default.Equalizer, "Equalizer")
     }
 
     // Settings screen

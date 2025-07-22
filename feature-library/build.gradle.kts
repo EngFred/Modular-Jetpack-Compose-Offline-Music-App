@@ -77,6 +77,13 @@ dependencies {
     // Accompanist Permissions (for simplified permission requests)
     implementation(libs.accompanist.permissions)
 
+    // Landscapist with Coil engine
+    implementation(libs.landscapist.coil)
+    implementation(libs.androidx.animation)
+
+    //
+    implementation(libs.androidx.palette.ktx)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

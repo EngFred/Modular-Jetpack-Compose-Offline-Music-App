@@ -2,6 +2,8 @@ package com.engfred.musicplayer.ui
 
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -17,7 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
@@ -35,6 +37,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -55,32 +59,32 @@ fun MiniPlayer(
     modifier: Modifier = Modifier,
     viewModel: PlayerViewModel = hiltViewModel()
 ) {
-    // Only show the mini-player if there's a current audio file in the nested PlaybackState
     val uiState by viewModel.uiState.collectAsState()
 
     AnimatedVisibility(
         visible = uiState.currentAudioFile != null,
-        enter = slideInVertically(initialOffsetY = { it }),
-        exit = slideOutVertically(targetOffsetY = { it }),
+        enter = slideInVertically(initialOffsetY = { it / 2 }) + fadeIn(),
+        exit = slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut(),
         modifier = modifier
     ) {
         uiState.currentAudioFile?.let { audioFile ->
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 2.dp)
-                    .clickable { onMiniPlayerClick(audioFile.uri.toString()) }, // Pass fromMiniPlayer=true
+                    .clickable { onMiniPlayerClick(audioFile.uri.toString()) }
+                    .height(72.dp)
+                    .padding(horizontal = 12.dp, vertical = 4.dp), // Reduced padding
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
+                    containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp).copy(alpha = 0.95f) // Slightly less transparent for better contrast
                 ),
-                shape = RoundedCornerShape(12.dp),
-                elevation = CardDefaults.cardElevation(4.dp)
+                shape = RoundedCornerShape(16.dp), // Slightly less rounded for a tighter feel
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp) // Reduced elevation slightly
             ) {
-                Column {
+                Column{
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(12.dp),
+                            .padding(horizontal = 12.dp, vertical = 8.dp), // Adjusted padding inside row
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -88,26 +92,27 @@ fun MiniPlayer(
                         if (audioFile.albumArtUri != null) {
                             AsyncImage(
                                 model = audioFile.albumArtUri,
-                                contentDescription = "Album Art",
+                                contentDescription = "Album Art for ${audioFile.title}",
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
-                                    .size(56.dp)
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .size(48.dp) // <<< SMALLER album art
+                                    .clip(RoundedCornerShape(8.dp)) // Smaller rounded corners
+                                    .background(MaterialTheme.colorScheme.primaryContainer)
                             )
                         } else {
                             Icon(
-                                imageVector = Icons.Default.MusicNote,
-                                contentDescription = "No Album Art",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                imageVector = Icons.Default.Album,
+                                contentDescription = "No Album Art for ${audioFile.title}",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                 modifier = Modifier
-                                    .size(56.dp)
+                                    .size(48.dp) // <<< SMALLER placeholder icon
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(MaterialTheme.colorScheme.surfaceVariant)
                                     .padding(8.dp)
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(12.dp)) // Adjusted spacing
 
                         // Song Info
                         Column(
@@ -115,30 +120,28 @@ fun MiniPlayer(
                         ) {
                             Text(
                                 text = audioFile.title,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleSmall, // <<< SMALLER title text
+                                fontWeight = FontWeight.Bold, // Still bold for readability
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
                                 text = audioFile.artist ?: "Unknown Artist",
-                                style = MaterialTheme.typography.bodySmall,
+                                style = MaterialTheme.typography.bodySmall, // <<< SMALLER artist text
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(8.dp))
-
                         // Play/Pause Button
                         IconButton(onClick = { viewModel.onEvent(PlayerEvent.PlayPause) }) {
                             Icon(
                                 imageVector = if (uiState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                contentDescription = if (uiState.isPlaying) "Pause" else "Play",
+                                contentDescription = if (uiState.isPlaying) "Pause playback" else "Play playback",
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(40.dp)
+                                modifier = Modifier.size(36.dp) // <<< SMALLER button
                             )
                         }
 
@@ -146,22 +149,12 @@ fun MiniPlayer(
                         IconButton(onClick = { viewModel.onEvent(PlayerEvent.SkipToNext) }) {
                             Icon(
                                 imageVector = Icons.Default.SkipNext,
-                                contentDescription = "Skip Next",
-                                tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(36.dp)
+                                contentDescription = "Skip to next track",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(32.dp) // <<< SMALLER button
                             )
                         }
                     }
-
-                    // Progress Bar
-                    LinearProgressIndicator(
-                        progress = { uiState.playbackPositionMs.toFloat() },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(2.dp),
-                        color = MaterialTheme.colorScheme.secondary,
-                        trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
-                    )
                 }
             }
         }

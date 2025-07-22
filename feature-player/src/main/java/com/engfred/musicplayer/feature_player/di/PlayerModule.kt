@@ -64,11 +64,10 @@ object PlayerModule {
     @Provides
     @Singleton
     fun providePlayerController(
-        @ApplicationContext context: Context,
         sharedAudioDataSource: SharedAudioDataSource,
         audioFileMapper: AudioFileMapper,
         mediaControllerProvider: MediaControllerProvider
     ): PlayerController {
-        return PlayerControllerImpl(context, sharedAudioDataSource, audioFileMapper, mediaControllerProvider)
+        return PlayerControllerImpl(sharedAudioDataSource, audioFileMapper, mediaControllerProvider)
     }
 }

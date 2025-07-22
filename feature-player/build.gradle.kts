@@ -80,6 +80,12 @@ dependencies {
     // Coil for album artwork
     implementation(libs.coil.compose)
 
+    //
+    implementation(libs.androidx.palette.ktx)
+
+    //
+    implementation(libs.accompanist.systemuicontroller)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

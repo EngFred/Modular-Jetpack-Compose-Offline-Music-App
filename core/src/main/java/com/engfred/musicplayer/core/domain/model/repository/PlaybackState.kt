@@ -17,7 +17,8 @@ data class PlaybackState(
     val playbackSpeed: Float = 1.0f,
     val isLoading: Boolean = false,
     val error: String? = null,
-    val isFavorite: Boolean = false
+    val isFavorite: Boolean = false,
+    val isSeeking: Boolean = false
 )
 
 enum class RepeatMode {

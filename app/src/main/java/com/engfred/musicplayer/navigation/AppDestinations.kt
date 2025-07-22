@@ -18,10 +18,10 @@ sealed class AppDestinations(val route: String) {
     data object MainGraph : AppDestinations("main_graph") // Represents the graph with bottom nav
 
     data object Player {
-        const val route = "player?${PlayerArgs.AUDIO_FILE_URI}={${PlayerArgs.AUDIO_FILE_URI}}&${PlayerArgs.FROM_MINI_PLAYER}={${PlayerArgs.FROM_MINI_PLAYER}}"
-        fun createRoute(audioFileUri: String?, fromMiniPlayer: Boolean): String {
+        const val route = "player?${PlayerArgs.AUDIO_FILE_URI}={${PlayerArgs.AUDIO_FILE_URI}}"
+        fun createRoute(audioFileUri: String?): String {
             val encodedUri = audioFileUri?.let { Uri.encode(it) } ?: ""
-            return "player?${PlayerArgs.AUDIO_FILE_URI}=$encodedUri&${PlayerArgs.FROM_MINI_PLAYER}=$fromMiniPlayer"
+            return "player?${PlayerArgs.AUDIO_FILE_URI}=$encodedUri"
         }
     }
 

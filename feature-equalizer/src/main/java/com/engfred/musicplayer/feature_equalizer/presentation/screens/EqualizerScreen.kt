@@ -1,15 +1,20 @@
 package com.engfred.musicplayer.feature_equalizer.presentation.screens
 
+import androidx.compose.foundation.background // Import for background gradient
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3Api // Keep if still using ExperimentalMaterial3Api for something else
+import androidx.compose.material3.MaterialTheme // Import for colors
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush // Import for background gradient
+import androidx.compose.ui.graphics.Color // Import for Color.Transparent
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.engfred.musicplayer.core.ui.CustomTopBar
 import com.engfred.musicplayer.feature_equalizer.presentation.components.BassTrebleControls
 import com.engfred.musicplayer.feature_equalizer.presentation.components.EqualizerBandSliders
 import com.engfred.musicplayer.feature_equalizer.presentation.components.EqualizerErrorDisplay
@@ -17,7 +22,6 @@ import com.engfred.musicplayer.feature_equalizer.presentation.components.Equaliz
 import com.engfred.musicplayer.feature_equalizer.presentation.components.EqualizerToggle
 import com.engfred.musicplayer.feature_equalizer.presentation.viewmodel.EqualizerViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EqualizerScreen(
     viewModel: EqualizerViewModel = hiltViewModel()
@@ -25,11 +29,22 @@ fun EqualizerScreen(
     val equalizerState by viewModel.equalizerState.collectAsState()
 
     // Wrap the content in a Scaffold
-    Scaffold { paddingValues ->
+    Scaffold(
+        // Remove topBar parameter from Scaffold as it's now managed by the parent
+        containerColor = Color.Transparent // Ensures parent's background gradient is visible
+    ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(paddingValues) // Apply padding from the Scaffold
+                .background( // Add background gradient to the column
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.background,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        )
+                    )
+                )
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,

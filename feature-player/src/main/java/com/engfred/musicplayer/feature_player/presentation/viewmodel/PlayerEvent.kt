@@ -19,4 +19,5 @@ sealed class PlayerEvent {
     data object ReleasePlayer : PlayerEvent()
     data class AddToFavorites(val audioFile: AudioFile) : PlayerEvent()
     data class RemoveFromFavorites(val audioFileId: Long) : PlayerEvent()
+    data class SetSeeking(val seeking: Boolean) : PlayerEvent()
 }

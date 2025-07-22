@@ -1,15 +1,16 @@
 package com.engfred.musicplayer.feature_settings.presentation.viewmodel
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.engfred.musicplayer.feature_settings.domain.usecases.GetAppSettingsUseCase
 import com.engfred.musicplayer.feature_settings.domain.usecases.UpdateThemeUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow // Import
+import kotlinx.coroutines.flow.StateFlow // Import
+import kotlinx.coroutines.flow.asStateFlow // Import
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update // Import
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -19,21 +20,24 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val getAppSettingsUseCase: GetAppSettingsUseCase,
+    getAppSettingsUseCase: GetAppSettingsUseCase,
     private val updateThemeUseCase: UpdateThemeUseCase
 ) : ViewModel() {
 
-    var uiState by mutableStateOf(SettingsScreenState())
-        private set
+    // Change from 'var uiState by mutableStateOf' to MutableStateFlow
+    private val _uiState = MutableStateFlow(SettingsScreenState())
+    val uiState: StateFlow<SettingsScreenState> = _uiState.asStateFlow()
 
     init {
         // Observe app settings from the repository via the use case
         getAppSettingsUseCase().onEach { appSettings ->
-            uiState = uiState.copy(
-                selectedTheme = appSettings.selectedTheme,
-                isLoading = false, // Settings loaded, so not loading
-                error = null // Clear any previous error
-            )
+            _uiState.update {
+                it.copy(
+                    selectedTheme = appSettings.selectedTheme,
+                    isLoading = false, // Settings loaded, so not loading
+                    error = null // Clear any previous error
+                )
+            }
         }.launchIn(viewModelScope) // Launch collection in ViewModel's scope
     }
 
@@ -44,15 +48,17 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             when (event) {
                 is SettingsEvent.UpdateTheme -> {
-                    uiState = uiState.copy(isLoading = true, error = null) // Indicate saving
+                    _uiState.update { it.copy(isLoading = true, error = null) } // Indicate saving
                     try {
                         updateThemeUseCase(event.theme)
                         // UI state will be updated by the Flow observation in init block
                     } catch (e: Exception) {
-                        uiState = uiState.copy(
-                            error = "Failed to update theme: ${e.localizedMessage}",
-                            isLoading = false
-                        )
+                        _uiState.update {
+                            it.copy(
+                                error = "Failed to update theme: ${e.localizedMessage}",
+                                isLoading = false
+                            )
+                        }
                     }
                 }
             }

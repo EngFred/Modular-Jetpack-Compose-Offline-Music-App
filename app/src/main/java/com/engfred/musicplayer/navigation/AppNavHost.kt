@@ -14,8 +14,13 @@ import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.PlaylistD
 import com.engfred.musicplayer.feature_settings.presentation.screens.SettingsScreen
 import com.engfred.musicplayer.ui.MainScreen
 
+/**
+ * Defines the main navigation graph for the application.
+ */
 @Composable
-fun AppNavHost(rootNavController: NavHostController) {
+fun AppNavHost(
+    rootNavController: NavHostController,
+) {
     NavHost(
         navController = rootNavController,
         startDestination = AppDestinations.MainGraph.route
@@ -23,9 +28,9 @@ fun AppNavHost(rootNavController: NavHostController) {
         // Main Graph (with bottom nav)
         composable(AppDestinations.MainGraph.route) {
             MainScreen(
-                onAudioClick = { audioFileUri, fromMiniPlayer ->
+                onPlayAudio = { audioFileUri ->
                     val encodedUri = Uri.encode(audioFileUri)
-                    rootNavController.navigate(AppDestinations.Player.createRoute(encodedUri, fromMiniPlayer = fromMiniPlayer))
+                    rootNavController.navigate(AppDestinations.Player.createRoute(encodedUri))
                 },
                 onPlaylistClick = { playlistId ->
                     rootNavController.navigate(AppDestinations.PlaylistDetail.createRoute(playlistId))
@@ -43,14 +48,13 @@ fun AppNavHost(rootNavController: NavHostController) {
                 navArgument(PlayerArgs.AUDIO_FILE_URI) {
                     type = NavType.StringType
                     nullable = true
-                },
-                navArgument(PlayerArgs.FROM_MINI_PLAYER) {
-                    type = NavType.BoolType
-                    defaultValue = false
                 }
             )
         ) {
             PlayerScreen()
+            // PlayerScreen typically doesn't have a top bar, or manages its own fully.
+            // If you need it to set the top bar, you'd add onSetTopBar here and to PlayerScreen.
+            // For now, let's assume it doesn't need to control the main app bar.
         }
 
         // Playlist Detail screen
@@ -66,14 +70,16 @@ fun AppNavHost(rootNavController: NavHostController) {
                 onNavigateBack = { rootNavController.popBackStack() },
                 onAudioFileClick = { audioFileUri ->
                     val encodedUri = Uri.encode(audioFileUri)
-                    rootNavController.navigate(AppDestinations.Player.createRoute(encodedUri, fromMiniPlayer = false))
-                }
+                    rootNavController.navigate(AppDestinations.Player.createRoute(encodedUri))
+                },
             )
         }
 
         // Settings
         composable(AppDestinations.Settings.route) {
-            SettingsScreen(onNavigateBack = { rootNavController.popBackStack() })
+            SettingsScreen(
+                onNavigateBack = { rootNavController.popBackStack() }
+            )
         }
     }
 }

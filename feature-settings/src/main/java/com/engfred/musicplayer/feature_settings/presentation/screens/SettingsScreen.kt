@@ -20,6 +20,9 @@ import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState // Import
+import androidx.compose.runtime.getValue // Import
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -36,35 +39,31 @@ import com.engfred.musicplayer.feature_settings.presentation.viewmodel.SettingsV
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
 ) {
-    val uiState = viewModel.uiState
+    val uiState by viewModel.uiState.collectAsState() // Collect uiState as a state
 
+    // Scaffold is still used here for its padding values primarily
     Scaffold(
-        // Remove topBar parameter from Scaffold
+        // No topBar parameter here, as MainScreen's Scaffold handles it
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                // Do not apply top padding from Scaffold here, CustomTopBar will handle it
-                .padding(bottom = paddingValues.calculateBottomPadding())
+                // Apply all padding from Scaffold, including top which will be the height of the CustomTopBar
+                .padding(paddingValues)
                 .background(MaterialTheme.colorScheme.background)
         ) {
-            // --- Custom Top Bar ---
-            CustomTopBar(
-                title = "Settings",
-                showNavigationIcon = true,
-                onNavigateBack = onNavigateBack,
-                // No actions needed for Settings screen, so actions lambda is empty by default
-            )
-            // --- End Custom Top Bar ---
-
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 16.dp, vertical = 16.dp) // Apply vertical padding here for content
                     .verticalScroll(rememberScrollState()) // Make the entire content scrollable
             ) {
+                CustomTopBar(
+                    title = "Settings",
+                    onNavigateBack = onNavigateBack
+                )
                 if (uiState.error != null) {
                     Text(
                         text = "Error: ${uiState.error}",

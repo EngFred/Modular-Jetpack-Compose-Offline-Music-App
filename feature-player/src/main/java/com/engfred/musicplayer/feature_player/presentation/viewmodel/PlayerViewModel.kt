@@ -18,12 +18,11 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import androidx.media3.common.util.UnstableApi
 import com.engfred.musicplayer.core.domain.model.repository.FavoritesRepository
-import com.engfred.musicplayer.core.domain.model.repository.PlaybackState
+import com.engfred.musicplayer.core.domain.model.repository.PlaybackState // Correct import
 import com.engfred.musicplayer.core.domain.model.repository.PlayerController
 
 object PlayerArgs {
     const val AUDIO_FILE_URI = "audioFileUri"
-    const val FROM_MINI_PLAYER = "fromMiniPlayer"
 }
 
 @UnstableApi
@@ -52,7 +51,8 @@ class PlayerViewModel @Inject constructor(
                         } else {
                             currentState.isLoading
                         },
-                        isFavorite = isFavorite
+                        isFavorite = isFavorite,
+                        isSeeking = currentState.isSeeking
                     )
                 }
             }.launchIn(this)
@@ -60,13 +60,11 @@ class PlayerViewModel @Inject constructor(
 
         savedStateHandle.get<String>(PlayerArgs.AUDIO_FILE_URI)?.let { uriString ->
             val initialAudioFileUri = Uri.decode(uriString).toUri()
-            val fromMiniPlayer = savedStateHandle.get<Boolean>(PlayerArgs.FROM_MINI_PLAYER) ?: false
             viewModelScope.launch {
                 // Skip initiatePlayback only if fromMiniPlayer=true and URI matches
-                if (!fromMiniPlayer) {
+                if (_uiState.value.currentAudioFile == null) {
                     try {
                         playerController.initiatePlayback(initialAudioFileUri)
-                        Log.d("PlayerViewModel", "Initiating playback for URI: $initialAudioFileUri, fromMiniPlayer: $fromMiniPlayer")
                     } catch (e: Exception) {
                         _uiState.update {
                             it.copy(
@@ -143,7 +141,10 @@ class PlayerViewModel @Inject constructor(
                     is PlayerEvent.RemoveFromFavorites -> {
                         favoritesRepository.removeFavoriteAudioFile(event.audioFileId)
                         _uiState.update { it.copy(isFavorite = false) }
-                        Log.d("PlayerViewModel", "Removed from favorites: ID $event.audioFileId")
+                        Log.d("PlayerViewModel", "Removed from favorites: ID ${event.audioFileId}")
+                    }
+                    is PlayerEvent.SetSeeking -> { // <--- NEW: Handle SetSeeking event
+                        _uiState.update { it.copy(isSeeking = event.seeking) }
                     }
                 }
             } catch (e: Exception) {

@@ -1,6 +1,7 @@
 package com.engfred.musicplayer.core.domain.model.repository
 
 import android.net.Uri
+import com.engfred.musicplayer.core.domain.model.AudioFile
 import kotlinx.coroutines.flow.Flow
 
 interface PlayerController {
@@ -13,4 +14,5 @@ interface PlayerController {
     suspend fun setRepeatMode(mode: RepeatMode)
     suspend fun setShuffleMode(mode: ShuffleMode)
     suspend fun releasePlayer()
+    suspend fun addAudioToQueueNext(audioFile: AudioFile)
 }

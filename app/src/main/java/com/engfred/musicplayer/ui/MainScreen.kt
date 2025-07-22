@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,7 +41,7 @@ import com.engfred.musicplayer.core.ui.CustomTopBar
  */
 @Composable
 fun MainScreen(
-    onAudioClick: (String, Boolean) -> Unit,
+    onPlayAudio: (String) -> Unit,
     onPlaylistClick: (Long) -> Unit,
     onSettingsClick: () -> Unit
 ) {
@@ -55,12 +56,11 @@ fun MainScreen(
     Scaffold(
         bottomBar = {
             Column {
-                // MiniPlayer placed above the NavigationBar
                 MiniPlayer(
-                    onMiniPlayerClick = { uri -> onAudioClick(uri, true) },
+                    onMiniPlayerClick = { uri -> onPlayAudio(uri) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .zIndex(1f), // Ensure MiniPlayer is above NavigationBar
+                        .zIndex(1f),
                 )
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface,
@@ -103,7 +103,7 @@ fun MainScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(
+                .padding( // Keep padding values from Scaffold
                     start = paddingValues.calculateStartPadding(LocalLayoutDirection.current),
                     end = paddingValues.calculateEndPadding(LocalLayoutDirection.current)
                 )
@@ -126,7 +126,9 @@ fun MainScreen(
                     .padding(top = 0.dp, bottom = paddingValues.calculateBottomPadding())
             ) {
                 composable(AppDestinations.BottomNavItem.Library.baseRoute) {
-                    LibraryScreen()
+                    LibraryScreen(
+                        onSwipeToNowPlaying = onPlayAudio
+                    )
                 }
                 composable(AppDestinations.BottomNavItem.Playlists.baseRoute) {
                     PlaylistsScreen(onPlaylistClick = onPlaylistClick)

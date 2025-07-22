@@ -13,4 +13,5 @@ sealed class PlaylistEvent {
     data object LoadPlaylists : PlaylistEvent()
     data object ShowCreatePlaylistDialog : PlaylistEvent()
     data object HideCreatePlaylistDialog : PlaylistEvent()
+    data object ToggleLayout : PlaylistEvent()
 }

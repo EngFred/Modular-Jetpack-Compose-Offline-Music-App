@@ -51,7 +51,7 @@ fun CustomTopBar(
         ) {
             if (showNavigationIcon) {
                 IconButton(
-                    onClick = onNavigateBack ?: {}, // Provide a default empty lambda if null
+                    onClick = onNavigateBack ?: {},
                     enabled = onNavigateBack != null // Disable button if no callback
                 ) {
                     Icon(
@@ -69,12 +69,10 @@ fun CustomTopBar(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleLarge,
-                // CHANGE THIS LINE: Use onBackground for text on background
                 color = MaterialTheme.colorScheme.onBackground,
-                // Adjust weight if needed, considering presence of nav icon and actions
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = if (showNavigationIcon) 0.dp else 12.dp), // Adjust start padding
+                    .padding(start = if (showNavigationIcon) 0.dp else 12.dp),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -85,9 +83,6 @@ fun CustomTopBar(
                 verticalAlignment = Alignment.CenterVertically,
                 content = actions
             )
-            // Note: If you have Icons/Texts in your 'actions' slot,
-            // ensure their 'tint'/'color' is also set to MaterialTheme.colorScheme.onBackground
-            // or a suitable color that contrasts with the background.
         }
     }
 }

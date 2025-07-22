@@ -1,125 +1,172 @@
 package com.engfred.musicplayer.feature_playlist.presentation.screens
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.MusicOff
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.engfred.musicplayer.core.util.formatDate
-import com.engfred.musicplayer.feature_playlist.domain.model.Playlist
+import com.engfred.musicplayer.core.ui.CustomSnackbar
+import com.engfred.musicplayer.core.ui.ErrorIndicator
+import com.engfred.musicplayer.core.ui.InfoIndicator
+import com.engfred.musicplayer.core.ui.LoadingIndicator
+import com.engfred.musicplayer.feature_playlist.domain.model.LayoutType
+import com.engfred.musicplayer.feature_playlist.presentation.components.CreatePlaylistDialog
+import com.engfred.musicplayer.feature_playlist.presentation.components.PlaylistItem
+import com.engfred.musicplayer.feature_playlist.presentation.components.PlaylistGridItem
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.PlaylistEvent
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.PlaylistViewModel
 
-/**
- * Composable screen for displaying and managing music playlists.
- */
 @Composable
 fun PlaylistsScreen(
     viewModel: PlaylistViewModel = hiltViewModel(),
-    onPlaylistClick: (Long) -> Unit
+    onPlaylistClick: (Long) -> Unit,
 ) {
-    val uiState = viewModel.uiState
+    val uiState by viewModel.uiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(viewModel.uiEvent) {
+        viewModel.uiEvent.collect { message ->
+            snackbarHostState.showSnackbar(
+                message = message,
+                duration = SnackbarDuration.Short
+            )
+        }
+    }
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = { viewModel.onEvent(PlaylistEvent.ShowCreatePlaylistDialog) }) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Create new playlist"
-                )
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalAlignment = Alignment.End
+            ) {
+                FloatingActionButton(
+                    onClick = { viewModel.onEvent(PlaylistEvent.ShowCreatePlaylistDialog) },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Create new playlist"
+                    )
+                }
+                FloatingActionButton(
+                    onClick = { viewModel.onEvent(PlaylistEvent.ToggleLayout) },
+                    containerColor = MaterialTheme.colorScheme.secondary,
+                    contentColor = MaterialTheme.colorScheme.onSecondary
+                ) {
+                    Icon(
+                        imageVector = if (uiState.currentLayout == LayoutType.LIST) Icons.Default.GridView else Icons.Default.List,
+                        contentDescription = "Toggle layout"
+                    )
+                }
             }
-        }
+        },
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState) { data ->
+                CustomSnackbar(snackbarData = data)
+            }
+        },
+        containerColor = Color.Transparent
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 8.dp)
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.background,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        )
+                    )
+                )
         ) {
             when {
                 uiState.isLoading -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        LoadingIndicator()
                     }
                 }
                 uiState.error != null -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Error: ${uiState.error}",
-                            color = MaterialTheme.colorScheme.error,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(16.dp)
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        ErrorIndicator(
+                            message = uiState.error ?: "",
+                            onRetry = { viewModel.onEvent(PlaylistEvent.LoadPlaylists) }
                         )
                     }
                 }
                 uiState.playlists.isEmpty() -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "No playlists found. Create one by tapping the '+' button!",
-                            color = MaterialTheme.colorScheme.onBackground,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(16.dp)
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        InfoIndicator(
+                            message = "No playlists found.\nTap the '+' button to create your first playlist!",
+                            icon = Icons.Default.MusicOff
                         )
                     }
                 }
                 else -> {
-                    LazyColumn(
-                        contentPadding = PaddingValues(vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(uiState.playlists) { playlist ->
-                            PlaylistItem(
-                                playlist = playlist,
-                                onClick = onPlaylistClick,
-                                onDeleteClick = { playlistId ->
-                                    viewModel.onEvent(PlaylistEvent.DeletePlaylist(playlistId))
-                                }
-                            )
+                    if (uiState.currentLayout == LayoutType.LIST) {
+                        LazyColumn(
+                            contentPadding = PaddingValues(vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            items(uiState.playlists, key = { it.playlistId }) { playlist ->
+                                PlaylistItem(
+                                    playlist = playlist,
+                                    onClick = onPlaylistClick,
+                                    onDeleteClick = { playlistId ->
+                                        viewModel.onEvent(PlaylistEvent.DeletePlaylist(playlistId))
+                                    }
+                                )
+                            }
+                        }
+                    } else {
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(2),
+                            contentPadding = PaddingValues(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            items(uiState.playlists, key = { it.playlistId }) { playlist ->
+                                PlaylistGridItem(
+                                    playlist = playlist,
+                                    onClick = onPlaylistClick,
+                                    onDeleteClick = { playlistId ->
+                                        viewModel.onEvent(PlaylistEvent.DeletePlaylist(playlistId))
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -134,112 +181,8 @@ fun PlaylistsScreen(
                 onDismiss = {
                     viewModel.onEvent(PlaylistEvent.HideCreatePlaylistDialog)
                 },
-                errorMessage = uiState.error // Pass error message to dialog
+                errorMessage = uiState.dialogInputError
             )
         }
     }
-}
-
-@Composable
-fun PlaylistItem(
-    playlist: Playlist,
-    onClick: (Long) -> Unit,
-    onDeleteClick: (Long) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable { onClick(playlist.playlistId) }
-            .padding(horizontal = 8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        ),
-        shape = MaterialTheme.shapes.medium,
-        elevation = CardDefaults.cardElevation(2.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = playlist.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "${playlist.songs.size} songs",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Created: ${formatDate(playlist.createdAt)}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            IconButton(onClick = { onDeleteClick(playlist.playlistId) }) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Delete Playlist",
-                    tint = MaterialTheme.colorScheme.error
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun CreatePlaylistDialog(
-    onConfirm: (String) -> Unit,
-    onDismiss: () -> Unit,
-    errorMessage: String? = null
-) {
-    var playlistName by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Create New Playlist") },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = playlistName,
-                    onValueChange = { playlistName = it },
-                    label = { Text("Playlist Name") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                if (errorMessage != null) {
-                    Text(
-                        text = errorMessage,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onConfirm(playlistName) },
-                enabled = playlistName.isNotBlank() // Enable button only if name is not blank
-            ) {
-                Text("Create")
-            }
-        },
-        dismissButton = {
-            Button(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
 }

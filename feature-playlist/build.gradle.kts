@@ -77,6 +77,12 @@ dependencies {
     // Landscapist with Coil engine
     implementation(libs.landscapist.coil)
 
+    //coil
+    implementation(libs.coil.compose)
+
+    //animation
+    implementation(libs.androidx.animation.v168)
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)

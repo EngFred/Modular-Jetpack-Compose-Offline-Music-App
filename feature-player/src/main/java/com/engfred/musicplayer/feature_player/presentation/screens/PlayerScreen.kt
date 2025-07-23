@@ -2,7 +2,6 @@ package com.engfred.musicplayer.feature_player.presentation.screens
 
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -22,33 +21,23 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.media3.common.util.UnstableApi
 import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerViewModel
 import com.engfred.musicplayer.core.domain.model.repository.PlaybackState
-import com.engfred.musicplayer.feature_player.presentation.components.EtherealFlowLayout
-import com.engfred.musicplayer.feature_player.presentation.components.ImmersiveCanvasLayout
-import com.engfred.musicplayer.feature_player.presentation.components.MinimalistGrooveLayout
-import com.engfred.musicplayer.feature_player.presentation.components.LayoutSelectionBottomSheet // Keep this import
-import com.engfred.musicplayer.feature_player.domain.model.PlayerLayout // Keep this import
-
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.ui.graphics.Color // Not strictly needed, but might be from prior uses
+import com.engfred.musicplayer.feature_player.presentation.components.layouts.EtherealFlowLayout
+import com.engfred.musicplayer.feature_player.presentation.components.layouts.MinimalistGrooveLayout
+import com.engfred.musicplayer.feature_player.presentation.components.layouts.ImmersiveCanvasLayout
+import com.engfred.musicplayer.feature_player.domain.model.PlayerLayout
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 
 @OptIn(UnstableApi::class)
 @Composable
 fun PlayerScreen(
-    viewModel: PlayerViewModel = hiltViewModel()
+    viewModel: PlayerViewModel = hiltViewModel(),
+    windowWidthSizeClass: WindowWidthSizeClass
 ) {
     val uiState: PlaybackState by viewModel.uiState.collectAsState()
 
     // --- State for layout selection now handled directly in the UI Composable ---
     var selectedLayout by remember { mutableStateOf(PlayerLayout.ETHEREAL_FLOW) }
     // --- End UI Composable state handling ---
-
-    // State to control bottom sheet visibility
-    var showLayoutSheet by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
@@ -81,39 +70,25 @@ fun PlayerScreen(
         } else {
             // Main layout content based on selectedLayout
             when (selectedLayout) {
-                PlayerLayout.ETHEREAL_FLOW -> EtherealFlowLayout(uiState = uiState, onEvent = viewModel::onEvent)
-                PlayerLayout.IMMERSIVE_CANVAS -> ImmersiveCanvasLayout(uiState = uiState, onEvent = viewModel::onEvent)
-                PlayerLayout.MINIMALIST_GROOVE -> MinimalistGrooveLayout(uiState = uiState, onEvent = viewModel::onEvent)
-            }
-
-            // --- Layout Switcher Button (Overlayed at the top right) ---
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.TopEnd)
-                    .padding(16.dp)
-            ) {
-                IconButton(
-                    onClick = { showLayoutSheet = true }, // Show the bottom sheet
-                    modifier = Modifier.align(Alignment.TopEnd)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Change Player Layout",
-                        tint = MaterialTheme.colorScheme.onBackground
-                    )
-                }
-            }
-
-            // --- Layout Selection Bottom Sheet ---
-            if (showLayoutSheet) {
-                LayoutSelectionBottomSheet(
-                    currentLayout = selectedLayout,
-                    onLayoutSelected = { newLayout ->
-                        selectedLayout = newLayout // Directly update the local state
-                        showLayoutSheet = false // Dismiss sheet after selection
-                    },
-                    onDismissRequest = { showLayoutSheet = false } // Dismiss sheet when tapped outside
+                PlayerLayout.ETHEREAL_FLOW -> EtherealFlowLayout(
+                    uiState = uiState,
+                    onEvent = viewModel::onEvent,
+                    windowSizeClass = windowWidthSizeClass,
+                    selectedLayout = selectedLayout,
+                    onLayoutSelected = { selectedLayout = it }
+                )
+                PlayerLayout.IMMERSIVE_CANVAS -> ImmersiveCanvasLayout(
+                    uiState = uiState,
+                    onEvent = viewModel::onEvent,
+                    windowSizeClass = windowWidthSizeClass,
+                    selectedLayout = selectedLayout,
+                    onLayoutSelected = { selectedLayout = it }
+                )
+                PlayerLayout.MINIMALIST_GROOVE -> MinimalistGrooveLayout(
+                    uiState = uiState,
+                    onEvent = viewModel::onEvent,
+                    selectedLayout = selectedLayout,
+                    onLayoutSelected = { selectedLayout = it }
                 )
             }
         }

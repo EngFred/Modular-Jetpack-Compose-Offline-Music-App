@@ -1,7 +1,9 @@
 package com.engfred.musicplayer.feature_playlist.presentation.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.engfred.musicplayer.core.domain.model.repository.PlayerController
 import com.engfred.musicplayer.feature_playlist.domain.model.LayoutType
 import com.engfred.musicplayer.feature_playlist.domain.model.Playlist
 import com.engfred.musicplayer.feature_playlist.domain.repository.PlaylistRepository
@@ -20,7 +22,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class PlaylistViewModel @Inject constructor(
-    private val playlistRepository: PlaylistRepository
+    private val playlistRepository: PlaylistRepository,
+    playerController: PlayerController
 ) : ViewModel() {
 
     // Change from 'var uiState by mutableStateOf' to MutableStateFlow
@@ -32,6 +35,17 @@ class PlaylistViewModel @Inject constructor(
 
     init {
         loadPlaylists()
+        playerController.getPlaybackState().onEach { state ->
+            _uiState.update { currentState ->
+                if (state.currentAudioFile != null) {
+                    Log.d("PlaylistViewModel", "Is playing...")
+                    currentState.copy(isPlaying = true)
+                } else {
+                    Log.d("PlaylistViewModel", "Is not playing!!")
+                    currentState.copy(isPlaying = false)
+                }
+            }
+        }.launchIn(viewModelScope)
     }
 
     fun onEvent(event: PlaylistEvent) {

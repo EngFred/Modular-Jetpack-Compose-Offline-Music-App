@@ -1,4 +1,4 @@
-package com.engfred.musicplayer.feature_playlist.presentation.components
+package com.engfred.musicplayer.feature_playlist.presentation.components.list
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth

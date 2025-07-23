@@ -74,6 +74,9 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
 
     //
+    implementation(libs.androidx.material.icons.extended) // For Material Icons
+
+    //
     implementation(libs.kotlinx.serialization.json)
 
     implementation(libs.androidx.core.ktx)

@@ -35,6 +35,10 @@ import androidx.compose.material3.MaterialTheme
 import com.engfred.musicplayer.feature_equalizer.presentation.screens.EqualizerScreen
 import com.engfred.musicplayer.core.ui.CustomTopBar
 
+// Import for insets
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.imePadding // Consider this if you have text fields
+
 /**
  * Main screen of the application, hosting the bottom navigation bar and
  * managing the primary feature screens.
@@ -100,13 +104,12 @@ fun MainScreen(
             }
         }
     ) { paddingValues ->
+        // Apply systemBarsPadding directly to the Column that contains your TopBar and NavHost
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding( // Keep padding values from Scaffold
-                    start = paddingValues.calculateStartPadding(LocalLayoutDirection.current),
-                    end = paddingValues.calculateEndPadding(LocalLayoutDirection.current)
-                )
+                //systemBarsPadding to push content below the status bar
+                .systemBarsPadding()
         ) {
             CustomTopBar(
                 title = "Music Player",
@@ -123,7 +126,6 @@ fun MainScreen(
                 startDestination = AppDestinations.BottomNavItem.Library.baseRoute,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(top = 0.dp, bottom = paddingValues.calculateBottomPadding())
             ) {
                 composable(AppDestinations.BottomNavItem.Library.baseRoute) {
                     LibraryScreen(

@@ -6,6 +6,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
@@ -140,21 +141,16 @@ fun MusicPlayerAppTheme(
         AppThemeType.SUNSET_GROOVE -> SunsetGrooveColorScheme
     }
 
-    val isColorSchemeDark = when (selectedTheme) {
-        AppThemeType.FROSTBYTE -> false
-        else -> true
-    }
-
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.background.toArgb()
-            window.navigationBarColor = colorScheme.surface.toArgb()
+            window.statusBarColor = Color.Transparent.toArgb()
+            window.navigationBarColor = Color.Transparent.toArgb()
 
             WindowCompat.getInsetsController(window, view).apply {
-                isAppearanceLightStatusBars = !isColorSchemeDark
-                isAppearanceLightNavigationBars = !isColorSchemeDark
+                isAppearanceLightStatusBars = false
+                isAppearanceLightNavigationBars = false
             }
         }
     }

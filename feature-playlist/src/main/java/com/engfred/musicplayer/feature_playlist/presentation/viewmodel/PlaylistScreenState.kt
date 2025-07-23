@@ -12,5 +12,6 @@ data class PlaylistScreenState(
     val error: String? = null,
     val showCreatePlaylistDialog: Boolean = false,
     val dialogInputError: String? = null,
-    val currentLayout: LayoutType = LayoutType.LIST
+    val currentLayout: LayoutType = LayoutType.LIST,
+    val isPlaying: Boolean = false,
 )

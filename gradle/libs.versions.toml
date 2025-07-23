@@ -1,8 +1,10 @@
 [versions]
 # Android Core & Lifecycle
 accompanistSystemuicontroller = "0.36.0"
+adaptive = "1.3.0-beta03"
 agp = "8.11.1" # Android Gradle Plugin version
 animation = "1.8.3"
+animationVersion = "1.6.8"
 kotlin = "2.1.0" # Kotlin version
 coreKtx = "1.16.0"
 junit = "4.13.2"
@@ -38,10 +40,13 @@ material = "1.12.0"
 materialIconsExtended = "1.7.8" #For extended Material Icons
 splashscreen = "1.0.1"
 kotlinxSerializationJson = "1.6.3"
+material3WindowSizeClassAndroid = "1.3.2"
 
 [libraries]
 accompanist-systemuicontroller = { module = "com.google.accompanist:accompanist-systemuicontroller", version.ref = "accompanistSystemuicontroller" }
+androidx-adaptive = { module = "androidx.compose.material3.adaptive:adaptive", version.ref = "adaptive" }
 androidx-animation = { module = "androidx.compose.animation:animation", version.ref = "animation" }
+androidx-animation-v168 = { module = "androidx.compose.animation:animation", version.ref = "animationVersion" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-palette-ktx = { module = "androidx.palette:palette-ktx", version.ref = "paletteKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -99,6 +104,7 @@ material = { group = "com.google.android.material", name = "material", version.r
 androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "splashscreen" }
 
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
+androidx-material3-window-size-class1-android = { group = "androidx.compose.material3", name = "material3-window-size-class-android", version.ref = "material3WindowSizeClassAndroid" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

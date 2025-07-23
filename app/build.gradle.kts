@@ -88,6 +88,12 @@ dependencies {
     //splash screen
     implementation(libs.androidx.core.splashscreen)
 
+    //
+    implementation(libs.androidx.material3.window.size.class1.android)
+
+    // Landscapist with Coil engine
+    implementation(libs.landscapist.coil)
+
     // Project Modules
     implementation(project(":core"))
     implementation(project(":feature-library"))

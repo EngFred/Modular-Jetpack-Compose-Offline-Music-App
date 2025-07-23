@@ -79,12 +79,18 @@ dependencies {
 
     // Coil for album artwork
     implementation(libs.coil.compose)
+    // Landscapist with Coil engine
+    implementation(libs.landscapist.coil)
 
     //
     implementation(libs.androidx.palette.ktx)
 
     //
     implementation(libs.accompanist.systemuicontroller)
+
+    //
+//    implementation(libs.androidx.adaptive)
+    implementation(libs.androidx.material3.window.size.class1.android)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

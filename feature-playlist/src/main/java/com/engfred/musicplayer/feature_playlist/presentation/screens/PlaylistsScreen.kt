@@ -40,7 +40,7 @@ import com.engfred.musicplayer.core.ui.ErrorIndicator
 import com.engfred.musicplayer.core.ui.InfoIndicator
 import com.engfred.musicplayer.core.ui.LoadingIndicator
 import com.engfred.musicplayer.feature_playlist.domain.model.LayoutType
-import com.engfred.musicplayer.feature_playlist.presentation.components.CreatePlaylistDialog
+import com.engfred.musicplayer.feature_playlist.presentation.components.list.CreatePlaylistDialog
 import com.engfred.musicplayer.feature_playlist.presentation.components.PlaylistItem
 import com.engfred.musicplayer.feature_playlist.presentation.components.PlaylistGridItem
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.PlaylistEvent
@@ -65,9 +65,11 @@ fun PlaylistsScreen(
 
     Scaffold(
         floatingActionButton = {
+            val bottomPadding = if(uiState.isPlaying) 142.dp else 75.dp
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                horizontalAlignment = Alignment.End
+                horizontalAlignment = Alignment.End,
+                modifier = Modifier.padding(bottom = bottomPadding)
             ) {
                 FloatingActionButton(
                     onClick = { viewModel.onEvent(PlaylistEvent.ShowCreatePlaylistDialog) },

@@ -4,11 +4,14 @@ import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
+import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -32,6 +35,7 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var getAppSettingsUseCase: GetAppSettingsUseCase
 
+    @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     @RequiresApi(Build.VERSION_CODES.S)
     override fun onCreate(savedInstanceState: Bundle?) {
         // Create a mutable state to track if settings are loaded
@@ -39,6 +43,8 @@ class MainActivity : ComponentActivity() {
         var initialAppSettings: AppSettings? by mutableStateOf(null)
 
         val splashScreen = installSplashScreen()
+
+        enableEdgeToEdge()
 
         splashScreen.setKeepOnScreenCondition {
             // Keep the splash screen on screen as long as appSettingsLoaded is false
@@ -62,6 +68,7 @@ class MainActivity : ComponentActivity() {
             MusicPlayerAppTheme(
                 selectedTheme = selectedTheme
             ) {
+                val windowSizeClass = calculateWindowSizeClass(this)
                 Surface(
                     modifier = Modifier.fillMaxSize().background(
                         brush = Brush.verticalGradient(
@@ -74,7 +81,8 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val navController = rememberNavController()
                     AppNavHost(
-                        rootNavController = navController
+                        rootNavController = navController,
+                        windowWidthSizeClass =  windowSizeClass.widthSizeClass
                     )
                 }
             }

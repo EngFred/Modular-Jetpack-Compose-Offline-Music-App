@@ -6,8 +6,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
 import com.engfred.musicplayer.core.domain.model.AudioFile
-import com.engfred.musicplayer.core.domain.model.repository.PlayerController // New import
+import com.engfred.musicplayer.core.domain.model.repository.PlayerController
 import com.engfred.musicplayer.feature_playlist.domain.model.Playlist
+import com.engfred.musicplayer.feature_playlist.domain.model.PlaylistDetailScreenMode // Ensure this import points to your enum definition
 import com.engfred.musicplayer.feature_playlist.domain.repository.PlaylistRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,6 +19,32 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+data class PlaylistDetailScreenState(
+    val playlist: Playlist? = null,
+    val isLoading: Boolean = true,
+    val error: String? = null,
+    val showRenameDialog: Boolean = false,
+    // val showAddSongsDialog: Boolean = false, // REMOVED: Replaced by screenMode
+    val allAudioFiles: List<AudioFile> = emptyList(), // All audio files on the device
+    val currentPlayingId: Long? = null,
+    val screenMode: PlaylistDetailScreenMode = PlaylistDetailScreenMode.VIEW_PLAYLIST // NEW: To control the active UI
+)
+
+sealed class PlaylistDetailEvent {
+    data class RemoveSong(val audioFileId: Long) : PlaylistDetailEvent()
+    data class RenamePlaylist(val newName: String) : PlaylistDetailEvent()
+    data object ShowRenameDialog : PlaylistDetailEvent()
+    data object HideRenameDialog : PlaylistDetailEvent()
+    // REMOVED: ShowAddSongsDialog and HideAddSongsDialog are replaced by ChangeScreenMode
+    data class AddSong(val audioFile: AudioFile) : PlaylistDetailEvent()
+    data class PlaySong(val audioFile: AudioFile, val onPlay: (String) -> Unit) : PlaylistDetailEvent()
+    data class LoadPlaylist(val playlistId: Long) : PlaylistDetailEvent()
+    data class ChangeScreenMode(val mode: PlaylistDetailScreenMode) : PlaylistDetailEvent() // NEW event
+    data object ShufflePlay : PlaylistDetailEvent() // Added this back if it was missing from the last update
+}
+
+// --- ViewModel ---
 
 object PlaylistDetailArgs {
     const val PLAYLIST_ID = "playlistId"
@@ -31,7 +58,7 @@ object PlaylistDetailArgs {
 class PlaylistDetailViewModel @Inject constructor(
     private val playlistRepository: PlaylistRepository,
     private val sharedAudioDataSource: SharedAudioDataSource,
-    private val playerController: PlayerController, // Inject PlayerController
+    private val playerController: PlayerController,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -39,17 +66,15 @@ class PlaylistDetailViewModel @Inject constructor(
     val uiState: StateFlow<PlaylistDetailScreenState> = _uiState.asStateFlow()
 
     private var currentPlaylistId: Long? = null
-    private var allDeviceAudioFiles: List<AudioFile> = emptyList()
+    // No longer need a separate `allDeviceAudioFiles` var, as it's now in UiState
+    // private var allDeviceAudioFiles: List<AudioFile> = emptyList()
 
     init {
         // Collect all audio files from SharedAudioDataSource for UI state
+        // This will now update `uiState.allAudioFiles` directly.
         sharedAudioDataSource.allAudioFiles.onEach { audioFiles ->
             _uiState.update { it.copy(allAudioFiles = audioFiles) }
-            // Store initial device songs for AddSongsDialog (before playback queue changes)
-            if (allDeviceAudioFiles.isEmpty()) {
-                allDeviceAudioFiles = audioFiles
-                android.util.Log.d("PlaylistDetailViewModel", "Stored ${allDeviceAudioFiles.size} device songs for AddSongsDialog.")
-            }
+            Log.d("PlaylistDetailViewModel", "Updated uiState.allAudioFiles with ${audioFiles.size} songs.")
         }.launchIn(viewModelScope)
 
         // Observe player's current audio for updating currentPlayingId
@@ -59,8 +84,9 @@ class PlaylistDetailViewModel @Inject constructor(
                     currentState.copy(currentPlayingId = state.currentAudioFile!!.id)
                 } else if (!state.isPlaying) {
                     // If paused or stopped, clear current playing ID if it's the same song
+                    // Or keep it if it's just paused on the current song
                     if (currentState.currentPlayingId == state.currentAudioFile?.id) {
-                        currentState.copy(currentPlayingId = null)
+                        currentState.copy(currentPlayingId = null) // Clear if paused/stopped
                     } else {
                         currentState // No change needed if a different song was playing or current ID is already null
                     }
@@ -86,6 +112,8 @@ class PlaylistDetailViewModel @Inject constructor(
                     currentPlaylistId?.let { playlistId ->
                         try {
                             playlistRepository.removeSongFromPlaylist(playlistId, event.audioFileId)
+                            // Reload playlist after removal to update UI
+                            loadPlaylistDetails(playlistId)
                         } catch (e: Exception) {
                             _uiState.update { it.copy(error = "Failed to remove song: ${e.message}") }
                         }
@@ -99,6 +127,8 @@ class PlaylistDetailViewModel @Inject constructor(
                                 val updatedPlaylist = currentPlaylist.copy(name = event.newName)
                                 playlistRepository.updatePlaylist(updatedPlaylist)
                                 _uiState.update { it.copy(showRenameDialog = false) }
+                                // Reload playlist after rename to update UI
+                                loadPlaylistDetails(playlistId)
                             } catch (e: Exception) {
                                 _uiState.update { it.copy(error = "Failed to rename playlist: ${e.message}") }
                             }
@@ -113,21 +143,27 @@ class PlaylistDetailViewModel @Inject constructor(
                 PlaylistDetailEvent.HideRenameDialog -> {
                     _uiState.update { it.copy(showRenameDialog = false, error = null) }
                 }
-                PlaylistDetailEvent.ShowAddSongsDialog -> {
-                    _uiState.update { it.copy(showAddSongsDialog = true, error = null) }
-                }
-                PlaylistDetailEvent.HideAddSongsDialog -> {
-                    _uiState.update { it.copy(showAddSongsDialog = false, error = null) }
-                }
+                // REMOVED: These events are no longer used for mode switching
+                // PlaylistDetailEvent.ShowAddSongsDialog -> {
+                //     _uiState.update { it.copy(showAddSongsDialog = true, error = null) }
+                // }
+                // PlaylistDetailEvent.HideAddSongsDialog -> {
+                //     _uiState.update { it.copy(showAddSongsDialog = false, error = null) }
+                // }
                 is PlaylistDetailEvent.AddSong -> {
                     currentPlaylistId?.let { playlistId ->
                         val currentSongs = uiState.value.playlist?.songs?.map { it.id } ?: emptyList()
                         if (!currentSongs.contains(event.audioFile.id)) {
                             try {
                                 playlistRepository.addSongToPlaylist(playlistId, event.audioFile)
+                                // Reload playlist after adding song to update UI
+                                loadPlaylistDetails(playlistId)
                             } catch (e: Exception) {
                                 _uiState.update { it.copy(error = "Failed to add song: ${e.message}") }
                             }
+                        } else {
+                            // Optionally, show a message if song is already in playlist
+                            Log.d("PlaylistDetailViewModel", "Song ${event.audioFile.title} is already in playlist.")
                         }
                     }
                 }
@@ -135,21 +171,41 @@ class PlaylistDetailViewModel @Inject constructor(
                     val playlistSongs = uiState.value.playlist?.songs ?: emptyList()
                     if (playlistSongs.isNotEmpty()) {
                         sharedAudioDataSource.setAudioFiles(playlistSongs)
+                        //playerController.setAudioFiles(playlistSongs) // Use playerController directly
                         Log.d("PlaylistDetailViewModel", "Set playback queue to ${playlistSongs.size} playlist songs.")
-                        event.onPlay(event.audioFile.uri.toString())
+                        // The `onPlay` callback from the UI will trigger navigation to player screen
+                        event.onPlay(event.audioFile.id.toString()) // Pass ID as String if your onPlay expects it
                     }
                 }
-
+                PlaylistDetailEvent.ShufflePlay -> {
+                    val playlistSongs = uiState.value.playlist?.songs?.shuffled() ?: emptyList()
+                    if (playlistSongs.isNotEmpty()) {
+                        sharedAudioDataSource.setAudioFiles(playlistSongs)
+                        //playerController.setAudioFiles(playlistSongs)
+                        Log.d("PlaylistDetailViewModel", "Shuffled playback queue with ${playlistSongs.size} songs.")
+                        // Optionally, if you want to immediately start playing the first shuffled song:
+                        // playerController.play(playlistSongs.first().id.toString())
+                        // You might also want to notify the UI to navigate to the player or update its playing state.
+                        // For now, let's assume the player controller handles the start of playback.
+                    } else {
+                        Log.d("PlaylistDetailViewModel", "Cannot shuffle empty playlist.")
+                    }
+                }
                 is PlaylistDetailEvent.LoadPlaylist -> {
                     loadPlaylistDetails(event.playlistId)
+                }
+                // NEW: Handle screen mode changes
+                is PlaylistDetailEvent.ChangeScreenMode -> {
+                    _uiState.update { it.copy(screenMode = event.mode, error = null) }
                 }
             }
         }
     }
 
-    fun getAllDeviceAudioFiles(): List<AudioFile> {
-        return allDeviceAudioFiles
-    }
+    // Removed this function as allAudioFiles is now part of uiState
+    // fun getAllDeviceAudioFiles(): List<AudioFile> {
+    //     return allDeviceAudioFiles
+    // }
 
     private fun loadPlaylistDetails(playlistId: Long) {
         _uiState.update { it.copy(isLoading = true, error = null) }
@@ -172,25 +228,3 @@ class PlaylistDetailViewModel @Inject constructor(
         }.launchIn(viewModelScope)
     }
 }
-
-sealed class PlaylistDetailEvent {
-    data class RemoveSong(val audioFileId: Long) : PlaylistDetailEvent()
-    data class RenamePlaylist(val newName: String) : PlaylistDetailEvent()
-    data object ShowRenameDialog : PlaylistDetailEvent()
-    data object HideRenameDialog : PlaylistDetailEvent()
-    data object ShowAddSongsDialog : PlaylistDetailEvent()
-    data object HideAddSongsDialog : PlaylistDetailEvent()
-    data class AddSong(val audioFile: AudioFile) : PlaylistDetailEvent()
-    data class PlaySong(val audioFile: AudioFile, val onPlay: (String) -> Unit) : PlaylistDetailEvent()
-    data class LoadPlaylist(val playlistId: Long) : PlaylistDetailEvent()
-}
-
-data class PlaylistDetailScreenState(
-    val playlist: Playlist? = null,
-    val isLoading: Boolean = true,
-    val error: String? = null,
-    val showRenameDialog: Boolean = false,
-    val showAddSongsDialog: Boolean = false,
-    val allAudioFiles: List<AudioFile> = emptyList(),
-    val currentPlayingId: Long? = null // ADD THIS FIELD
-)

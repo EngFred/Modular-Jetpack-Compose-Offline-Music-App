@@ -1,20 +1,24 @@
 package com.engfred.musicplayer.feature_equalizer.presentation.screens
 
-import androidx.compose.foundation.background // Import for background gradient
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api // Keep if still using ExperimentalMaterial3Api for something else
-import androidx.compose.material3.MaterialTheme // Import for colors
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush // Import for background gradient
-import androidx.compose.ui.graphics.Color // Import for Color.Transparent
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView // Import for haptics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.engfred.musicplayer.core.ui.CustomTopBar
 import com.engfred.musicplayer.feature_equalizer.presentation.components.BassTrebleControls
 import com.engfred.musicplayer.feature_equalizer.presentation.components.EqualizerBandSliders
 import com.engfred.musicplayer.feature_equalizer.presentation.components.EqualizerErrorDisplay
@@ -27,17 +31,20 @@ fun EqualizerScreen(
     viewModel: EqualizerViewModel = hiltViewModel()
 ) {
     val equalizerState by viewModel.equalizerState.collectAsState()
+    val view = LocalView.current // For haptic feedback
 
-    // Wrap the content in a Scaffold
+    val isPlaying by viewModel.isPlaying.collectAsState()
+
     Scaffold(
-        // Remove topBar parameter from Scaffold as it's now managed by the parent
-        containerColor = Color.Transparent // Ensures parent's background gradient is visible
+        // topBar = { /* Removed as per your request */ },
+        containerColor = Color.Transparent
     ) { paddingValues ->
+        val bottomPadding = if(isPlaying) 142.dp else 75.dp
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues) // Apply padding from the Scaffold
-                .background( // Add background gradient to the column
+                .padding(paddingValues)
+                .background(
                     brush = Brush.verticalGradient(
                         colors = listOf(
                             MaterialTheme.colorScheme.background,
@@ -46,26 +53,41 @@ fun EqualizerScreen(
                     )
                 )
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = bottomPadding ),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            EqualizerErrorDisplay(errorMessage = equalizerState.error)
+            // Error Display (now with AnimatedVisibility for smoother appearance)
+            AnimatedVisibility(
+                visible = equalizerState.error != null,
+                enter = fadeIn() + slideInVertically(),
+                exit = fadeOut() + slideOutVertically()
+            ) {
+                equalizerState.error?.let { EqualizerErrorDisplay(errorMessage = it) }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp)) // Added some space below top bar/error
 
             // 1. Equalizer Enabled/Disabled Toggle
             EqualizerToggle(
                 isEnabled = equalizerState.isEnabled,
-                onEnabledChange = viewModel::setEnabled
+                onEnabledChange = {
+                    viewModel.setEnabled(it)
+                    view.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+                }
             )
 
             // 2. Presets Dropdown
             EqualizerPresetsDropdown(
                 presets = equalizerState.presets,
                 currentPreset = equalizerState.currentPreset,
-                onPresetSelected = viewModel::setPreset
+                onPresetSelected = {
+                    viewModel.setPreset(it)
+                    view.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+                }
             )
 
-            // 3. Bass & Treble Controls
+            // Dynamic visibility for Bass & Treble (only if adjustable bands exist)
             if (equalizerState.numberOfBands > 0 && equalizerState.bandLevelRange.first != equalizerState.bandLevelRange.second) {
                 val bassLevel = equalizerState.bandLevels[0.toShort()] ?: 0.toShort()
                 val trebleLevel = equalizerState.bandLevels[(equalizerState.numberOfBands - 1).toShort()] ?: 0.toShort()
@@ -74,18 +96,27 @@ fun EqualizerScreen(
                     bassLevel = bassLevel,
                     trebleLevel = trebleLevel,
                     bandLevelRange = equalizerState.bandLevelRange,
-                    onBassChange = viewModel::setBassGain,
-                    onTrebleChange = viewModel::setTrebleGain
+                    onBassChange = {
+                        viewModel.setBassGain(it)
+                        view.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+                    },
+                    onTrebleChange = {
+                        viewModel.setTrebleGain(it)
+                        view.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+                    }
                 )
             }
 
-            // 4. Frequency Band Sliders
+            // Frequency Band Sliders
             EqualizerBandSliders(
                 numberOfBands = equalizerState.numberOfBands,
                 bandLevels = equalizerState.bandLevels,
                 bandLevelRange = equalizerState.bandLevelRange,
                 getCenterFrequency = viewModel::getCenterFrequency,
-                onBandLevelChange = viewModel::setBandLevel
+                onBandLevelChange = { bandIndex, gain ->
+                    viewModel.setBandLevel(bandIndex, gain)
+                    view.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+                }
             )
         }
     }

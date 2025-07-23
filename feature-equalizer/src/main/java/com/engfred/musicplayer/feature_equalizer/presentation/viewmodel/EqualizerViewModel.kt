@@ -1,19 +1,27 @@
 package com.engfred.musicplayer.feature_equalizer.presentation.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.engfred.musicplayer.core.domain.model.repository.EqualizerController
 import com.engfred.musicplayer.core.domain.model.repository.EqualizerState
+import com.engfred.musicplayer.core.domain.model.repository.PlayerController
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class EqualizerViewModel @Inject constructor(
-    private val equalizerController: EqualizerController
+    private val equalizerController: EqualizerController,
+    playerController: PlayerController
 ) : ViewModel() {
 
     val equalizerState: StateFlow<EqualizerState> = equalizerController.getEqualizerState()
@@ -22,6 +30,22 @@ class EqualizerViewModel @Inject constructor(
             SharingStarted.WhileSubscribed(5000L),
             initialValue = EqualizerState()
         )
+
+    private val _isPlaying = MutableStateFlow(false)
+    val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
+
+
+    init {
+        playerController.getPlaybackState().onEach { state ->
+            if (state.currentAudioFile != null) {
+                Log.d("PlaylistViewModel", "Is playing...")
+                _isPlaying.update { true }
+            } else {
+                Log.d("PlaylistViewModel", "Is not playing!!")
+                _isPlaying.update { false }
+            }
+        }.launchIn(viewModelScope)
+    }
 
     fun setBandLevel(bandIndex: Short, gain: Short) {
         viewModelScope.launch {

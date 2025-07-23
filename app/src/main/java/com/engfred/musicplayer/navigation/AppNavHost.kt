@@ -1,6 +1,8 @@
 package com.engfred.musicplayer.navigation
 
 import android.net.Uri
+import androidx.compose.material3.windowsizeclass.WindowSizeClass
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -20,6 +22,7 @@ import com.engfred.musicplayer.ui.MainScreen
 @Composable
 fun AppNavHost(
     rootNavController: NavHostController,
+    windowWidthSizeClass: WindowWidthSizeClass
 ) {
     NavHost(
         navController = rootNavController,
@@ -51,10 +54,9 @@ fun AppNavHost(
                 }
             )
         ) {
-            PlayerScreen()
-            // PlayerScreen typically doesn't have a top bar, or manages its own fully.
-            // If you need it to set the top bar, you'd add onSetTopBar here and to PlayerScreen.
-            // For now, let's assume it doesn't need to control the main app bar.
+            PlayerScreen(
+                windowWidthSizeClass = windowWidthSizeClass
+            )
         }
 
         // Playlist Detail screen

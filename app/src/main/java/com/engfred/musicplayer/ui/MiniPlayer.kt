@@ -37,17 +37,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.media3.common.util.Log
 import androidx.media3.common.util.UnstableApi
 import coil.compose.AsyncImage
 import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerEvent
 import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerViewModel
+import com.skydoves.landscapist.ImageOptions
+import com.skydoves.landscapist.coil.CoilImage
 
 /**
  * Composable for the mini-player bar displayed at the bottom of the main screens.
@@ -89,29 +91,44 @@ fun MiniPlayer(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         // Album Art or Placeholder
-                        if (audioFile.albumArtUri != null) {
-                            AsyncImage(
-                                model = audioFile.albumArtUri,
+                        CoilImage(
+                            imageModel = { audioFile.albumArtUri }, // Landscapist uses imageModel as a lambda
+                            imageOptions = ImageOptions(
                                 contentDescription = "Album Art for ${audioFile.title}",
                                 contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .size(48.dp) // <<< SMALLER album art
-                                    .clip(RoundedCornerShape(8.dp)) // Smaller rounded corners
-                                    .background(MaterialTheme.colorScheme.primaryContainer)
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.Album,
-                                contentDescription = "No Album Art for ${audioFile.title}",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                modifier = Modifier
-                                    .size(48.dp) // <<< SMALLER placeholder icon
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                                    .padding(8.dp)
-                            )
-                        }
-
+                                // You can add more Landscapist ImageOptions here, like:
+                                // placeholder = placeholder(R.drawable.your_placeholder),
+                                // error = error(R.drawable.your_error_image),
+                                // crossfade = true
+                            ),
+                            modifier = Modifier
+                                .size(48.dp) // <<< SMALLER album art
+                                .clip(RoundedCornerShape(8.dp)),
+                            failure = {
+                                Icon(
+                                    imageVector = Icons.Default.Album,
+                                    contentDescription = "No Album Art for ${audioFile.title}",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                                        .padding(8.dp)
+                                )
+                            },
+                            loading = {
+                                Icon(
+                                    imageVector = Icons.Default.Album,
+                                    contentDescription = "No Album Art for ${audioFile.title}",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                                        .padding(8.dp)
+                                )
+                            }
+                        )
                         Spacer(modifier = Modifier.width(12.dp)) // Adjusted spacing
 
                         // Song Info

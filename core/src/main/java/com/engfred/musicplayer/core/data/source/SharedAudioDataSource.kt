@@ -15,17 +15,29 @@ import javax.inject.Singleton
 @Singleton
 class SharedAudioDataSource @Inject constructor() {
 
-    private val _allAudioFiles = MutableStateFlow<List<AudioFile>>(emptyList())
-    val allAudioFiles: StateFlow<List<AudioFile>> = _allAudioFiles.asStateFlow()
+    private val _playingQueueAudioFiles = MutableStateFlow<List<AudioFile>>(emptyList())
+    val playingQueueAudioFiles: StateFlow<List<AudioFile>> = _playingQueueAudioFiles.asStateFlow()
+
+    //for adding new songs to playlist
+    private val _deviceAudioFiles = MutableStateFlow<List<AudioFile>>(emptyList())
+    val deviceAudioFiles: StateFlow<List<AudioFile>> = _deviceAudioFiles.asStateFlow()
+
+
+    /**
+     * Updates the globally available list of audio files
+     */
+    fun setDeviceAudioFiles(audioFiles: List<AudioFile>) {
+        _deviceAudioFiles.value = audioFiles
+    }
 
     /**
      * Updates the globally available list of audio files.
      * This method should be called by the component that is responsible for loading the files,
      * e.g., LibraryViewModel after a successful scan.
      */
-    fun setAudioFiles(audioFiles: List<AudioFile>) {
-        if (_allAudioFiles.value != audioFiles) { // Avoid unnecessary updates
-            _allAudioFiles.value = audioFiles
+    fun setPlayingQueue(audioFiles: List<AudioFile>) {
+        if (_playingQueueAudioFiles.value != audioFiles) { // Avoid unnecessary updates
+            _playingQueueAudioFiles.value = audioFiles
             android.util.Log.d("SharedAudioDataSource", "Updated shared audio file list with ${audioFiles.size} items.")
         }
     }
@@ -33,8 +45,8 @@ class SharedAudioDataSource @Inject constructor() {
     /**
      * Clears the current list of audio files.
      */
-    fun clearAudioFiles() {
-        _allAudioFiles.value = emptyList()
+    fun clearPlayingQueue() {
+        _playingQueueAudioFiles.value = emptyList()
         android.util.Log.d("SharedAudioDataSource", "Cleared shared audio file list.")
     }
 }

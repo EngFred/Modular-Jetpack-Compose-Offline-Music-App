@@ -21,6 +21,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 
 /**
@@ -31,14 +34,13 @@ fun CustomTopBar(
     title: String,
     modifier: Modifier = Modifier,
     showNavigationIcon: Boolean = false,
-    onNavigateBack: (() -> Unit)? = null, // Nullable callback for back button
+    onNavigateBack: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {} // Slot API for actions
 ) {
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(56.dp) // Standard TopAppBar height
-            // CHANGE THIS LINE: Use MaterialTheme.colorScheme.background
             .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.CenterStart // Align content to start
     ) {
@@ -57,7 +59,6 @@ fun CustomTopBar(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
-                        // CHANGE THIS LINE: Use onBackground for icons/text on background
                         tint = MaterialTheme.colorScheme.onBackground
                     )
                 }

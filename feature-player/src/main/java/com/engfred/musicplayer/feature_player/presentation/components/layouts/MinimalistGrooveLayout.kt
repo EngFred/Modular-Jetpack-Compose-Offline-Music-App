@@ -1,6 +1,10 @@
 package com.engfred.musicplayer.feature_player.presentation.components.layouts
 
+import android.net.Uri
+import android.os.Build
+import android.view.HapticFeedbackConstants
 import androidx.annotation.OptIn
+import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -8,28 +12,34 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.RepeatOne
-import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.RepeatOne
+import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
@@ -44,20 +54,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
-import coil.compose.AsyncImage
-import com.engfred.musicplayer.core.domain.model.repository.PlaybackState
-import com.engfred.musicplayer.core.domain.model.repository.RepeatMode
-import com.engfred.musicplayer.core.domain.model.repository.ShuffleMode
-import com.engfred.musicplayer.core.util.formatDuration
-import com.engfred.musicplayer.feature_player.domain.model.PlayerLayout
+import com.engfred.musicplayer.core.domain.model.PlayerLayout
+import com.engfred.musicplayer.core.domain.repository.PlaybackState
+import com.engfred.musicplayer.core.domain.repository.RepeatMode
+import com.engfred.musicplayer.core.domain.repository.ShuffleMode
+import com.engfred.musicplayer.feature_player.presentation.components.layouts.components.SeekBarSection
 import com.engfred.musicplayer.feature_player.presentation.components.layouts.components.TopBar
 import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerEvent
 import com.skydoves.landscapist.ImageOptions
@@ -65,16 +73,34 @@ import com.skydoves.landscapist.coil.CoilImage
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
+/**
+ * The Minimalist Groove layout for the music player screen.
+ * This layout features a circular album art that rotates when playing,
+ * a clean progress bar, and centered controls. It's designed to be
+ * responsive across different screen sizes, adapting to single-column
+ * and two-pane layouts based on window width.
+ *
+ * @param uiState The current playback state of the player.
+ * @param onEvent Callback for dispatching [PlayerEvent]s to the ViewModel.
+ * @param onNavigateUp Callback to navigate up in the navigation stack.
+ * @param currentSongIndex The 0-based index of the currently playing song in the queue.
+ * @param totalSongsInQueue The total number of songs in the playback queue.
+ * @param selectedLayout The currently selected player layout.
+ * @param onLayoutSelected Callback to change the selected player layout.
+ * @param windowSizeClass The current window size class from the activity.
+ */
+@RequiresApi(Build.VERSION_CODES.M)
 @OptIn(UnstableApi::class)
 @Composable
 fun MinimalistGrooveLayout(
     uiState: PlaybackState,
     onEvent: (PlayerEvent) -> Unit,
     onNavigateUp: () -> Unit = {},
-    currentSongIndex: Int = 3,
-    totalSongsInQueue: Int = 10,
-    selectedLayout: PlayerLayout, // Added for layout selection
-    onLayoutSelected: (PlayerLayout) -> Unit // Added for layout selection callback
+    currentSongIndex: Int,
+    totalSongsInQueue: Int,
+    selectedLayout: PlayerLayout,
+    onLayoutSelected: (PlayerLayout) -> Unit,
+    windowSizeClass: WindowWidthSizeClass
 ) {
     val view = LocalView.current
 
@@ -85,16 +111,10 @@ fun MinimalistGrooveLayout(
         label = "playbackProgress"
     )
 
-    // --- Album Art Rotation Logic (FIXED AGAIN!) ---
+    // --- Album Art Rotation Logic ---
     val rotationSpeedMillis = 8000L // Milliseconds for one full rotation (e.g., 8 seconds)
-
-    // This state will hold the target angle for the rotation.
-    // When playing, it will increment by 360.
-    // When paused, it will hold the current animated value.
     var targetRotationAngle by remember { mutableFloatStateOf(0f) }
 
-    // This is the actual animated value that Modifier.rotate uses.
-    // Declare it *before* the LaunchedEffect that might reference it.
     val animatedRotation by animateFloatAsState(
         targetValue = targetRotationAngle,
         animationSpec = tween(durationMillis = rotationSpeedMillis.toInt(), easing = LinearEasing),
@@ -103,44 +123,44 @@ fun MinimalistGrooveLayout(
 
     LaunchedEffect(uiState.isPlaying) {
         if (uiState.isPlaying) {
-            // When playing, we want to continuously rotate.
-            // Calculate how much more rotation is needed to reach the next full 360-degree cycle
-            // from the current animated position.
-            val currentVisualAngle = animatedRotation % 360f // Get current angle within 0-360 range
-            val rotationsCompleted = (animatedRotation / 360f).roundToInt() // How many full rotations have been completed
+            val currentAnimatedValue = animatedRotation
+            val rotationsCompleted = (currentAnimatedValue / 360f).roundToInt()
+            targetRotationAngle = (rotationsCompleted * 360f) + 360f
 
-            // If currentVisualAngle is not exactly 0, start the next target from the current spot + a full 360.
-            // This ensures a smooth transition from a paused state.
-            val startAngleForNextCycle = if (currentVisualAngle != 0f) {
-                // If it's not at 0, calculate the next 360-degree mark from the current animated value
-                // We want to ensure it's *at least* 360 degrees ahead of the current visual value to ensure movement
-                (rotationsCompleted * 360f) + 360f
-            } else {
-                // If it's exactly 0 (or just started), set initial target to 360
-                360f
-            }
-
-            // Set the initial target to ensure smooth pickup
-            targetRotationAngle = startAngleForNextCycle
-
-            // Continuously update the target angle to keep the animation running
             while (true) {
-                targetRotationAngle += 360f // Add another full rotation
-                delay(rotationSpeedMillis) // Wait for one rotation duration
+                targetRotationAngle += 360f
+                delay(rotationSpeedMillis)
             }
         } else {
-            // When paused, stop the target from changing and hold the current visual rotation.
-            // `animateFloatAsState` will naturally animate to and hold this value.
             targetRotationAngle = animatedRotation
         }
     }
     // --- End Album Art Rotation Logic ---
 
+    // Responsive Album Art Size - This will be the direct size for compact, or max preferred for expanded.
+    val albumArtSize: Dp = when (windowSizeClass) {
+        WindowWidthSizeClass.Compact -> 200.dp // Direct size for compact
+        WindowWidthSizeClass.Medium -> 260.dp  // Direct size for medium
+        WindowWidthSizeClass.Expanded -> 320.dp // Max preferred for expanded
+        else -> 200.dp
+    }
+
+    // Responsive Spacing
+    val horizontalContentPadding: Dp = when (windowSizeClass) {
+        WindowWidthSizeClass.Compact -> 24.dp
+        WindowWidthSizeClass.Medium -> 32.dp
+        WindowWidthSizeClass.Expanded -> 48.dp
+        else -> 24.dp
+    }
+
+    // Determine if we should use a two-pane layout
+    val useTwoPane = windowSizeClass == WindowWidthSizeClass.Expanded
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(vertical = 32.dp),
+            .padding(horizontal = horizontalContentPadding, vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
@@ -149,8 +169,8 @@ fun MinimalistGrooveLayout(
             onNavigateUp = onNavigateUp,
             currentSongIndex = currentSongIndex + 1,
             totalQueueSize = totalSongsInQueue,
-            onOpenQueue = { /* No-op: Queue not interactive in top bar for this layout */ },
-            windowWidthSizeClass = WindowWidthSizeClass.Compact, // Default to Compact as layout doesn't use window size
+            onOpenQueue = { /* Not applicable for Minimalist Groove layout's TopBar */ },
+            windowWidthSizeClass = windowSizeClass,
             selectedLayout = selectedLayout,
             onLayoutSelected = onLayoutSelected,
             isFavorite = uiState.isFavorite,
@@ -162,205 +182,141 @@ fun MinimalistGrooveLayout(
                         onEvent(PlayerEvent.AddToFavorites(it))
                     }
                 }
-                view.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 24.dp)
+                .wrapContentHeight() // Wrap height to content
+                .padding(top = 16.dp) // Consistent top padding
         )
 
-        // --- Main Content (Wrapped in its own Column for centering) ---
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f, fill = false),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            // Album Art (with rotation modifier)
-            CoilImage(
-                imageModel = { uiState.currentAudioFile?.albumArtUri },
-                imageOptions = ImageOptions(
-                    contentDescription = "Album Art",
-                    contentScale = ContentScale.Crop
-                ),
-                modifier = Modifier
-                    .size(120.dp)
-                    .clip(CircleShape)
-                    .shadow(elevation = 16.dp, shape = CircleShape, ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .rotate(animatedRotation),
-                failure = {
-                    Icon(
-                        imageVector = Icons.Rounded.MusicNote,
-                        contentDescription = "No Album Art",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        modifier = Modifier.fillMaxSize(0.6f)
-                    )
-                },
-                loading = {
-                    Icon(
-                        imageVector = Icons.Rounded.MusicNote,
-                        contentDescription = "No Album Art",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        modifier = Modifier.fillMaxSize(0.6f)
-                    )
-                }
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Song Info (unchanged)
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-            ) {
-                Text(
-                    text = uiState.currentAudioFile?.title ?: "No Song Playing",
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onBackground,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = uiState.currentAudioFile?.artist ?: "Select a song",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Progress Indicator and Timings (unchanged)
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-            ) {
-                LinearProgressIndicator(
-                    progress = progress,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(4.dp)
-                        .clip(CircleShape),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f)
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = formatDuration(uiState.playbackPositionMs),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-                    )
-                    Text(
-                        text = formatDuration(uiState.totalDurationMs),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Playback Controls (unchanged)
+        if (useTwoPane) {
+            // TWO-PANE LAYOUT for EXPANDED width
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
-                horizontalArrangement = Arrangement.SpaceAround,
+                    .weight(1f) // Take available vertical space
+                    .padding(vertical = 24.dp), // Add vertical padding to the row
+                horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Shuffle Button
-                IconButton(onClick = {
-                    val newShuffleMode = if (uiState.shuffleMode == ShuffleMode.ON) ShuffleMode.OFF else ShuffleMode.ON
-                    onEvent(PlayerEvent.SetShuffleMode(newShuffleMode))
-                    view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
-                }) {
-                    Icon(
-                        imageVector = Icons.Default.Shuffle,
-                        contentDescription = "Shuffle",
-                        tint = if (uiState.shuffleMode == ShuffleMode.ON) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-                // Skip Previous
-                IconButton(onClick = {
-                    onEvent(PlayerEvent.SkipToPrevious)
-                    view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
-                }) {
-                    Icon(
-                        imageVector = Icons.Rounded.SkipPrevious,
-                        contentDescription = "Skip Previous",
-                        tint = MaterialTheme.colorScheme.onBackground,
-                        modifier = Modifier.size(40.dp)
-                    )
-                }
-                // Play/Pause Button
-                IconButton(
-                    onClick = {
-                        onEvent(PlayerEvent.PlayPause)
-                        view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
-                    },
+                // Left Pane: Album Art
+                Box(
                     modifier = Modifier
-                        .size(64.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary)
+                        .weight(1f) // Take half the width
+                        .fillMaxHeight(), // Fill available height in the pane
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = if (uiState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = if (uiState.isPlaying) "Pause" else "Play",
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(48.dp)
+                    AlbumArtSection(
+                        albumArtUri = uiState.currentAudioFile?.albumArtUri,
+                        animatedRotation = animatedRotation,
+                        sizeModifier = Modifier
+                            .fillMaxSize(0.8f) // Fill 80% of the available space in its Box
+                            .aspectRatio(1f) // Force it to be square based on the smaller dimension
+                            .sizeIn(maxHeight = albumArtSize, maxWidth = albumArtSize) // Cap its maximum size
                     )
                 }
-                // Skip Next
-                IconButton(onClick = {
-                    onEvent(PlayerEvent.SkipToNext)
-                    view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
-                }) {
-                    Icon(
-                        imageVector = Icons.Rounded.SkipNext,
-                        contentDescription = "Skip Next",
-                        tint = MaterialTheme.colorScheme.onBackground,
-                        modifier = Modifier.size(40.dp)
+
+                Spacer(modifier = Modifier.width(horizontalContentPadding * 1.5f)) // Spacing between panes
+
+                // Right Pane: Song Info, Seek Bar, Controls
+                Column(
+                    modifier = Modifier
+                        .weight(1f) // Take other half the width
+                        .fillMaxHeight() // Fill available height
+                        .padding(horizontal = horizontalContentPadding / 2), // Adjust horizontal padding within the pane
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center // Center content vertically within this pane
+                ) {
+                    SongInfoSection(
+                        title = uiState.currentAudioFile?.title,
+                        artist = uiState.currentAudioFile?.artist
                     )
-                }
-                // Repeat Button
-                IconButton(onClick = {
-                    val newRepeatMode = when (uiState.repeatMode) {
-                        RepeatMode.OFF -> RepeatMode.ALL
-                        RepeatMode.ALL -> RepeatMode.ONE
-                        RepeatMode.ONE -> RepeatMode.OFF
-                    }
-                    onEvent(PlayerEvent.SetRepeatMode(newRepeatMode))
-                    view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
-                }) {
-                    Icon(
-                        imageVector = when (uiState.repeatMode) {
-                            RepeatMode.OFF -> Icons.Default.Repeat
-                            RepeatMode.ONE -> Icons.Default.RepeatOne
-                            RepeatMode.ALL -> Icons.Default.Repeat
+                    Spacer(modifier = Modifier.height(32.dp))
+                    SeekBarSection(
+                        sliderValue = uiState.playbackPositionMs.toFloat(),
+                        totalDurationMs = uiState.totalDurationMs,
+                        playbackPositionMs = uiState.playbackPositionMs,
+                        isSeeking = uiState.isSeeking,
+                        onSliderValueChange = { newValue ->
+                            onEvent(PlayerEvent.SetSeeking(true))
+                            onEvent(PlayerEvent.SeekTo(newValue.toLong()))
                         },
-                        contentDescription = "Repeat Mode",
-                        tint = if (uiState.repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
-                        modifier = Modifier.size(28.dp)
+                        onSliderValueChangeFinished = {
+                            onEvent(PlayerEvent.SetSeeking(false))
+                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                        },
+                        playerLayout = PlayerLayout.MINIMALIST_GROOVE,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(32.dp))
+                    PlaybackControls(
+                        uiState = uiState,
+                        onEvent = onEvent,
+                        view = view
                     )
                 }
             }
-        }
-        // --- End of Main Content Column ---
+        } else {
+            // SINGLE-COLUMN LAYOUT for COMPACT and MEDIUM width
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f) // Allow this column to take available space
+                    .wrapContentHeight() // Wrap content height to ensure proper vertical distribution
+                    .padding(vertical = 24.dp), // Add vertical padding to the column
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceAround // Distribute content vertically
+            ) {
+                // Album Art
+                AlbumArtSection(
+                    albumArtUri = uiState.currentAudioFile?.albumArtUri,
+                    animatedRotation = animatedRotation,
+                    sizeModifier = Modifier.size(albumArtSize) // Directly set size for compact
+                )
 
-        // Song Queue Indicator at the very bottom (unchanged)
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Song Info
+                SongInfoSection(
+                    title = uiState.currentAudioFile?.title,
+                    artist = uiState.currentAudioFile?.artist,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Seek Bar Section
+                SeekBarSection(
+                    sliderValue = uiState.playbackPositionMs.toFloat(),
+                    totalDurationMs = uiState.totalDurationMs,
+                    playbackPositionMs = uiState.playbackPositionMs,
+                    isSeeking = uiState.isSeeking,
+                    onSliderValueChange = { newValue ->
+                        onEvent(PlayerEvent.SetSeeking(true))
+                        onEvent(PlayerEvent.SeekTo(newValue.toLong()))
+                    },
+                    onSliderValueChangeFinished = {
+                        onEvent(PlayerEvent.SetSeeking(false))
+                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                    },
+                    playerLayout = PlayerLayout.MINIMALIST_GROOVE,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Playback Controls
+                PlaybackControls(
+                    uiState = uiState,
+                    onEvent = onEvent,
+                    view = view,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+
+        // Song Queue Indicator at the very bottom
         Text(
             text = "${currentSongIndex + 1}/${totalSongsInQueue}",
             style = MaterialTheme.typography.labelMedium,
@@ -369,5 +325,179 @@ fun MinimalistGrooveLayout(
                 .padding(bottom = 16.dp)
                 .align(Alignment.CenterHorizontally)
         )
+    }
+}
+
+/**
+ * Composable for displaying the rotating album art.
+ * Now takes a `sizeModifier` to apply different sizing logic based on context.
+ */
+@OptIn(UnstableApi::class)
+@Composable
+private fun AlbumArtSection(
+    albumArtUri: Uri?,
+    animatedRotation: Float,
+    sizeModifier: Modifier // This modifier now dictates the sizing behavior
+) {
+    Box(
+        modifier = sizeModifier // Use the passed-in sizeModifier
+            .clip(CircleShape)
+            .shadow(
+                elevation = 16.dp,
+                shape = CircleShape,
+                ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+            )
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .rotate(animatedRotation),
+        contentAlignment = Alignment.Center
+    ) {
+        CoilImage(
+            imageModel = { albumArtUri },
+            imageOptions = ImageOptions(
+                contentDescription = "Album Art",
+                contentScale = ContentScale.Crop
+            ),
+            modifier = Modifier.fillMaxSize(), // Image fills its perfectly square parent
+            failure = {
+                Icon(
+                    imageVector = Icons.Rounded.MusicNote,
+                    contentDescription = "No Album Art Available",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier.fillMaxSize(0.6f)
+                )
+            },
+            loading = {
+                CircularProgressIndicator(
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                    modifier = Modifier.fillMaxSize(0.4f)
+                )
+            }
+        )
+    }
+}
+
+/**
+ * Composable for displaying song title and artist.
+ */
+@Composable
+private fun SongInfoSection(
+    title: String?,
+    artist: String?,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+    ) {
+        Text(
+            text = title ?: "No Song Playing",
+            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onBackground,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = artist ?: "Select a song",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+/**
+ * Composable for playback control buttons.
+ */
+@RequiresApi(Build.VERSION_CODES.M)
+@Composable
+private fun PlaybackControls(
+    uiState: PlaybackState,
+    onEvent: (PlayerEvent) -> Unit,
+    view: android.view.View, // Pass the LocalView here for haptic feedback
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.SpaceAround,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Shuffle Button
+        IconButton(onClick = {
+            val newShuffleMode = if (uiState.shuffleMode == ShuffleMode.ON) ShuffleMode.OFF else ShuffleMode.ON
+            onEvent(PlayerEvent.SetShuffleMode(newShuffleMode))
+            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+        }) {
+            Icon(
+                imageVector = Icons.Rounded.Shuffle,
+                contentDescription = "Toggle Shuffle Mode",
+                tint = if (uiState.shuffleMode == ShuffleMode.ON) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                modifier = Modifier.size(32.dp)
+            )
+        }
+        // Skip Previous
+        IconButton(onClick = {
+            onEvent(PlayerEvent.SkipToPrevious)
+            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+        }) {
+            Icon(
+                imageVector = Icons.Rounded.SkipPrevious,
+                contentDescription = "Skip Previous Song",
+                tint = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.size(48.dp)
+            )
+        }
+        // Play/Pause Button
+        IconButton(
+            onClick = {
+                onEvent(PlayerEvent.PlayPause)
+                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+            },
+            modifier = Modifier
+                .size(72.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary)
+        ) {
+            Icon(
+                imageVector = if (uiState.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                contentDescription = if (uiState.isPlaying) "Pause Playback" else "Resume Playback",
+                tint = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(56.dp)
+            )
+        }
+        // Skip Next
+        IconButton(onClick = {
+            onEvent(PlayerEvent.SkipToNext)
+            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+        }) {
+            Icon(
+                imageVector = Icons.Rounded.SkipNext,
+                contentDescription = "Skip Next Song",
+                tint = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.size(48.dp)
+            )
+        }
+        // Repeat Button
+        IconButton(onClick = {
+            val newRepeatMode = when (uiState.repeatMode) {
+                RepeatMode.OFF -> RepeatMode.ALL
+                RepeatMode.ALL -> RepeatMode.ONE
+                RepeatMode.ONE -> RepeatMode.OFF
+            }
+            onEvent(PlayerEvent.SetRepeatMode(newRepeatMode))
+            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+        }) {
+            Icon(
+                imageVector = when (uiState.repeatMode) {
+                    RepeatMode.OFF -> Icons.Rounded.Repeat
+                    RepeatMode.ONE -> Icons.Rounded.RepeatOne
+                    RepeatMode.ALL -> Icons.Rounded.Repeat
+                },
+                contentDescription = "Toggle Repeat Mode",
+                tint = if (uiState.repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                modifier = Modifier.size(32.dp)
+            )
+        }
     }
 }

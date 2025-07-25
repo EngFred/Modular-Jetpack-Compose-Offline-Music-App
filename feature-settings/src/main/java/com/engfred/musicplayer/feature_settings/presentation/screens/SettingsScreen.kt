@@ -20,9 +20,8 @@ import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState // Import
-import androidx.compose.runtime.getValue // Import
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -41,7 +40,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
 ) {
-    val uiState by viewModel.uiState.collectAsState() // Collect uiState as a state
+    val uiState by viewModel.uiState.collectAsState()
 
     // Scaffold is still used here for its padding values primarily
     Scaffold(

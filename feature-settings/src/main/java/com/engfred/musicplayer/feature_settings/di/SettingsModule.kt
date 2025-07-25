@@ -2,7 +2,6 @@ package com.engfred.musicplayer.feature_settings.di
 
 import android.content.Context
 import com.engfred.musicplayer.feature_settings.data.repository.SettingsRepositoryImpl
-import com.engfred.musicplayer.feature_settings.domain.repository.SettingsRepository
 import com.engfred.musicplayer.feature_settings.domain.usecases.GetAppSettingsUseCase
 import com.engfred.musicplayer.feature_settings.domain.usecases.UpdateThemeUseCase
 import dagger.Module
@@ -14,6 +13,7 @@ import javax.inject.Singleton
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
+import com.engfred.musicplayer.core.domain.repository.SettingsRepository
 
 // Define the DataStore instance as an extension property for internal use by Hilt
 // This is now used only within the provideSettingsDataStore function
@@ -32,10 +32,10 @@ object SettingsModule {
     @Provides
     @Singleton
     fun provideSettingsRepository(
-        @ApplicationContext context: Context, // Still need context for DataStore creation via extension
-        dataStore: DataStore<Preferences> // Inject the DataStore instance
+        @ApplicationContext context: Context,
+        dataStore: DataStore<Preferences>
     ): SettingsRepository {
-        return SettingsRepositoryImpl(dataStore) // Pass DataStore to the repository
+        return SettingsRepositoryImpl(dataStore)
     }
 
     @Provides

@@ -2,7 +2,7 @@ package com.engfred.musicplayer.feature_favorites.di
 
 import android.content.Context
 import androidx.room.Room
-import com.engfred.musicplayer.core.domain.model.repository.FavoritesRepository
+import com.engfred.musicplayer.core.domain.repository.FavoritesRepository
 import com.engfred.musicplayer.feature_favorites.data.local.dao.FavoriteAudioFileDao
 import com.engfred.musicplayer.feature_favorites.data.local.db.FavoritesDatabase
 import com.engfred.musicplayer.feature_favorites.data.repository.FavoritesRepositoryImpl

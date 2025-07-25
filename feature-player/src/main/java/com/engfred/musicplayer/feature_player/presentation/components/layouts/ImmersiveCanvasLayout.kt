@@ -1,6 +1,8 @@
 package com.engfred.musicplayer.feature_player.presentation.components.layouts
 
+import android.os.Build
 import android.view.HapticFeedbackConstants
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -15,22 +17,19 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.compose.material.icons.filled.ArrowBackIosNew
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -43,61 +42,80 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.engfred.musicplayer.core.domain.model.AudioFile
-import com.engfred.musicplayer.core.domain.model.repository.PlaybackState
-import com.engfred.musicplayer.feature_player.domain.model.PlayerLayout
+import com.engfred.musicplayer.core.domain.repository.PlaybackState
+import com.engfred.musicplayer.core.util.shareAudioFile
+import com.engfred.musicplayer.core.domain.model.PlayerLayout
 import com.engfred.musicplayer.feature_player.presentation.components.layouts.components.AlbumArtDisplay
 import com.engfred.musicplayer.feature_player.presentation.components.layouts.components.ControlBar
 import com.engfred.musicplayer.feature_player.presentation.components.layouts.components.FavoriteButton
 import com.engfred.musicplayer.feature_player.presentation.components.layouts.components.PlayingQueueSection
 import com.engfred.musicplayer.feature_player.presentation.components.layouts.components.QueueBottomSheet
 import com.engfred.musicplayer.feature_player.presentation.components.layouts.components.SeekBarSection
+import com.engfred.musicplayer.feature_player.presentation.components.layouts.components.TopBar
 import com.engfred.musicplayer.feature_player.presentation.components.layouts.components.TrackInfo
 import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerEvent
-import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import kotlinx.coroutines.launch
-import com.engfred.musicplayer.feature_player.presentation.components.layouts.components.TopBar
+import android.widget.Toast // Import Toast
+import com.engfred.musicplayer.feature_player.utils.loadBitmapFromUri
+import com.engfred.musicplayer.feature_player.utils.saveBitmapToPictures
 
+/**
+ * The Immersive Canvas layout for the music player screen.
+ * This layout focuses on a split-screen design in compact mode,
+ * featuring the album art prominently on top and controls below.
+ * In wider screen sizes, it transitions to a horizontal arrangement.
+ * It provides responsive design, haptic feedback, and gesture controls for navigation.
+ *
+ * @param uiState The current playback state of the player.
+ * @param onEvent Callback for dispatching [PlayerEvent]s to the ViewModel.
+ * @param onNavigateUp Callback to navigate up in the navigation stack.
+ * @param playingQueue The list of songs in the current playback queue.
+ * @param currentSongIndex The index of the currently playing song in the queue.
+ * @param onPlayQueueItem Callback to play a specific item from the queue.
+ * @param onRemoveQueueItem Callback to remove an item from the queue.
+ * @param windowSizeClass The current window size class (Compact, Medium, Expanded).
+ * @param selectedLayout The currently selected player layout.
+ * @param onLayoutSelected Callback to change the selected player layout.
+ * @param playingAudio The currently playing [AudioFile].
+ */
+@RequiresApi(Build.VERSION_CODES.M)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImmersiveCanvasLayout(
     uiState: PlaybackState,
     onEvent: (PlayerEvent) -> Unit,
-    onNavigateUp: () -> Unit = {},
-    playingQueue: List<AudioFile> = emptyList(),
-    currentSongIndex: Int = 3,
-    onPlayQueueItem: (AudioFile) -> Unit = {},
+    onNavigateUp: () -> Unit,
+    playingQueue: List<AudioFile>,
+    currentSongIndex: Int,
+    onPlayQueueItem: (AudioFile) -> Unit,
     onRemoveQueueItem: (AudioFile) -> Unit = {},
     windowSizeClass: WindowWidthSizeClass,
-    selectedLayout: PlayerLayout, // Added for layout selection
-    onLayoutSelected: (PlayerLayout) -> Unit // Added for layout selection callback
+    selectedLayout: PlayerLayout,
+    onLayoutSelected: (PlayerLayout) -> Unit,
+    playingAudio: AudioFile?
 ) {
+    // Synchronize slider with actual playback position, but only if not actively seeking
     var sliderValue by remember { mutableFloatStateOf(uiState.playbackPositionMs.toFloat()) }
+    LaunchedEffect(uiState.playbackPositionMs, uiState.isSeeking) {
+        if (!uiState.isSeeking) {
+            sliderValue = uiState.playbackPositionMs.toFloat()
+        }
+    }
+
     val view = LocalView.current
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
     val backgroundColor = MaterialTheme.colorScheme.background
     val contentColor = MaterialTheme.colorScheme.onBackground
-
-//    val systemUiController = rememberSystemUiController()
-//    LaunchedEffect(Unit) {
-//        systemUiController.setStatusBarColor(
-//            color = Color.Transparent,
-//            darkIcons = false
-//        )
-//        systemUiController.setNavigationBarColor(
-//            color = backgroundColor,
-//            darkIcons = contentColor.luminance() > 0.5f
-//        )
-//    }
 
     var showQueueBottomSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -107,9 +125,9 @@ fun ImmersiveCanvasLayout(
             onDismissRequest = { showQueueBottomSheet = false },
             sheetState = sheetState,
             playingQueue = playingQueue,
-            currentSongIndex = currentSongIndex,
             onPlayQueueItem = onPlayQueueItem,
-            onRemoveQueueItem = onRemoveQueueItem
+            onRemoveQueueItem = onRemoveQueueItem,
+            playingAudio = playingAudio
         )
     }
 
@@ -118,6 +136,27 @@ fun ImmersiveCanvasLayout(
             modifier = Modifier
                 .fillMaxSize()
                 .background(backgroundColor)
+                // Add semantics for accessibility actions to the entire Box
+                .semantics {
+                    customActions = listOf(
+                        CustomAccessibilityAction(
+                            label = "Skip to previous song",
+                            action = {
+                                onEvent(PlayerEvent.SkipToPrevious)
+                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                true
+                            }
+                        ),
+                        CustomAccessibilityAction(
+                            label = "Skip to next song",
+                            action = {
+                                onEvent(PlayerEvent.SkipToNext)
+                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                true
+                            }
+                        )
+                    )
+                }
                 .pointerInput(Unit) {
                     var dragAmountCumulative = 0f
                     detectHorizontalDragGestures(
@@ -175,7 +214,7 @@ fun ImmersiveCanvasLayout(
                         )
                         TopBar(
                             onNavigateUp = onNavigateUp,
-                            currentSongIndex = currentSongIndex + 1,
+                            currentSongIndex = currentSongIndex,
                             totalQueueSize = playingQueue.size,
                             onOpenQueue = {
                                 coroutineScope.launch { sheetState.show() }
@@ -206,7 +245,7 @@ fun ImmersiveCanvasLayout(
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
+                            verticalAlignment = Alignment.Top,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             TrackInfo(
@@ -231,27 +270,56 @@ fun ImmersiveCanvasLayout(
                         }
                         Spacer(modifier = Modifier.height(spacingInfoToButtons))
 
-                        // Row: Download, Share, and now Queue Buttons
+                        // Row: Download, Share, and Queue Buttons
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceAround, // Changed to SpaceAround for 3 buttons
+                            horizontalArrangement = Arrangement.SpaceAround,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            IconButton(onClick = { /* Will implement later */ }) {
+                            IconButton(onClick = {
+                                uiState.currentAudioFile?.albumArtUri?.let { uri ->
+                                    coroutineScope.launch {
+                                        val bitmap = loadBitmapFromUri(context, uri)
+                                        if (bitmap != null) {
+                                            val audioFileName = uiState.currentAudioFile?.title?.replace(" ", "_") ?: "album_art"
+                                            val success = saveBitmapToPictures(
+                                                context = context,
+                                                bitmap = bitmap,
+                                                filename = "${audioFileName}_album_art.jpg",
+                                                mimeType = "image/jpeg"
+                                            )
+                                            if (success) {
+                                                Toast.makeText(context, "Album art saved!", Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                Toast.makeText(context, "Failed to save album art.", Toast.LENGTH_SHORT).show()
+                                            }
+                                        } else {
+                                            Toast.makeText(context, "No album art found to save.", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                } ?: run {
+                                    Toast.makeText(context, "No album art available for this song.", Toast.LENGTH_SHORT).show()
+                                }
+                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY) // Haptic feedback on click
+                            }) {
                                 Icon(
-                                    Icons.Default.Download,
-                                    contentDescription = "Download",
+                                    Icons.Rounded.Download,
+                                    contentDescription = "Download Album Art",
                                     tint = LocalContentColor.current
                                 )
                             }
-                            IconButton(onClick = { /* Will implement later */ }) {
+                            IconButton(onClick = {
+                                // Ensure currentSongIndex is valid before sharing
+                                if (currentSongIndex >= 0 && currentSongIndex < playingQueue.size) {
+                                    shareAudioFile(context, playingQueue[currentSongIndex])
+                                }
+                            }) {
                                 Icon(
-                                    Icons.Default.Share,
+                                    Icons.Rounded.Share,
                                     contentDescription = "Share",
                                     tint = LocalContentColor.current
                                 )
                             }
-                            // Moved Queue button here
                             IconButton(onClick = {
                                 coroutineScope.launch { sheetState.show() }
                                 showQueueBottomSheet = true
@@ -270,7 +338,10 @@ fun ImmersiveCanvasLayout(
                             totalDurationMs = uiState.totalDurationMs,
                             playbackPositionMs = uiState.playbackPositionMs,
                             isSeeking = uiState.isSeeking,
-                            onSliderValueChange = { newValue -> sliderValue = newValue },
+                            onSliderValueChange = { newValue ->
+                                sliderValue = newValue
+                                if (!uiState.isSeeking) onEvent(PlayerEvent.SetSeeking(true))
+                            },
                             onSliderValueChangeFinished = {
                                 onEvent(PlayerEvent.SeekTo(sliderValue.toLong()))
                                 onEvent(PlayerEvent.SetSeeking(false))
@@ -298,10 +369,9 @@ fun ImmersiveCanvasLayout(
                             },
                             onSetShuffleMode = { newMode -> onEvent(PlayerEvent.SetShuffleMode(newMode)) },
                             onSetRepeatMode = { newMode -> onEvent(PlayerEvent.SetRepeatMode(newMode)) },
-                            playerLayout = PlayerLayout.IMMERSIVE_CANVAS,
-                            onOpenQueue = null
+                            playerLayout = PlayerLayout.IMMERSIVE_CANVAS
                         )
-                        Spacer(modifier = Modifier.height(contentVerticalPadding)) // Bottom padding for this section
+                        Spacer(modifier = Modifier.height(contentVerticalPadding))
                     }
                 }
             } else { // Medium or Expanded Window Width Class (Tablet/Desktop Layout)
@@ -312,7 +382,7 @@ fun ImmersiveCanvasLayout(
                 ) {
                     Column(
                         modifier = Modifier
-                            .weight(1.5f)
+                            .weight(1.5f) // Album art takes more space than in desktop mode
                             .fillMaxHeight(),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
@@ -324,8 +394,8 @@ fun ImmersiveCanvasLayout(
                             playerLayout = PlayerLayout.IMMERSIVE_CANVAS,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .aspectRatio(1f)
-                                .statusBarsPadding()
+                                .aspectRatio(1f) // Maintain square aspect ratio
+                                .padding(horizontal = 24.dp) // Add padding to album art on larger screens
                         )
                     }
 
@@ -342,12 +412,9 @@ fun ImmersiveCanvasLayout(
                     ) {
                         TopBar(
                             onNavigateUp = onNavigateUp,
-                            currentSongIndex = currentSongIndex + 1,
+                            currentSongIndex = currentSongIndex,
                             totalQueueSize = playingQueue.size,
-                            onOpenQueue = {
-                                coroutineScope.launch { sheetState.show() }
-                                showQueueBottomSheet = true
-                            },
+                            onOpenQueue = { /* No-op for Expanded, queue is visible */ },
                             windowWidthSizeClass = windowSizeClass,
                             selectedLayout = selectedLayout,
                             onLayoutSelected = onLayoutSelected
@@ -381,21 +448,51 @@ fun ImmersiveCanvasLayout(
                         }
                         Spacer(modifier = Modifier.height(spacingButtonsToSeekBar))
 
+                        // Download and Share buttons for wider screens (Queue button not here as queue is visible)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            IconButton(onClick = { /* Will implement later */ }) {
+                            IconButton(onClick = {
+                                uiState.currentAudioFile?.albumArtUri?.let { uri ->
+                                    coroutineScope.launch {
+                                        val bitmap = loadBitmapFromUri(context, uri)
+                                        if (bitmap != null) {
+                                            val audioFileName = uiState.currentAudioFile?.title?.replace(" ", "_") ?: "album_art"
+                                            val success = saveBitmapToPictures(
+                                                context = context,
+                                                bitmap = bitmap,
+                                                filename = "${audioFileName}_album_art.jpg",
+                                                mimeType = "image/jpeg"
+                                            )
+                                            if (success) {
+                                                Toast.makeText(context, "Album art saved!", Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                Toast.makeText(context, "Failed to save album art.", Toast.LENGTH_SHORT).show()
+                                            }
+                                        } else {
+                                            Toast.makeText(context, "No album art found to save.", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                } ?: run {
+                                    Toast.makeText(context, "No album art available for this song.", Toast.LENGTH_SHORT).show()
+                                }
+                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY) // Haptic feedback on click
+                            }) {
                                 Icon(
-                                    Icons.Default.Download,
-                                    contentDescription = "Download",
+                                    Icons.Rounded.Download,
+                                    contentDescription = "Download Album Art",
                                     tint = LocalContentColor.current
                                 )
                             }
-                            IconButton(onClick = { /* Will implement later */ }) {
+                            IconButton(onClick = {
+                                if (currentSongIndex >= 0 && currentSongIndex < playingQueue.size) {
+                                    shareAudioFile(context, playingQueue[currentSongIndex])
+                                }
+                            }) {
                                 Icon(
-                                    Icons.Default.Share,
+                                    Icons.Rounded.Share,
                                     contentDescription = "Share",
                                     tint = LocalContentColor.current
                                 )
@@ -408,7 +505,10 @@ fun ImmersiveCanvasLayout(
                             totalDurationMs = uiState.totalDurationMs,
                             playbackPositionMs = uiState.playbackPositionMs,
                             isSeeking = uiState.isSeeking,
-                            onSliderValueChange = { newValue -> sliderValue = newValue },
+                            onSliderValueChange = { newValue ->
+                                sliderValue = newValue
+                                if (!uiState.isSeeking) onEvent(PlayerEvent.SetSeeking(true))
+                            },
                             onSliderValueChangeFinished = {
                                 onEvent(PlayerEvent.SeekTo(sliderValue.toLong()))
                                 onEvent(PlayerEvent.SetSeeking(false))
@@ -436,8 +536,7 @@ fun ImmersiveCanvasLayout(
                             },
                             onSetShuffleMode = { newMode -> onEvent(PlayerEvent.SetShuffleMode(newMode)) },
                             onSetRepeatMode = { newMode -> onEvent(PlayerEvent.SetRepeatMode(newMode)) },
-                            playerLayout = PlayerLayout.IMMERSIVE_CANVAS,
-                            onOpenQueue = null
+                            playerLayout = PlayerLayout.IMMERSIVE_CANVAS
                         )
                     }
 
@@ -447,7 +546,8 @@ fun ImmersiveCanvasLayout(
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight()
-                                .statusBarsPadding(),
+                                .statusBarsPadding()
+                                .padding(vertical = contentVerticalPadding), // Add vertical padding to match other sections
                             horizontalAlignment = Alignment.Start,
                             verticalArrangement = Arrangement.Top
                         ) {

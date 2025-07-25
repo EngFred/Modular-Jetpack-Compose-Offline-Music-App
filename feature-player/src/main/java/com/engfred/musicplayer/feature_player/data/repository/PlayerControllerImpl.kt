@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.feature_player.data.repository
 
+import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.media3.common.C
@@ -10,11 +11,14 @@ import androidx.media3.session.MediaController
 import com.engfred.musicplayer.core.data.session.MediaControllerProvider
 import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
 import com.engfred.musicplayer.core.domain.model.AudioFile
-import com.engfred.musicplayer.core.domain.model.repository.PlaybackState
-import com.engfred.musicplayer.core.domain.model.repository.PlayerController
-import com.engfred.musicplayer.core.domain.model.repository.RepeatMode
-import com.engfred.musicplayer.core.domain.model.repository.ShuffleMode
+import com.engfred.musicplayer.core.domain.repository.PlaybackState
+import com.engfred.musicplayer.core.domain.repository.PlayerController
+import com.engfred.musicplayer.core.domain.repository.RepeatMode
+import com.engfred.musicplayer.core.domain.repository.ShuffleMode
 import com.engfred.musicplayer.core.mapper.AudioFileMapper
+import com.engfred.musicplayer.core.util.isAudioFileAccessible // Import the new utility function
+import com.engfred.musicplayer.core.domain.usecases.PermissionHandlerUseCase // Import your permission use case
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -37,7 +41,9 @@ private const val TAG = "PlayerControllerImpl"
 class PlayerControllerImpl @Inject constructor(
     private val sharedAudioDataSource: SharedAudioDataSource,
     private val audioFileMapper: AudioFileMapper,
-    mediaControllerProvider: MediaControllerProvider
+    mediaControllerProvider: MediaControllerProvider,
+    private val permissionHandlerUseCase: PermissionHandlerUseCase,
+    @ApplicationContext private val context: Context
 ) : PlayerController {
 
     private val mediaControllerFlow = mediaControllerProvider.mediaController
@@ -98,21 +104,47 @@ class PlayerControllerImpl @Inject constructor(
                 return@withContext
             }
 
-            val allAudioFiles = sharedAudioDataSource.allAudioFiles.value
-            if (allAudioFiles.isEmpty()) {
+            val playingQueue = sharedAudioDataSource.playingQueueAudioFiles.value
+            if (playingQueue.isEmpty()) {
                 Log.w(TAG, "Shared audio files are empty. Cannot initiate playback.")
                 _playbackState.update { it.copy(error = "No audio files available to play.") }
                 return@withContext
             }
 
-            val startIndex = allAudioFiles.indexOfFirst { it.uri == initialAudioFileUri }.coerceAtLeast(0)
+            val startIndex = playingQueue.indexOfFirst { it.uri == initialAudioFileUri }.coerceAtLeast(0)
+            val audioFileToPlay = playingQueue.getOrNull(startIndex)
+
+            if (audioFileToPlay == null) {
+                Log.w(TAG, "Initial audio file not found in current playing queue for URI: $initialAudioFileUri")
+                _playbackState.update { it.copy(error = "Selected song not found in library.") }
+                return@withContext
+            }
+
+            // --- IMPORTANT: Pre-playback accessibility check ---
+            val isAccessible = isAudioFileAccessible(context = context,
+                audioFileUri = audioFileToPlay.uri,
+                permissionHandlerUseCase = permissionHandlerUseCase)
+            if (!isAccessible) {
+                Log.e(TAG, "Audio file is not accessible: ${audioFileToPlay.uri}. Aborting playback.")
+                // Set an error state that the UI can react to, informing the user.
+                _playbackState.update {
+                    it.copy(
+                        currentAudioFile = null, // Clear current song as it's not playable
+                        isPlaying = false,
+                        error = "Cannot play '${audioFileToPlay.title}'. File not found or storage permission denied."
+                    )
+                }
+                return@withContext
+            }
+            // --- End of accessibility check ---
+
 
             // OPTIONAL: Check if the player's current queue is already the same as allAudioFiles
             // This prevents re-setting the media items unnecessarily if the user clicks a song
             // that is already part of the currently loaded "library" queue.
-            val currentMediaItemsMatchSharedSource = controller.mediaItemCount == allAudioFiles.size &&
-                    (0 until allAudioFiles.size).all { i ->
-                        controller.getMediaItemAt(i).mediaId == audioFileMapper.mapAudioFileToMediaItem(allAudioFiles[i]).mediaId
+            val currentMediaItemsMatchSharedSource = controller.mediaItemCount == playingQueue.size &&
+                    playingQueue.indices.all { i ->
+                        controller.getMediaItemAt(i).mediaId == audioFileMapper.mapAudioFileToMediaItem(playingQueue[i]).mediaId
                     }
 
             if (currentMediaItemsMatchSharedSource && controller.currentMediaItemIndex == startIndex) {
@@ -133,7 +165,7 @@ class PlayerControllerImpl @Inject constructor(
             }
 
             try {
-                val mediaItems = allAudioFiles.map { audioFileMapper.mapAudioFileToMediaItem(it) }
+                val mediaItems = playingQueue.map { audioFileMapper.mapAudioFileToMediaItem(it) }
                 controller.setMediaItems(mediaItems, startIndex, C.TIME_UNSET)
                 controller.prepare()
                 controller.play()
@@ -203,6 +235,15 @@ class PlayerControllerImpl @Inject constructor(
                 return@withContext
             }
 
+            // IMPORTANT: Pre-add to queue accessibility check
+            val isAccessible = isAudioFileAccessible(context, audioFile.uri, permissionHandlerUseCase)
+            if (!isAccessible) {
+                Log.e(TAG, "Audio file is not accessible for 'Play Next': ${audioFile.uri}. Aborting add.")
+                _playbackState.update { it.copy(error = "Cannot add '${audioFile.title}'. File not found or storage permission denied.") }
+                return@withContext
+            }
+
+
             val mediaItemToAdd = audioFileMapper.mapAudioFileToMediaItem(audioFile)
             val newItemMediaId = mediaItemToAdd.mediaId
 
@@ -212,7 +253,6 @@ class PlayerControllerImpl @Inject constructor(
             // The intent is to always insert this song immediately after the current one,
             // even if it exists elsewhere in a potentially long queue (like the full library).
             // This allows the user to explicitly force a song to play next.
-
             val currentMediaItemIndex = controller.currentMediaItemIndex
             val insertIndex = if (currentMediaItemIndex == C.INDEX_UNSET || controller.mediaItemCount == 0) {
                 0 // If nothing playing or empty queue, add to start
@@ -265,21 +305,35 @@ class PlayerControllerImpl @Inject constructor(
         }
 
         override fun onPlayerError(error: PlaybackException) {
-            _playbackState.update { it.copy(error = error.message ?: "Player error") }
+            val currentAudioFile = _playbackState.value.currentAudioFile
+            val errorMessage = if (error.errorCode == PlaybackException.ERROR_CODE_IO_UNSPECIFIED ||
+                error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
+                error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW ||
+                error.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS) {
+                // These errors often indicate file issues or network, which might mean file deleted/moved
+                "Playback error for '${currentAudioFile?.title}'. File might be missing or inaccessible."
+            } else {
+                error.message ?: "Player error"
+            }
+            _playbackState.update { it.copy(error = errorMessage) }
             Log.e(TAG, "Playback error from ExoPlayer: ${error.message}", error)
         }
+    }
+
+    override fun clearPlaybackError() {
+        _playbackState.update { it.copy(error = null) }
     }
 
     private fun updatePlaybackState() {
         mediaControllerFlow.value?.let { controller ->
             val currentMediaItem = controller.currentMediaItem
-            val allSharedAudioFiles = sharedAudioDataSource.allAudioFiles.value
+            val playingQueue = sharedAudioDataSource.playingQueueAudioFiles.value
 
             val currentAudioFile = currentMediaItem?.let { mediaItem ->
                 val mediaUri = mediaItem.localConfiguration?.uri
                 val mediaId = mediaItem.mediaId
 
-                allSharedAudioFiles.find { it.id.toString() == mediaId || it.uri == mediaUri }
+                playingQueue.find { it.id.toString() == mediaId || it.uri == mediaUri }
                     ?: audioFileMapper.mapMediaItemToAudioFile(mediaItem)
             }
 
@@ -298,7 +352,9 @@ class PlayerControllerImpl @Inject constructor(
                     },
                     shuffleMode = if (controller.shuffleModeEnabled) ShuffleMode.ON else ShuffleMode.OFF,
                     playbackSpeed = controller.playbackParameters.speed,
-                    isLoading = controller.playbackState == Player.STATE_BUFFERING
+                    isLoading = controller.playbackState == Player.STATE_BUFFERING,
+                    playingQueue = playingQueue,
+                    playingSongIndex = controller.currentMediaItemIndex
                 )
             }
         }

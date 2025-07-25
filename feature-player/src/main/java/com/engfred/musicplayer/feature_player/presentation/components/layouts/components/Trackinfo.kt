@@ -14,20 +14,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.engfred.musicplayer.feature_player.domain.model.PlayerLayout // Import PlayerLayout
+import com.engfred.musicplayer.core.domain.model.PlayerLayout
 
 @Composable
 fun TrackInfo(
     title: String?,
     artist: String?,
-    playerLayout: PlayerLayout, // Changed from isImmersiveCanvas: Boolean
-    modifier: Modifier = Modifier // Allow external modifier
+    playerLayout: PlayerLayout,
+    modifier: Modifier = Modifier
 ) {
     Column(
         horizontalAlignment = if (playerLayout == PlayerLayout.IMMERSIVE_CANVAS) Alignment.Start else Alignment.CenterHorizontally, // Conditional alignment
-        modifier = modifier // Apply the external modifier here
-            .fillMaxWidth() // Fill width of its parent row/column
-            .padding(top = 0.dp) // Reset default padding, let parent handle
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = 0.dp)
     ) {
         Text(
             text = title ?: "Unknown Title",

@@ -1,6 +1,8 @@
 package com.engfred.musicplayer.feature_player.presentation.components.layouts
 
+import android.os.Build
 import android.view.HapticFeedbackConstants
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -34,13 +36,15 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.engfred.musicplayer.core.domain.model.AudioFile
-import com.engfred.musicplayer.core.domain.model.repository.PlaybackState
-import com.engfred.musicplayer.feature_player.domain.model.PlayerLayout
+import com.engfred.musicplayer.core.domain.repository.PlaybackState
+import com.engfred.musicplayer.core.domain.model.PlayerLayout
 import com.engfred.musicplayer.feature_player.presentation.components.layouts.components.AlbumArtDisplay
 import com.engfred.musicplayer.feature_player.presentation.components.layouts.components.ControlBar
 import com.engfred.musicplayer.feature_player.presentation.components.layouts.components.FavoriteButton
@@ -51,29 +55,46 @@ import com.engfred.musicplayer.feature_player.presentation.components.layouts.co
 import com.engfred.musicplayer.feature_player.presentation.components.layouts.components.TrackInfo
 import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerEvent
 import com.engfred.musicplayer.feature_player.utils.getDynamicGradientColors
-import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import kotlinx.coroutines.launch
 
+/**
+ * The Ethereal Flow layout for the music player screen.
+ * Adapts its structure and behavior based on the [WindowWidthSizeClass].
+ * Provides dynamic background gradients, haptic feedback, and gesture controls.
+ *
+ * @param uiState The current playback state of the player.
+ * @param onEvent Callback for dispatching [PlayerEvent]s to the ViewModel.
+ * @param onNavigateUp Callback to navigate up in the navigation stack.
+ * @param playingQueue The list of songs in the current playback queue.
+ * @param currentSongIndex The index of the currently playing song in the queue.
+ * @param onPlayQueueItem Callback to play a specific item from the queue.
+ * @param onRemoveQueueItem Callback to remove an item from the queue (used in Expanded layout).
+ * @param windowSizeClass The current window size class (Compact, Medium, Expanded).
+ * @param selectedLayout The currently selected player layout.
+ * @param onLayoutSelected Callback to change the selected player layout.
+ * @param playingAudio The currently playing [AudioFile].
+ */
+@RequiresApi(Build.VERSION_CODES.M)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EtherealFlowLayout(
     uiState: PlaybackState,
     onEvent: (PlayerEvent) -> Unit,
-    onNavigateUp: () -> Unit = {},
-    playingQueue: List<AudioFile> = emptyList(),
-    currentSongIndex: Int = 1,
-    onPlayQueueItem: (AudioFile) -> Unit = {},
+    onNavigateUp: () -> Unit,
+    playingQueue: List<AudioFile>,
+    currentSongIndex: Int,
+    onPlayQueueItem: (AudioFile) -> Unit,
     onRemoveQueueItem: (AudioFile) -> Unit = {},
     windowSizeClass: WindowWidthSizeClass,
-    selectedLayout: PlayerLayout, // Add this
-    onLayoutSelected: (PlayerLayout) -> Unit // Add this
-)  {
+    selectedLayout: PlayerLayout,
+    onLayoutSelected: (PlayerLayout) -> Unit,
+    playingAudio: AudioFile?
+) {
+    // Assuming playbackPositionMs exists in PlaybackState.
     var sliderValue by remember { mutableFloatStateOf(uiState.playbackPositionMs.toFloat()) }
     val view = LocalView.current
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val configuration = LocalConfiguration.current
-    val screenOrientation = configuration.orientation
 
     val gradientColors by produceState(
         initialValue = listOf(Color(0xFF1E1E1E), Color(0xFF333333)),
@@ -88,21 +109,6 @@ fun EtherealFlowLayout(
             sliderValue = uiState.playbackPositionMs.toFloat()
         }
     }
-
-//    val systemUiController = rememberSystemUiController()
-//    LaunchedEffect(gradientColors) {
-//        val topColor = gradientColors.firstOrNull() ?: Color.Black
-//        val bottomColor = gradientColors.lastOrNull() ?: Color.Black
-//
-//        systemUiController.setStatusBarColor(
-//            color = topColor,
-//            darkIcons = topColor.luminance() > 0.5f
-//        )
-//        systemUiController.setNavigationBarColor(
-//            color = bottomColor,
-//            darkIcons = bottomColor.luminance() > 0.5f
-//        )
-//    }
 
     val dynamicContentColor by remember(gradientColors) {
         val topGradientColor = gradientColors.firstOrNull() ?: Color.Black
@@ -123,9 +129,9 @@ fun EtherealFlowLayout(
             onDismissRequest = { showQueueBottomSheet = false },
             sheetState = sheetState,
             playingQueue = playingQueue,
-            currentSongIndex = currentSongIndex,
             onPlayQueueItem = onPlayQueueItem,
-            onRemoveQueueItem = onRemoveQueueItem
+            onRemoveQueueItem = onRemoveQueueItem,
+            playingAudio = playingAudio
         )
     }
 
@@ -155,6 +161,27 @@ fun EtherealFlowLayout(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(horizontal = 24.dp, vertical = 32.dp)
+                            .semantics {
+                                // CORRECT WAY to add custom accessibility actions
+                                customActions = listOf(
+                                    CustomAccessibilityAction(
+                                        label = "Skip to previous song",
+                                        action = {
+                                            onEvent(PlayerEvent.SkipToPrevious)
+                                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                            true
+                                        }
+                                    ),
+                                    CustomAccessibilityAction(
+                                        label = "Skip to next song",
+                                        action = {
+                                            onEvent(PlayerEvent.SkipToNext)
+                                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                            true
+                                        }
+                                    )
+                                )
+                            }
                             .pointerInput(Unit) {
                                 var dragAmountCumulative = 0f
                                 detectHorizontalDragGestures(
@@ -222,7 +249,10 @@ fun EtherealFlowLayout(
                             totalDurationMs = uiState.totalDurationMs,
                             playbackPositionMs = uiState.playbackPositionMs,
                             isSeeking = uiState.isSeeking,
-                            onSliderValueChange = { newValue -> sliderValue = newValue },
+                            onSliderValueChange = { newValue ->
+                                sliderValue = newValue
+                                if (!uiState.isSeeking) onEvent(PlayerEvent.SetSeeking(true))
+                            },
                             onSliderValueChangeFinished = {
                                 onEvent(PlayerEvent.SeekTo(sliderValue.toLong()))
                                 onEvent(PlayerEvent.SetSeeking(false))
@@ -259,6 +289,27 @@ fun EtherealFlowLayout(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(horizontal = 24.dp, vertical = 24.dp)
+                            .semantics {
+                                // CORRECT WAY to add custom accessibility actions
+                                this.customActions = listOf(
+                                    CustomAccessibilityAction(
+                                        label = "Skip to previous song",
+                                        action = {
+                                            onEvent(PlayerEvent.SkipToPrevious)
+                                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                            true
+                                        }
+                                    ),
+                                    CustomAccessibilityAction(
+                                        label = "Skip to next song",
+                                        action = {
+                                            onEvent(PlayerEvent.SkipToNext)
+                                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                            true
+                                        }
+                                    )
+                                )
+                            }
                             .pointerInput(Unit) {
                                 var dragAmountCumulative = 0f
                                 detectHorizontalDragGestures(
@@ -345,7 +396,10 @@ fun EtherealFlowLayout(
                                 totalDurationMs = uiState.totalDurationMs,
                                 playbackPositionMs = uiState.playbackPositionMs,
                                 isSeeking = uiState.isSeeking,
-                                onSliderValueChange = { newValue -> sliderValue = newValue },
+                                onSliderValueChange = { newValue ->
+                                    sliderValue = newValue
+                                    if (!uiState.isSeeking) onEvent(PlayerEvent.SetSeeking(true))
+                                },
                                 onSliderValueChangeFinished = {
                                     onEvent(PlayerEvent.SeekTo(sliderValue.toLong()))
                                     onEvent(PlayerEvent.SetSeeking(false))
@@ -384,6 +438,27 @@ fun EtherealFlowLayout(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(horizontal = 32.dp, vertical = 24.dp)
+                            .semantics {
+                                // CORRECT WAY to add custom accessibility actions
+                                this.customActions = listOf(
+                                    CustomAccessibilityAction(
+                                        label = "Skip to previous song",
+                                        action = {
+                                            onEvent(PlayerEvent.SkipToPrevious)
+                                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                            true
+                                        }
+                                    ),
+                                    CustomAccessibilityAction(
+                                        label = "Skip to next song",
+                                        action = {
+                                            onEvent(PlayerEvent.SkipToNext)
+                                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                            true
+                                        }
+                                    )
+                                )
+                            }
                             .pointerInput(Unit) {
                                 var dragAmountCumulative = 0f
                                 detectHorizontalDragGestures(
@@ -467,7 +542,10 @@ fun EtherealFlowLayout(
                                 totalDurationMs = uiState.totalDurationMs,
                                 playbackPositionMs = uiState.playbackPositionMs,
                                 isSeeking = uiState.isSeeking,
-                                onSliderValueChange = { newValue -> sliderValue = newValue },
+                                onSliderValueChange = { newValue ->
+                                    sliderValue = newValue
+                                    if (!uiState.isSeeking) onEvent(PlayerEvent.SetSeeking(true))
+                                },
                                 onSliderValueChangeFinished = {
                                     onEvent(PlayerEvent.SeekTo(sliderValue.toLong()))
                                     onEvent(PlayerEvent.SetSeeking(false))
@@ -505,7 +583,7 @@ fun EtherealFlowLayout(
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight(),
-                            horizontalAlignment = Alignment.Start, // Align queue title to start
+                            horizontalAlignment = Alignment.Start,
                             verticalArrangement = Arrangement.Top
                         ) {
                             PlayingQueueSection(

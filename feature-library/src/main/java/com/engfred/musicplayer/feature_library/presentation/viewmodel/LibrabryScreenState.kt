@@ -1,7 +1,7 @@
 package com.engfred.musicplayer.feature_library.presentation.viewmodel
 
 import com.engfred.musicplayer.core.domain.model.AudioFile
-import com.engfred.musicplayer.feature_library.presentation.components.FilterOption
+import com.engfred.musicplayer.feature_library.domain.models.FilterOption
 
 /**
  * Data class representing the complete UI state for the Library Screen.
@@ -14,5 +14,6 @@ data class LibraryScreenState(
     val error: String? = null,
     val hasStoragePermission: Boolean = false,
     val currentPlayingId: Long? = null,
+    val isPlaying: Boolean = false,
     val currentFilterOption: FilterOption = FilterOption.ALPHABETICAL_DESC
 )

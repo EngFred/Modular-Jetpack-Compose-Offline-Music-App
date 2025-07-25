@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.dp
 fun CreatePlaylistDialog(
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit,
-    errorMessage: String? = null // Now specific to dialog input validation
+    errorMessage: String? = null
 ) {
     var playlistName by remember { mutableStateOf("") }
 

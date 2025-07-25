@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -18,7 +17,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.rounded.Album
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
@@ -29,10 +29,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+import com.skydoves.landscapist.ImageOptions
+import com.skydoves.landscapist.coil.CoilImage
 
 @Composable
 fun PlayingQueueSection(
@@ -44,10 +46,10 @@ fun PlayingQueueSection(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .clip(RoundedCornerShape(16.dp)) // Add some rounded corners to the queue pane
-            .background(LocalContentColor.current.copy(alpha = 0.05f)) // Subtle background
+            .clip(RoundedCornerShape(16.dp))
+            .background(LocalContentColor.current.copy(alpha = 0.05f))
             .padding(16.dp),
-        horizontalAlignment = Alignment.Start // Align text to start
+        horizontalAlignment = Alignment.Start
     ) {
         Text(
             text = "Playing Queue",
@@ -68,7 +70,7 @@ fun PlayingQueueSection(
                 itemsIndexed(queue) { index, audioFile ->
                     QueueItem(
                         audioFile = audioFile,
-                        isCurrent = index == currentPlayingIndex,
+                        isCurrentlyPlaying = index == currentPlayingIndex,
                         onPlayClick = { onPlayItem(audioFile) },
                         onRemoveClick = { onRemoveItem(audioFile) }
                     )
@@ -82,21 +84,21 @@ fun PlayingQueueSection(
 @Composable
 fun QueueItem(
     audioFile: AudioFile,
-    isCurrent: Boolean,
+    isCurrentlyPlaying: Boolean,
     onPlayClick: () -> Unit,
     onRemoveClick: () -> Unit
 ) {
-    val backgroundColor = if (isCurrent) {
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) // Highlight current song
+    val backgroundColor = if (isCurrentlyPlaying) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
     } else {
         Color.Transparent
     }
-    val contentColor = if (isCurrent) {
+    val contentColor = if (isCurrentlyPlaying) {
         MaterialTheme.colorScheme.primary
     } else {
         LocalContentColor.current
     }
-    val artistColor = if (isCurrent) {
+    val artistColor = if (isCurrentlyPlaying) {
         MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
     } else {
         LocalContentColor.current.copy(alpha = 0.7f)
@@ -107,25 +109,39 @@ fun QueueItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .background(backgroundColor)
-            .clickable(onClick = onPlayClick) // Play song on click
+            .clickable(onClick = onPlayClick)
             .padding(vertical = 8.dp, horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        AsyncImage(
-            model = audioFile.albumArtUri,
-            contentDescription = "Album Art",
+        CoilImage(
+            imageModel = { audioFile.albumArtUri },
+            imageOptions = ImageOptions(
+                contentDescription = "Album Art",
+                contentScale = ContentScale.Crop
+            ),
             modifier = Modifier
                 .size(48.dp)
                 .clip(RoundedCornerShape(8.dp)),
-            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+            failure = {
+                Icon(
+                    imageVector = Icons.Rounded.Album,
+                    contentDescription = "No Album Art",
+                )
+            },
+            loading = {
+                Icon(
+                    imageVector = Icons.Rounded.Album,
+                    contentDescription = "No Album Art",
+                )
+            }
         )
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = audioFile.title ?: "Unknown Title",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                fontWeight = if (isCurrentlyPlaying) FontWeight.Bold else FontWeight.Normal,
                 color = contentColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -142,7 +158,7 @@ fun QueueItem(
         // Option to remove item from queue
         IconButton(onClick = onRemoveClick) {
             Icon(
-                Icons.Default.Close, // Using Close for remove from queue
+                Icons.Rounded.Close,
                 contentDescription = "Remove from queue",
                 tint = LocalContentColor.current.copy(alpha = 0.6f)
             )

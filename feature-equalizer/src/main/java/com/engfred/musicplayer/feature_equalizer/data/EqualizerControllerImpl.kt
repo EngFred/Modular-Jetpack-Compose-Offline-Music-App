@@ -2,12 +2,13 @@ package com.engfred.musicplayer.feature_equalizer.data
 
 import android.media.audiofx.Equalizer
 import android.util.Log
-import androidx.media3.common.C
 import androidx.annotation.OptIn
+import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import com.engfred.musicplayer.core.data.session.AudioSessionIdPublisher
-import com.engfred.musicplayer.core.domain.model.repository.EqualizerController
-import com.engfred.musicplayer.core.domain.model.repository.EqualizerState
+import com.engfred.musicplayer.core.domain.repository.BandInfo
+import com.engfred.musicplayer.core.domain.repository.EqualizerController
+import com.engfred.musicplayer.core.domain.repository.EqualizerState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -42,7 +43,7 @@ class EqualizerControllerImpl @Inject constructor(
         controllerScope.launch {
             audioSessionIdPublisher.currentAudioSessionId.collectLatest { sessionId ->
                 Log.d(TAG, "Received audio session ID: $sessionId")
-                equalizerMutex.withLock { // This ensures the block is executed safely, suspending if necessary
+                equalizerMutex.withLock {
                     if (sessionId != C.AUDIO_SESSION_ID_UNSET && sessionId != 0) {
                         try {
                             equalizer?.release()
@@ -52,7 +53,6 @@ class EqualizerControllerImpl @Inject constructor(
                                 enabled = true
                             }
                             Log.d(TAG, "Equalizer created with session ID: $sessionId, enabled: ${equalizer?.enabled}")
-                            // We are already inside a mutex.withLock block here, so no need for tryLock in updateEqualizerState
                             updateEqualizerStateInternal()
                         } catch (e: Exception) {
                             Log.e(TAG, "Failed to create Equalizer with session ID $sessionId: ${e.message}", e)
@@ -74,18 +74,22 @@ class EqualizerControllerImpl @Inject constructor(
     /**
      * Internal helper to read the current state from the Equalizer and publish it.
      * This method assumes it's called from within a `equalizerMutex.withLock` block.
-     * Changed to `updateEqualizerStateInternal` to reflect it's an internal helper
-     * and simplify the mutex logic around it.
      */
     private fun updateEqualizerStateInternal() {
         equalizer?.let { eq ->
             val numberOfBands = eq.numberOfBands
             val (minLevel, maxLevel) = eq.bandLevelRange
-            val bandLevelRange = minLevel to maxLevel
+            val globalBandLevelRange = minLevel to maxLevel
 
             val bandLevels = mutableMapOf<Short, Short>()
+            val bandsInfo = mutableListOf<BandInfo>()
+
             for (i in 0 until numberOfBands) {
-                bandLevels[i.toShort()] = eq.getBandLevel(i.toShort())
+                val bandIndex = i.toShort()
+                val centerFreq = eq.getCenterFreq(bandIndex)
+                val currentGain = eq.getBandLevel(bandIndex)
+                bandLevels[bandIndex] = currentGain
+                bandsInfo.add(BandInfo(bandIndex, centerFreq, minLevel, maxLevel)) // Using global min/max for bandInfo too
             }
 
             val presets = (0 until eq.numberOfPresets).map { eq.getPresetName(it.toShort()) }
@@ -102,14 +106,29 @@ class EqualizerControllerImpl @Inject constructor(
                 null
             }
 
+            // Identify Bass and Treble bands based on frequency
+            val bassFrequencyUpperLimitMilliHz = 250_000 // 250 Hz in mHz
+            val trebleFrequencyLowerLimitMilliHz = 4_000_000 // 4 kHz in mHz
+
+            val identifiedBassBand = bandsInfo
+                .filter { it.centerFrequencyHz <= bassFrequencyUpperLimitMilliHz }
+                .maxByOrNull { it.centerFrequencyHz } // Get the highest frequency band within the bass range
+
+            val identifiedTrebleBand = bandsInfo
+                .filter { it.centerFrequencyHz >= trebleFrequencyLowerLimitMilliHz }
+                .minByOrNull { it.centerFrequencyHz } // Get the lowest frequency band within the treble range
+
             _equalizerState.value = EqualizerState(
                 isEnabled = eq.enabled,
                 numberOfBands = numberOfBands,
+                bands = bandsInfo,
                 bandLevels = bandLevels,
-                bandLevelRange = bandLevelRange,
+                globalBandLevelRange = globalBandLevelRange,
                 presets = presets,
                 currentPreset = currentPresetName,
-                error = null
+                error = null,
+                bassBandInfo = identifiedBassBand, // Set the identified bass band info
+                trebleBandInfo = identifiedTrebleBand // Set the identified treble band info
             )
             Log.d(TAG, "Equalizer state updated: ${_equalizerState.value}")
         } ?: run {
@@ -128,7 +147,7 @@ class EqualizerControllerImpl @Inject constructor(
                     currentBandLevels[bandIndex] = gain
                     _equalizerState.value = _equalizerState.value.copy(
                         bandLevels = currentBandLevels,
-                        currentPreset = null
+                        currentPreset = null // Manual adjustment means no preset is active
                     )
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to set band level for band $bandIndex: ${e.message}", e)
@@ -146,6 +165,7 @@ class EqualizerControllerImpl @Inject constructor(
                     if (presetIndex != null) {
                         eq.usePreset(presetIndex)
                         Log.d(TAG, "Set preset to: $presetName")
+                        // After applying a preset, re-read all band levels
                         val newBandLevels = mutableMapOf<Short, Short>()
                         for (i in 0 until eq.numberOfBands) {
                             newBandLevels[i.toShort()] = eq.getBandLevel(i.toShort())
@@ -173,7 +193,13 @@ class EqualizerControllerImpl @Inject constructor(
                     if (eq.enabled != enabled) {
                         eq.enabled = enabled
                         Log.d(TAG, "Equalizer enabled set to $enabled")
+                        // If enabling, immediately update the state to reflect current band levels
+                        // If disabling, the levels remain but isEnabled changes
                         _equalizerState.value = _equalizerState.value.copy(isEnabled = enabled)
+                        // If enabling, we should ideally re-read the full state to ensure UI is accurate
+                        if (enabled) {
+                            updateEqualizerStateInternal()
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to set equalizer enabled state to $enabled: ${e.message}", e)
@@ -190,11 +216,9 @@ class EqualizerControllerImpl @Inject constructor(
             equalizerMutex.withLock {
                 equalizer?.release()
                 equalizer = null
-                _equalizerState.value = EqualizerState()
+                _equalizerState.value = EqualizerState() // Reset state on release
                 Log.d(TAG, "Equalizer released and state reset.")
             }
         }
-        // Small delay to allow the launch to execute, might be necessary depending on call context
-        // But generally, the caller of release should not assume immediate synchronous cleanup.
     }
 }

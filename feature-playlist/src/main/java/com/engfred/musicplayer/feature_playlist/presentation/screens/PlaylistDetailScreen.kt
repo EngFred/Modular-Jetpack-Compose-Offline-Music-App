@@ -1,24 +1,28 @@
 package com.engfred.musicplayer.feature_playlist.presentation.screens
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
+import MiniPlayer
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.LibraryMusic
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -29,36 +33,36 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.engfred.musicplayer.core.ui.ErrorIndicator
 import com.engfred.musicplayer.core.ui.InfoIndicator
 import com.engfred.musicplayer.core.ui.LoadingIndicator
-import com.engfred.musicplayer.feature_playlist.domain.model.PlaylistDetailScreenMode
-import com.engfred.musicplayer.feature_playlist.presentation.components.PlaylistDetailHeaderSection
-import com.engfred.musicplayer.feature_playlist.presentation.components.RenamePlaylistDialog
-import com.engfred.musicplayer.feature_playlist.presentation.components.detail.AddSongsScreenContent
+import com.engfred.musicplayer.feature_playlist.domain.model.PlaylistSortOrder
+import com.engfred.musicplayer.feature_playlist.presentation.components.detail.AddSongsBottomSheet
 import com.engfred.musicplayer.feature_playlist.presentation.components.detail.PlaylistActionButtons
+import com.engfred.musicplayer.feature_playlist.presentation.components.detail.PlaylistDetailHeaderSection
 import com.engfred.musicplayer.feature_playlist.presentation.components.detail.PlaylistEmptyState
-import com.engfred.musicplayer.feature_playlist.presentation.components.detail.PlaylistSongs
+import com.engfred.musicplayer.core.ui.AudioFileItem
 import com.engfred.musicplayer.feature_playlist.presentation.components.detail.PlaylistSongsHeader
-import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.PlaylistDetailEvent
-import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.PlaylistDetailViewModel
+import com.engfred.musicplayer.feature_playlist.presentation.components.detail.RenamePlaylistDialog
+import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.detail.PlaylistDetailEvent
+import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.detail.PlaylistDetailViewModel
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
+import androidx.compose.ui.draw.clip
+import com.engfred.musicplayer.feature_playlist.presentation.components.detail.PlaylistSongs
+import androidx.compose.ui.Alignment
 
-// Enum to define sorting options (remains in the same file or a common util file)
-enum class PlaylistSortOrder {
-    DATE_ADDED,
-    ALPHABETICAL
-}
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaylistDetailScreen(
     viewModel: PlaylistDetailViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
-    onAudioFileClick: (String) -> Unit,
+    onNavigateToNowPlaying: () -> Unit,
+    windowWidthSizeClass: WindowWidthSizeClass
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val listState = rememberLazyListState()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val mainLazyListState = rememberLazyListState()
 
     var moreMenuExpanded by remember { mutableStateOf(false) }
     var sortMenuExpanded by remember { mutableStateOf(false) }
@@ -73,139 +77,231 @@ fun PlaylistDetailScreen(
         } ?: emptyList()
     }
 
+    var showAddSongsBottomSheet by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    if (showAddSongsBottomSheet) {
+        AddSongsBottomSheet(
+            onDismissRequest = { showAddSongsBottomSheet = false },
+            sheetState = sheetState,
+            allAudioFiles = uiState.allAudioFiles,
+            currentPlaylistSongs = uiState.playlist?.songs ?: emptyList(),
+            onSongsSelected = {
+                it.forEach { song ->
+                    viewModel.onEvent(PlaylistDetailEvent.AddSong(song))
+                }
+            }
+        )
+    }
+
+    val isCompactWidth = windowWidthSizeClass == WindowWidthSizeClass.Compact
+
     Scaffold(
-        containerColor = Color.Transparent,
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        bottomBar = {
+            if (uiState.currentPlayingAudioFile != null) {
+                MiniPlayer(
+                    onClick = onNavigateToNowPlaying,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .zIndex(1f),
+                    onPlayPause = {
+                        viewModel.onEvent(PlaylistDetailEvent.PlayPause)
+                    },
+                    onPlayNext = {
+                        viewModel.onEvent(PlaylistDetailEvent.PlayNext)
+                    },
+                    onPlayPrev = {
+                        viewModel.onEvent(PlaylistDetailEvent.PlayPrev)
+                    },
+                    isPlaying = uiState.isPlaying,
+                    playingAudioFile = uiState.currentPlayingAudioFile,
+                    windowWidthSizeClass = windowWidthSizeClass
+                )
+            }
+        },
+        containerColor = Color.Transparent
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.background,
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        )
+        val mainContentModifier = Modifier
+            .fillMaxSize()
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.background,
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                     )
                 )
-        ) { // Use AnimatedContent to transition between the two main modes
-            AnimatedContent(
-                targetState = uiState.screenMode,
-                transitionSpec = {
-                    // Custom transition: slide in/out vertically
-                    (slideInVertically { height -> height } + fadeIn())
-                        .togetherWith(slideOutVertically { height -> -height } + fadeOut())
-                }, label = "playlistScreenModeTransition"
-            ) { targetScreenMode ->
-                when (targetScreenMode) {
-                    PlaylistDetailScreenMode.VIEW_PLAYLIST -> {
-                        // All existing playlist detail content goes here
-                        Column(modifier = Modifier.fillMaxSize()) {
-                            PlaylistDetailHeaderSection(
-                                playlist = uiState.playlist,
-                                onNavigateBack = onNavigateBack,
-                                onAddSongsClick = { viewModel.onEvent(PlaylistDetailEvent.ChangeScreenMode(PlaylistDetailScreenMode.ADD_SONGS)) }, // Change mode
-                                onRenamePlaylistClick = { viewModel.onEvent(PlaylistDetailEvent.ShowRenameDialog) },
-                                moreMenuExpanded = moreMenuExpanded,
-                                onMoreMenuExpandedChange = { moreMenuExpanded = it }
-                            )
+            )
 
-                            when {
-                                uiState.isLoading -> {
-                                    LoadingIndicator(modifier = Modifier.fillMaxSize())
-                                }
-                                uiState.error != null -> {
-                                    ErrorIndicator(
-                                        modifier = Modifier.fillMaxSize(),
-                                        message = uiState.error!!,
-                                        onRetry = {
-                                            uiState.playlist?.playlistId?.let { playlistId ->
-                                                viewModel.onEvent(PlaylistDetailEvent.LoadPlaylist(playlistId))
-                                            } ?: run {
-                                                onNavigateBack()
-                                            }
+        if (isCompactWidth) {
+            // --- Compact Layout (Phones - Portrait) ---
+            LazyColumn(
+                modifier = mainContentModifier.padding(horizontal = 16.dp),
+                state = mainLazyListState,
+                contentPadding = PaddingValues(top = 0.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                item {
+                    PlaylistDetailHeaderSection(
+                        playlist = uiState.playlist,
+                        onNavigateBack = onNavigateBack,
+                        onAddSongsClick = { showAddSongsBottomSheet = true },
+                        onRenamePlaylistClick = { viewModel.onEvent(PlaylistDetailEvent.ShowRenameDialog) },
+                        moreMenuExpanded = moreMenuExpanded,
+                        onMoreMenuExpandedChange = { moreMenuExpanded = it },
+                        isCompact = true
+                    )
+                }
+
+                item { Spacer(modifier = Modifier.height(24.dp)) }
+
+                item {
+                    when {
+                        uiState.isLoading -> LoadingIndicator(modifier = Modifier.fillMaxWidth().height(200.dp))
+                        uiState.error != null -> ErrorIndicator(modifier = Modifier.fillMaxWidth().height(200.dp), message = uiState.error!!)
+                        uiState.playlist == null -> InfoIndicator(modifier = Modifier.fillMaxWidth().height(200.dp), message = "Playlist not found or could not be loaded.", icon = Icons.Outlined.LibraryMusic)
+                        else -> {
+                            Column(Modifier.fillMaxWidth()) {
+                                PlaylistActionButtons(
+                                    onPlayClick = {
+                                        uiState.playlist?.songs?.firstOrNull()?.let { firstSong ->
+                                            viewModel.onEvent(PlaylistDetailEvent.PlaySong(firstSong))
                                         }
-                                    )
-                                }
-                                uiState.playlist == null -> {
-                                    InfoIndicator(
-                                        modifier = Modifier.fillMaxSize(),
-                                        message = "Playlist not found or could not be loaded. It might have been deleted.",
-                                        icon = Icons.Outlined.LibraryMusic
-                                    )
-                                }
-                                else -> {
-                                    Spacer(modifier = Modifier.height(32.dp))
-
-                                    PlaylistActionButtons(
-                                        onPlayClick = {
-                                            uiState.playlist?.songs?.firstOrNull()?.let { firstSong ->
-                                                viewModel.onEvent(PlaylistDetailEvent.PlaySong(firstSong, onAudioFileClick))
-                                            }
-                                        },
-                                        onShuffleClick = {
-                                            if (uiState.playlist?.songs?.isNotEmpty() == true) {
-                                                viewModel.onEvent(PlaylistDetailEvent.ShufflePlay)
-                                                uiState.playlist?.songs?.firstOrNull()?.let {
-                                                    onAudioFileClick(it.id.toString())
-                                                }
-                                            }
+                                    },
+                                    onShuffleClick = {
+                                        if (uiState.playlist?.songs?.isNotEmpty() == true) {
+                                            viewModel.onEvent(PlaylistDetailEvent.ShufflePlay)
                                         }
-                                    )
+                                    },
+                                    isCompact = true
+                                )
 
-                                    Spacer(modifier = Modifier.height(24.dp))
+                                Spacer(modifier = Modifier.height(24.dp))
 
-                                    PlaylistSongsHeader(
-                                        songCount = uiState.playlist?.songs?.size ?: 0,
-                                        currentSortOrder = currentSortOrder,
-                                        onSortOrderChange = { currentSortOrder = it },
-                                        sortMenuExpanded = sortMenuExpanded,
-                                        onSortMenuExpandedChange = { sortMenuExpanded = it }
-                                    )
+                                PlaylistSongsHeader(
+                                    songCount = uiState.playlist?.songs?.size ?: 0,
+                                    currentSortOrder = currentSortOrder,
+                                    onSortOrderChange = { currentSortOrder = it },
+                                    sortMenuExpanded = sortMenuExpanded,
+                                    onSortMenuExpandedChange = { sortMenuExpanded = it }
+                                )
 
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    if (uiState.playlist?.songs.isNullOrEmpty()) {
-                                        PlaylistEmptyState()
-                                    } else {
-                                        PlaylistSongs(
-                                            songs = sortedSongs,
-                                            currentPlayingId = uiState.currentPlayingId,
-                                            onSongClick = { clickedAudioFile ->
-                                                viewModel.onEvent(PlaylistDetailEvent.PlaySong(clickedAudioFile, onAudioFileClick))
-                                            },
-                                            onSongDelete = { song ->
-                                                viewModel.onEvent(PlaylistDetailEvent.RemoveSong(song.id))
-                                            },
-                                            snackbarHostState = snackbarHostState,
-                                            listState = listState
-                                        )
-                                    }
-                                }
+                                Spacer(modifier = Modifier.height(16.dp))
                             }
                         }
                     }
-                    PlaylistDetailScreenMode.ADD_SONGS -> {
-                        // Display the Add Songs content
-                        AddSongsScreenContent(
-                            allAudioFiles = uiState.allAudioFiles,
-                            currentPlaylistSongs = uiState.playlist?.songs.orEmpty(),
-                            onSongsSelected = { selectedSongs ->
-                                selectedSongs.forEach { audioFile ->
-                                    viewModel.onEvent(PlaylistDetailEvent.AddSong(audioFile))
-                                }
-                                viewModel.onEvent(PlaylistDetailEvent.ChangeScreenMode(PlaylistDetailScreenMode.VIEW_PLAYLIST)) // Go back to view mode
+                }
+
+                if (!uiState.isLoading && uiState.error == null && uiState.playlist != null && uiState.playlist?.songs.isNullOrEmpty()) {
+                    item {
+                        PlaylistEmptyState(modifier = Modifier.fillMaxWidth().height(200.dp))
+                    }
+                } else if (!uiState.isLoading && uiState.error == null && uiState.playlist != null && !uiState.playlist?.songs.isNullOrEmpty()) {
+                    itemsIndexed(
+                        items = sortedSongs,
+                        key = { _, audioFile -> audioFile.id }
+                    ) { _, audioFile ->
+                        AudioFileItem(
+                            audioFile = audioFile,
+                            isCurrentPlayingAudio = (audioFile.id == uiState.currentPlayingAudioFile?.id),
+                            onClick = { clickedAudioFile -> viewModel.onEvent(PlaylistDetailEvent.PlaySong(clickedAudioFile)) },
+                            onDelete = { song -> viewModel.onEvent(PlaylistDetailEvent.RemoveSong(song.id)) },
+                            modifier = Modifier.animateItem(),
+                            onSwipeLeft = { audioFile ->
+                                if (uiState.currentPlayingAudioFile?.id != audioFile.id) { viewModel.onEvent(PlaylistDetailEvent.SwipedLeft(audioFile)) } else { onNavigateToNowPlaying() }
                             },
-                            onNavigateBack = {
-                                viewModel.onEvent(PlaylistDetailEvent.ChangeScreenMode(PlaylistDetailScreenMode.VIEW_PLAYLIST)) // Go back without adding
-                            }
+                            onSwipeRight = { viewModel.onEvent(PlaylistDetailEvent.SwipedRight(it)) },
+                            isAudioPlaying = uiState.isPlaying
                         )
+                        Spacer(Modifier.height(8.dp))
+                    }
+                }
+            }
+        } else {
+            // --- Expanded Layout (Tablets / Phones - Landscape) ---
+            Row(modifier = mainContentModifier.padding(horizontal = 48.dp)) {
+                Column(
+                    modifier = Modifier
+                        .weight(0.4f)
+                        .fillMaxHeight()
+                        .background(Color.Transparent)
+                        .padding(end = 24.dp)
+                        .verticalScroll(rememberScrollState()), // FIXED: Changed to rememberScrollState()
+                    horizontalAlignment = Alignment.CenterHorizontally // FIXED: Changed to horizontalAlignment
+                ) {
+                    PlaylistDetailHeaderSection(
+                        playlist = uiState.playlist,
+                        onNavigateBack = onNavigateBack,
+                        onAddSongsClick = { showAddSongsBottomSheet = true },
+                        onRenamePlaylistClick = { viewModel.onEvent(PlaylistDetailEvent.ShowRenameDialog) },
+                        moreMenuExpanded = moreMenuExpanded,
+                        onMoreMenuExpandedChange = { moreMenuExpanded = it },
+                        isCompact = false
+                    )
+
+                    Spacer(modifier = Modifier.height(40.dp))
+
+                    PlaylistActionButtons(
+                        onPlayClick = {
+                            uiState.playlist?.songs?.firstOrNull()?.let { firstSong ->
+                                viewModel.onEvent(PlaylistDetailEvent.PlaySong(firstSong))
+                            }
+                        },
+                        onShuffleClick = {
+                            if (uiState.playlist?.songs?.isNotEmpty() == true) {
+                                viewModel.onEvent(PlaylistDetailEvent.ShufflePlay)
+                            }
+                        },
+                        isCompact = false
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                Column(
+                    modifier = Modifier
+                        .weight(0.6f)
+                        .fillMaxHeight()
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.3f))
+                        .clip(MaterialTheme.shapes.medium)
+                        .padding(start = 24.dp, end = 16.dp, top = 16.dp, bottom = 16.dp)
+                ) {
+                    when {
+                        uiState.isLoading -> LoadingIndicator(modifier = Modifier.fillMaxSize())
+                        uiState.error != null -> ErrorIndicator(modifier = Modifier.fillMaxSize(), message = uiState.error!!)
+                        uiState.playlist == null -> InfoIndicator(modifier = Modifier.fillMaxSize(), message = "Playlist not found or could not be loaded.", icon = Icons.Outlined.LibraryMusic)
+                        else -> {
+                            PlaylistSongsHeader(
+                                songCount = uiState.playlist?.songs?.size ?: 0,
+                                currentSortOrder = currentSortOrder,
+                                onSortOrderChange = { currentSortOrder = it },
+                                sortMenuExpanded = sortMenuExpanded,
+                                onSortMenuExpandedChange = { sortMenuExpanded = it }
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            if (uiState.playlist?.songs.isNullOrEmpty()) {
+                                PlaylistEmptyState(modifier = Modifier.fillMaxSize())
+                            } else {
+                                PlaylistSongs(
+                                    songs = sortedSongs,
+                                    currentPlayingId = uiState.currentPlayingAudioFile?.id,
+                                    onSongClick = { clickedAudioFile -> viewModel.onEvent(PlaylistDetailEvent.PlaySong(clickedAudioFile)) },
+                                    onSongDelete = { song -> viewModel.onEvent(PlaylistDetailEvent.RemoveSong(song.id)) },
+                                    listState = rememberLazyListState(),
+                                    isAudioPlaying = uiState.isPlaying,
+                                    onSwipeRight = { viewModel.onEvent(PlaylistDetailEvent.SwipedRight(it)) },
+                                    onSwipeLeft = { audioFile ->
+                                        if (uiState.currentPlayingAudioFile?.id != audioFile.id) { viewModel.onEvent(PlaylistDetailEvent.SwipedLeft(audioFile)) } else { onNavigateToNowPlaying() }
+                                    },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
 
-        // Dialogs remain at the top level of the composable (outside AnimatedContent)
         if (uiState.showRenameDialog && uiState.playlist != null) {
             RenamePlaylistDialog(
                 currentName = uiState.playlist?.name!!,

@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.core.ui
 
+import android.widget.Toast
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -9,7 +10,12 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.QueuePlayNext
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,52 +23,40 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.util.formatDuration
+import com.engfred.musicplayer.core.util.shareAudioFile
 import com.skydoves.landscapist.coil.CoilImage
-import kotlinx.coroutines.launch // Import launch for coroutine scope
 
-/**
- * @param audioFile The AudioFile domain model to display.
- * @param isPlaying Whether the audio file is currently playing, triggering album art animation.
- * @param onClick Callback when the item is clicked to initiate playback.
- * @param onSwipeToNowPlaying Callback when the item is swiped right-to-left to navigate to the now-playing screen.
- * @param onPlayNext Callback for the "Play Next" menu action (VM will still be called).
- * @param onAddToAlbum Callback for the "Add to Album" menu action.
- * @param onDelete Callback for the "Delete" menu action, customizable per screen (e.g., remove from playlist or device).
- * @param onShare Callback for the "Share" menu action.
- * @param snackbarHostState The SnackbarHostState to show immediate UI feedback.
- * @param modifier Modifier for the item, allowing customization of size or padding.
- */
 @Composable
 fun AudioFileItem(
     modifier: Modifier = Modifier,
     audioFile: AudioFile,
-    isPlaying: Boolean = false,
+    isCurrentPlayingAudio: Boolean,
+    isAudioPlaying: Boolean,
     onClick: (AudioFile) -> Unit,
-    onSwipeToNowPlaying: (AudioFile) -> Unit = {},
+    onSwipeLeft: (AudioFile) -> Unit = {},
+    onSwipeRight: (AudioFile) -> Unit = {},
     onPlayNext: (AudioFile) -> Unit = {},
-    onAddToAlbum: (AudioFile) -> Unit = {},
+    onAddToPlaylist: (AudioFile) -> Unit = {},
     onDelete: (AudioFile) -> Unit,
-    onShare: (AudioFile) -> Unit = {},
-    snackbarHostState: SnackbarHostState
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
-    val scope = rememberCoroutineScope() // Remember a coroutine scope for showing snackbar
+    val context = LocalContext.current
 
     val scale by animateFloatAsState(
-        targetValue = if (isPlaying) 1.05f else 1f,
+        targetValue = if (isCurrentPlayingAudio) 1.05f else 1f,
         animationSpec = tween(durationMillis = 300),
         label = "album_art_scale_animation"
     )
     val pulse by animateFloatAsState(
-        targetValue = if (isPlaying) 1.1f else 1f,
+        targetValue = if (isCurrentPlayingAudio) 1.1f else 1f,
         animationSpec = infiniteRepeatable(
             animation = tween(durationMillis = 800, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
@@ -79,26 +73,37 @@ fun AudioFileItem(
             .fillMaxWidth()
             .offset(x = dragOffset.dp)
             .padding(vertical = 4.dp, horizontal = 10.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable { onClick(audioFile) }
             .draggable(
                 state = rememberDraggableState { delta ->
-                    dragOffset = (dragOffset + delta).coerceIn(-100f, 0f)
+                    // Allow dragging left (negative delta) always
+                    // Allow dragging right (positive delta) only if playing
+                    dragOffset = if (delta < 0 || (delta > 0 && isAudioPlaying && isCurrentPlayingAudio)) {
+                        (dragOffset + delta).coerceIn(-100f, 100f) // Allow right drag up to 100f
+                    } else {
+                        dragOffset // Do not update offset if trying to drag right when not playing
+                    }
                 },
                 orientation = Orientation.Horizontal,
                 onDragStopped = {
-                    if (dragOffset < -75f) {
-                        onSwipeToNowPlaying(audioFile)
+                    when {
+                        dragOffset < -75f -> { // Swiped left
+                            onSwipeLeft(audioFile)
+                        }
+                        dragOffset > 75f && isCurrentPlayingAudio -> { // Swiped right and playing
+                            onSwipeRight(audioFile)
+                        }
                     }
-                    dragOffset = 0f
+                    dragOffset = 0f // Reset drag offset after drag stops
                 }
-            )
-            .clickable { onClick(audioFile) },
+            ),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
             contentColor = MaterialTheme.colorScheme.onSurface
         ),
-        shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isPlaying) 6.dp else 3.dp,
+            defaultElevation = if (isCurrentPlayingAudio) 6.dp else 3.dp,
             pressedElevation = 8.dp
         )
     ) {
@@ -106,7 +111,7 @@ fun AudioFileItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
-                    brush = if (isPlaying) {
+                    brush = if (isCurrentPlayingAudio) {
                         Brush.linearGradient(
                             colors = listOf(
                                 MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
@@ -116,8 +121,8 @@ fun AudioFileItem(
                     } else {
                         Brush.linearGradient(
                             colors = listOf(
-                                Color.Transparent,
-                                Color.Transparent
+                                MaterialTheme.colorScheme.surfaceVariant,
+                                MaterialTheme.colorScheme.surfaceVariant
                             )
                         )
                     }
@@ -129,8 +134,8 @@ fun AudioFileItem(
                 modifier = Modifier
                     .size(56.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .scale(if (isPlaying) scale * pulse else scale)
-                    .graphicsLayer { shadowElevation = if (isPlaying) 8f else 0f },
+                    .scale(if (isCurrentPlayingAudio) scale * pulse else scale)
+                    .graphicsLayer { shadowElevation = if (isCurrentPlayingAudio) 8f else 0f },
                 contentAlignment = Alignment.Center
             ) {
                 CoilImage(
@@ -192,7 +197,7 @@ fun AudioFileItem(
             Box {
                 IconButton(onClick = { showMenu = true }) {
                     Icon(
-                        imageVector = Icons.Default.MoreVert,
+                        imageVector = Icons.Rounded.MoreVert,
                         contentDescription = "More options for ${audioFile.title}",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -208,20 +213,13 @@ fun AudioFileItem(
                     DropdownMenuItem(
                         text = { Text("Play Next") },
                         onClick = {
-                            // 1. Trigger the ViewModel action (still important for player logic)
                             onPlayNext(audioFile)
-                            // 2. Immediately show the Snackbar feedback
-                            scope.launch {
-                                snackbarHostState.showSnackbar(
-                                    message = "Added '${audioFile.title}' to play next.",
-                                    duration = SnackbarDuration.Short // Or Short
-                                )
-                            }
-                            showMenu = false // Close the menu
+                            Toast.makeText(context, "Added '${audioFile.title}' to play next.", Toast.LENGTH_SHORT).show()
+                            showMenu = false
                         },
                         leadingIcon = {
                             Icon(
-                                Icons.Default.QueuePlayNext,
+                                Icons.Rounded.QueuePlayNext,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurface
                             )
@@ -230,12 +228,12 @@ fun AudioFileItem(
                     DropdownMenuItem(
                         text = { Text("Add to Playlist") },
                         onClick = {
-                            onAddToAlbum(audioFile)
+                            onAddToPlaylist(audioFile)
                             showMenu = false
                         },
                         leadingIcon = {
                             Icon(
-                                Icons.Default.PlaylistAdd,
+                                Icons.AutoMirrored.Rounded.PlaylistAdd,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurface
                             )
@@ -249,21 +247,22 @@ fun AudioFileItem(
                         },
                         leadingIcon = {
                             Icon(
-                                Icons.Default.Delete,
+                                Icons.Rounded.Delete,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.error
                             )
                         }
                     )
+                    // Call the separate share function
                     DropdownMenuItem(
                         text = { Text("Share Song") },
                         onClick = {
-                            onShare(audioFile)
+                            shareAudioFile(context, audioFile)
                             showMenu = false
                         },
                         leadingIcon = {
                             Icon(
-                                Icons.Default.Share,
+                                Icons.Rounded.Share,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurface
                             )

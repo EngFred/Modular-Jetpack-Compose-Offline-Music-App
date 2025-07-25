@@ -3,9 +3,9 @@ package com.engfred.musicplayer.feature_equalizer.presentation.viewmodel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.engfred.musicplayer.core.domain.model.repository.EqualizerController
-import com.engfred.musicplayer.core.domain.model.repository.EqualizerState
-import com.engfred.musicplayer.core.domain.model.repository.PlayerController
+import com.engfred.musicplayer.core.domain.repository.EqualizerController
+import com.engfred.musicplayer.core.domain.repository.EqualizerState
+import com.engfred.musicplayer.core.domain.repository.PlayerController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -36,6 +36,7 @@ class EqualizerViewModel @Inject constructor(
 
 
     init {
+        //to apply some bottom padding when displaying a mini player
         playerController.getPlaybackState().onEach { state ->
             if (state.currentAudioFile != null) {
                 Log.d("PlaylistViewModel", "Is playing...")
@@ -45,6 +46,10 @@ class EqualizerViewModel @Inject constructor(
                 _isPlaying.update { false }
             }
         }.launchIn(viewModelScope)
+
+        // Disable equalizer at start to prevent unexpected audio changes
+        // Users can enable it explicitly from the UI if desired.
+        setEnabled(false)
     }
 
     fun setBandLevel(bandIndex: Short, gain: Short) {
@@ -67,45 +72,48 @@ class EqualizerViewModel @Inject constructor(
 
     /**
      * Sets the gain for the "bass" frequency range.
-     * Assumes band 0 is the primary bass band.
+     * It dynamically identifies the bass band based on its center frequency.
      * @param gain The gain in millibels (mB).
      */
     fun setBassGain(gain: Short) {
         viewModelScope.launch {
-            // Adjust this logic if you want to control multiple low bands for bass
-            val bassBandIndex = 0.toShort()
-            if (bassBandIndex < equalizerState.value.numberOfBands) {
-                equalizerController.setBandLevel(bassBandIndex, gain)
-            }
+            // Define a typical upper limit for bass frequencies (e.g., 250 Hz)
+            val bassFrequencyUpperLimitMilliHz = 250_000 // 250 Hz in mHz
+
+            // Find the band that is most likely the "bass" band.
+            // This prioritizes bands with center frequencies within the typical bass range,
+            // favoring higher frequencies within that range to potentially affect more of the
+            // perceived "punch" or "warmth" in the bass.
+            val bassBand = equalizerState.value.bands
+                .filter { it.centerFrequencyHz <= bassFrequencyUpperLimitMilliHz }
+                .maxByOrNull { it.centerFrequencyHz } // Get the highest frequency band within the bass range
+
+            bassBand?.let {
+                equalizerController.setBandLevel(it.index, gain)
+            } ?: Log.w("EqualizerViewModel", "No suitable bass band found.")
         }
     }
 
     /**
      * Sets the gain for the "treble" frequency range.
-     * Assumes the highest band is the primary treble band.
+     * It dynamically identifies the treble band based on its center frequency.
      * @param gain The gain in millibels (mB).
      */
     fun setTrebleGain(gain: Short) {
         viewModelScope.launch {
-            // Adjust this logic if you want to control multiple high bands for treble
-            val trebleBandIndex = (equalizerState.value.numberOfBands - 1).toShort()
-            if (trebleBandIndex >= 0 && trebleBandIndex < equalizerState.value.numberOfBands) {
-                equalizerController.setBandLevel(trebleBandIndex, gain)
-            }
-        }
-    }
+            // Define a typical lower limit for treble frequencies (e.g., 4 kHz)
+            val trebleFrequencyLowerLimitMilliHz = 4_000_000 // 4 kHz in mHz
 
-    // IMPORTANT NOTE: getCenterFrequency() is still a placeholder.
-    // For a truly professional app, EqualizerState should provide BandInfo objects
-    // with actual center frequencies from the native Equalizer instance.
-    fun getCenterFrequency(bandIndex: Short): Int {
-        return when (bandIndex.toInt()) {
-            0 -> 60_000 // 60 Hz
-            1 -> 230_000 // 230 Hz
-            2 -> 910_000 // 910 Hz (approx 1 kHz)
-            3 -> 3_600_000 // 3.6 kHz
-            4 -> 14_000_000 // 14 kHz
-            else -> 0 // Or handle more bands if your equalizer supports them
+            // Find the band that is most likely the "treble" band.
+            // This prioritizes bands with center frequencies within the typical treble range,
+            // favoring lower frequencies within that range to affect the start of the treble.
+            val trebleBand = equalizerState.value.bands
+                .filter { it.centerFrequencyHz >= trebleFrequencyLowerLimitMilliHz }
+                .minByOrNull { it.centerFrequencyHz } // Get the lowest frequency band within the treble range
+
+            trebleBand?.let {
+                equalizerController.setBandLevel(it.index, gain)
+            } ?: Log.w("EqualizerViewModel", "No suitable treble band found.")
         }
     }
 }

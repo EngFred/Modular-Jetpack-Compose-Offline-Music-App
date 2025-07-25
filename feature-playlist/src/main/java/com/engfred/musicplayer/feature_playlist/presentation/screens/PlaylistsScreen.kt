@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.feature_playlist.presentation.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -7,60 +8,71 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.filled.MusicOff
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass // Import for responsiveness
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.engfred.musicplayer.core.ui.CustomSnackbar
 import com.engfred.musicplayer.core.ui.ErrorIndicator
 import com.engfred.musicplayer.core.ui.InfoIndicator
 import com.engfred.musicplayer.core.ui.LoadingIndicator
-import com.engfred.musicplayer.feature_playlist.domain.model.LayoutType
+import com.engfred.musicplayer.core.domain.model.PlaylistLayoutType
 import com.engfred.musicplayer.feature_playlist.presentation.components.list.CreatePlaylistDialog
-import com.engfred.musicplayer.feature_playlist.presentation.components.PlaylistItem
-import com.engfred.musicplayer.feature_playlist.presentation.components.PlaylistGridItem
-import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.PlaylistEvent
-import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.PlaylistViewModel
+import com.engfred.musicplayer.feature_playlist.presentation.components.list.PlaylistGridItem
+import com.engfred.musicplayer.feature_playlist.presentation.components.list.PlaylistItem
+import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.list.PlaylistEvent
+import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.list.PlaylistViewModel
 
 @Composable
 fun PlaylistsScreen(
     viewModel: PlaylistViewModel = hiltViewModel(),
     onPlaylistClick: (Long) -> Unit,
+    windowWidthSizeClass: WindowWidthSizeClass,
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
 
     LaunchedEffect(viewModel.uiEvent) {
         viewModel.uiEvent.collect { message ->
-            snackbarHostState.showSnackbar(
-                message = message,
-                duration = SnackbarDuration.Short
-            )
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
+    }
+
+    // Determine padding and grid columns based on window size class
+    val contentHorizontalPadding = when (windowWidthSizeClass) {
+        WindowWidthSizeClass.Compact -> 8.dp
+        WindowWidthSizeClass.Medium -> 24.dp // More padding for tablets portrait/foldables
+        WindowWidthSizeClass.Expanded -> 32.dp // Even more for tablets landscape/desktops
+        else -> 8.dp // Default case
+    }
+
+    val gridCells = when (windowWidthSizeClass) {
+        WindowWidthSizeClass.Compact -> GridCells.Fixed(2) // 2 columns for phones
+        WindowWidthSizeClass.Medium -> GridCells.Adaptive(minSize = 160.dp) // Adaptive for medium screens, aiming for 3-4 items
+        WindowWidthSizeClass.Expanded -> GridCells.Adaptive(minSize = 180.dp) // Adaptive for large screens, aiming for 4+ items
+        else -> GridCells.Fixed(2)
     }
 
     Scaffold(
@@ -69,33 +81,32 @@ fun PlaylistsScreen(
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.End,
-                modifier = Modifier.padding(bottom = bottomPadding)
+                modifier = Modifier
+                    .padding(bottom = bottomPadding)
+                    .padding(end = 16.dp) // Consistent right padding for FABs
             ) {
                 FloatingActionButton(
                     onClick = { viewModel.onEvent(PlaylistEvent.ShowCreatePlaylistDialog) },
                     containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
+                    contentColor = MaterialTheme.colorScheme.onSurface
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Add,
+                        modifier = Modifier.size(36.dp),
+                        imageVector = Icons.Rounded.Add,
                         contentDescription = "Create new playlist"
                     )
                 }
                 FloatingActionButton(
                     onClick = { viewModel.onEvent(PlaylistEvent.ToggleLayout) },
                     containerColor = MaterialTheme.colorScheme.secondary,
-                    contentColor = MaterialTheme.colorScheme.onSecondary
+                    contentColor = MaterialTheme.colorScheme.onTertiary
                 ) {
                     Icon(
-                        imageVector = if (uiState.currentLayout == LayoutType.LIST) Icons.Default.GridView else Icons.Default.List,
+                        modifier = Modifier.size(30.dp),
+                        imageVector = if (uiState.currentLayout == PlaylistLayoutType.LIST) Icons.Rounded.GridView else Icons.AutoMirrored.Rounded.List,
                         contentDescription = "Toggle layout"
                     )
                 }
-            }
-        },
-        snackbarHost = {
-            SnackbarHost(hostState = snackbarHostState) { data ->
-                CustomSnackbar(snackbarData = data)
             }
         },
         containerColor = Color.Transparent
@@ -136,9 +147,13 @@ fun PlaylistsScreen(
                     }
                 }
                 else -> {
-                    if (uiState.currentLayout == LayoutType.LIST) {
+                    if (uiState.currentLayout == PlaylistLayoutType.LIST) {
                         LazyColumn(
-                            contentPadding = PaddingValues(vertical = 8.dp),
+                            // Apply responsive horizontal padding here
+                            contentPadding = PaddingValues(
+                                horizontal = contentHorizontalPadding,
+                                vertical = 8.dp
+                            ),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxSize()
                         ) {
@@ -154,8 +169,9 @@ fun PlaylistsScreen(
                         }
                     } else {
                         LazyVerticalGrid(
-                            columns = GridCells.Fixed(2),
-                            contentPadding = PaddingValues(8.dp),
+                            columns = gridCells, // Use responsive grid cells
+                            // Apply responsive padding for the grid
+                            contentPadding = PaddingValues(contentHorizontalPadding),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxSize()

@@ -1,9 +1,9 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose) // Required for Kotlin 2.0+ Compose plugin
-    alias(libs.plugins.ksp) // For Hilt annotation processing if used in core
-    alias(libs.plugins.hilt.android) // Hilt plugin for the core module
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt.android)
 }
 
 android {
@@ -70,6 +70,8 @@ dependencies {
 
     //more icons
     implementation(libs.androidx.material.icons.extended);
+
+    implementation(libs.androidx.material3.window.size.class1.android)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

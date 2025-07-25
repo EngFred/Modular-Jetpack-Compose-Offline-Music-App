@@ -8,7 +8,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FolderOff
 import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,7 +26,7 @@ import com.engfred.musicplayer.feature_library.presentation.viewmodel.LibraryScr
  *
  * @param uiState The current UI state of the Library screen.
  * @param onAudioClick Callback when an audio file is clicked.
- * @param onSwipeToNowPlaying Callback when an audio file is swiped to navigate to the now-playing screen.
+ * @param onSwipeLeft Callback when an audio file is swiped to navigate to the now-playing screen.
  * @param onMenuOptionSelected Callback when a menu option is selected for an "AudioFileItem".
  * @param onRetry Callback when the retry button is clicked on error.
  * @param snackbarHostState The SnackbarHostState to pass to AudioFileItem.
@@ -37,10 +36,11 @@ import com.engfred.musicplayer.feature_library.presentation.viewmodel.LibraryScr
 fun LibraryContent(
     uiState: LibraryScreenState,
     onAudioClick: (AudioFile) -> Unit,
-    onSwipeToNowPlaying: (AudioFile) -> Unit,
+    onSwipeLeft: (AudioFile) -> Unit,
+    onSwipeRight: (AudioFile) -> Unit,
     onMenuOptionSelected: (AudioMenuOption, AudioFile) -> Unit,
     onRetry: () -> Unit,
-    snackbarHostState: SnackbarHostState,
+    isAudioPlaying: Boolean,
     modifier: Modifier = Modifier
 ) {
     val lazyListState = rememberLazyListState()
@@ -93,15 +93,15 @@ fun LibraryContent(
                     items(audios, key = { it.id }) { audioFile ->
                         AudioFileItem(
                             audioFile = audioFile,
-                            isPlaying = uiState.currentPlayingId == audioFile.id,
+                            isCurrentPlayingAudio = uiState.currentPlayingId == audioFile.id,
+                            isAudioPlaying = isAudioPlaying,
                             onClick = onAudioClick,
-                            onSwipeToNowPlaying = onSwipeToNowPlaying,
+                            onSwipeLeft = onSwipeLeft,
+                            onSwipeRight = onSwipeRight,
                             onPlayNext = { onMenuOptionSelected(AudioMenuOption.PLAY_NEXT, audioFile) },
-                            onAddToAlbum = { onMenuOptionSelected(AudioMenuOption.ADD_TO_ALBUM, audioFile) },
+                            onAddToPlaylist = { onMenuOptionSelected(AudioMenuOption.ADD_TO_ALBUM, audioFile) },
                             onDelete = { onMenuOptionSelected(AudioMenuOption.DELETE, audioFile) },
-                            onShare = { onMenuOptionSelected(AudioMenuOption.SHARE, audioFile) },
-                            snackbarHostState = snackbarHostState,
-                            modifier = Modifier.fillMaxWidth() // Add this back if it was removed unintentionally, or adjust as needed
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }

@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.feature_library.presentation.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,11 +25,8 @@ import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.runtime.collectAsState
-import com.engfred.musicplayer.core.ui.CustomSnackbar
+import androidx.compose.ui.platform.LocalContext
 
 /**
  * Composable for the Library screen, displaying a search bar and audio file list or permission request.
@@ -38,15 +36,14 @@ import com.engfred.musicplayer.core.ui.CustomSnackbar
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun LibraryScreen(
-    onSwipeToNowPlaying: (audioFileUri: String) -> Unit,
+    onNavigateToNowPlaying: () -> Unit,
     viewModel: LibraryViewModel = hiltViewModel()
 ) {
     val uiState = viewModel.uiState.collectAsState().value
     val permission = viewModel.getRequiredPermission()
     val permissionState = rememberPermissionState(permission)
     var hasRequestedPermission by remember { mutableStateOf(false) }
-
-    val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
 
     LaunchedEffect(permissionState.status, hasRequestedPermission) {
         if (!permissionState.status.isGranted && !hasRequestedPermission) {
@@ -61,21 +58,11 @@ fun LibraryScreen(
 
     LaunchedEffect(viewModel.uiEvent) {
         viewModel.uiEvent.collect { message ->
-            snackbarHostState.showSnackbar(
-                message = message,
-                duration = SnackbarDuration.Short
-            )
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
     }
 
     Scaffold(
-        snackbarHost = {
-            SnackbarHost(
-                hostState = snackbarHostState
-            ) { data ->
-                CustomSnackbar(snackbarData = data)
-            }
-        },
         modifier = Modifier
             .fillMaxSize()
             .background(
@@ -103,27 +90,35 @@ fun LibraryScreen(
                 SearchBar(
                     query = uiState.searchQuery,
                     onQueryChange = { query ->
-                        viewModel.onEvent(LibraryEvent.OnSearchQueryChanged(query))
+                        viewModel.onEvent(LibraryEvent.SearchQueryChanged(query))
                     },
                     placeholder = "Search songs",
                     onFilterSelected = { filterOption ->
-                        viewModel.onEvent(LibraryEvent.OnFilterSelected(filterOption))
+                        viewModel.onEvent(LibraryEvent.FilterSelected(filterOption))
                     }
                 )
                 LibraryContent(
                     uiState = uiState,
                     onAudioClick = { audioFile ->
-                        viewModel.onEvent(LibraryEvent.OnAudioFileClick(audioFile))
+                        viewModel.onEvent(LibraryEvent.PlayAudio(audioFile))
                     },
-                    onSwipeToNowPlaying = { audioFile ->
-                        viewModel.onEvent(LibraryEvent.OnSwipeToNowPlaying(audioFile))
-                        onSwipeToNowPlaying(audioFile.uri.toString())
+                    onSwipeLeft = { audioFile ->
+                        if (uiState.currentPlayingId != audioFile.id) {
+                            //another song was playing, stop it and play this one!
+                            viewModel.onEvent(LibraryEvent.SwipedLeft(audioFile))
+                        } else {
+                            //song already playing, navigate to the now playing
+                            onNavigateToNowPlaying()
+                        }
+                    },
+                    onSwipeRight = { audioFile ->
+                        viewModel.onEvent(LibraryEvent.SwipedRight(audioFile))
                     },
                     onMenuOptionSelected = { option, audioFile ->
-                        viewModel.onEvent(LibraryEvent.OnMenuOptionSelected(option, audioFile))
+                        viewModel.onEvent(LibraryEvent.MenuOptionSelected(option, audioFile))
                     },
-                    onRetry = { viewModel.onEvent(LibraryEvent.LoadAudioFiles) },
-                    snackbarHostState = snackbarHostState
+                    isAudioPlaying = uiState.isPlaying,
+                    onRetry = { viewModel.onEvent(LibraryEvent.LoadAudioFiles) }
                 )
             }
         }

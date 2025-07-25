@@ -6,11 +6,11 @@ import androidx.lifecycle.viewModelScope
 import com.engfred.musicplayer.core.common.Resource
 import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
 import com.engfred.musicplayer.core.domain.model.AudioFile
-import com.engfred.musicplayer.core.domain.model.repository.PlayerController
+import com.engfred.musicplayer.core.domain.repository.PlayerController
 import com.engfred.musicplayer.feature_library.domain.models.AudioMenuOption
+import com.engfred.musicplayer.feature_library.domain.models.FilterOption
 import com.engfred.musicplayer.feature_library.domain.usecases.GetAllAudioFilesUseCase
-import com.engfred.musicplayer.feature_library.domain.usecases.PermissionHandlerUseCase
-import com.engfred.musicplayer.feature_library.presentation.components.FilterOption
+import com.engfred.musicplayer.core.domain.usecases.PermissionHandlerUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -42,21 +42,34 @@ class LibraryViewModel @Inject constructor(
     val uiEvent: SharedFlow<String> = _uiEvent.asSharedFlow()
 
     init {
+        observePermissionState()
+        startObservingPlaybackState()
+    }
+
+    private fun observePermissionState() {
         if (permissionHandlerUseCase.hasAudioPermission()) {
             _uiState.update { it.copy(hasStoragePermission = true) }
             onEvent(LibraryEvent.LoadAudioFiles)
         } else {
             _uiState.update { it.copy(hasStoragePermission = false) }
         }
+    }
 
+    private fun startObservingPlaybackState() {
         playerController.getPlaybackState().onEach { state ->
             _uiState.update { currentState ->
                 if (state.currentAudioFile != null && state.isPlaying) {
-                    currentState.copy(currentPlayingId = state.currentAudioFile!!.id)
+                    currentState.copy(
+                        currentPlayingId = state.currentAudioFile!!.id,
+                        isPlaying = true
+                    )
                 } else if (!state.isPlaying) {
                     // If paused or stopped, clear current playing ID if it's the same song
                     if (currentState.currentPlayingId == state.currentAudioFile?.id) {
-                        currentState.copy(currentPlayingId = null)
+                        currentState.copy(
+                            currentPlayingId = null,
+                            isPlaying = false
+                        )
                     } else {
                         currentState
                     }
@@ -79,30 +92,27 @@ class LibraryViewModel @Inject constructor(
                         loadAudioFiles()
                     }
                 }
-                is LibraryEvent.OnAudioFileClick -> {
-                    val audioFiles = uiState.value.filteredAudioFiles.ifEmpty { uiState.value.audioFiles }
-                    sharedAudioDataSource.setAudioFiles(audioFiles)
-                    try {
-                        playerController.initiatePlayback(event.audioFile.uri)
-                        _uiState.update { it.copy(currentPlayingId = event.audioFile.id) }
-                        Log.d("LibraryViewModel", "Initiated playback for: ${event.audioFile.title}")
-                    } catch (e: Exception) {
-                        Log.e("LibraryViewModel", "Error playing audio file from Library: ${e.message}", e)
-                        _uiEvent.emit("Failed to play song: ${e.message}")
+                is LibraryEvent.SwipedLeft -> {
+                    startAudioPlayback(event.audioFile)
+                }
+                is LibraryEvent.SwipedRight -> {
+                    if ( _uiState.value.currentPlayingId == event.audioFile.id) {
+                        //this swipe is disabled if the song is playing
+                        playerController.playPause()
                     }
                 }
-                is LibraryEvent.OnSwipeToNowPlaying -> {
-                    Log.d("LibraryViewModel", "Swipe to now-playing triggered for: ${event.audioFile.title}")
+                is LibraryEvent.PlayAudio -> {
+                    startAudioPlayback(event.audioFile)
                 }
-                is LibraryEvent.OnSearchQueryChanged -> {
+                is LibraryEvent.SearchQueryChanged -> {
                     _uiState.update { it.copy(searchQuery = event.query) }
                     applySearchAndFilter()
                 }
-                is LibraryEvent.OnFilterSelected -> {
+                is LibraryEvent.FilterSelected -> {
                     _uiState.update { it.copy(currentFilterOption = event.filterOption) }
                     applySearchAndFilter()
                 }
-                is LibraryEvent.OnMenuOptionSelected -> {
+                is LibraryEvent.MenuOptionSelected -> {
                     when (event.option) {
                         AudioMenuOption.PLAY_NEXT -> {
                             Log.d("LibraryViewModel", "Play Next selected for: ${event.audioFile.title}")
@@ -129,6 +139,12 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
+    private suspend fun startAudioPlayback(audioFile: AudioFile) {
+        val audioFiles = uiState.value.filteredAudioFiles.ifEmpty { uiState.value.audioFiles }
+        sharedAudioDataSource.setPlayingQueue(audioFiles) //no need to clear as the shared data source ensures no unnecessary updates
+        playerController.initiatePlayback(audioFile.uri)
+    }
+
     private fun loadAudioFiles() {
         getAudioFilesUseCase().onEach { result ->
             _uiState.update { currentState ->
@@ -148,11 +164,12 @@ class LibraryViewModel @Inject constructor(
                         ).also {
                             // Apply search and filter immediately after loading
                             applySearchAndFilter()
+                            sharedAudioDataSource.setDeviceAudioFiles(audioFiles)
                             Log.d("LibraryViewModel", "Loaded and published ${audioFiles.size} audio files.")
                         }
                     }
                     is Resource.Error -> {
-                        sharedAudioDataSource.clearAudioFiles()
+                        sharedAudioDataSource.clearPlayingQueue()
                         Log.e("LibraryViewModel", "Error loading audio files: ${result.message}. Cleared SharedAudioDataSource.")
                         viewModelScope.launch {
                             _uiEvent.emit("Failed to load songs: ${result.message}")
@@ -185,7 +202,7 @@ class LibraryViewModel @Inject constructor(
         _uiState.update { it.copy(filteredAudioFiles = tempFilteredList) }
         Log.d("LibraryViewModel", "Applied search and filter. Result: ${tempFilteredList.size} items for query '${currentUiState.searchQuery}' and filter '${currentUiState.currentFilterOption}'")
 
-        sharedAudioDataSource.setAudioFiles(tempFilteredList)
+        sharedAudioDataSource.setPlayingQueue(tempFilteredList)
     }
 
     private fun sortAudioFiles(list: List<AudioFile>, filterOption: FilterOption): List<AudioFile> {

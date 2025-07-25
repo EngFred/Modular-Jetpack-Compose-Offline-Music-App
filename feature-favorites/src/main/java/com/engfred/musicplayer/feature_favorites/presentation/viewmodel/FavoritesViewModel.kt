@@ -5,15 +5,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
 import com.engfred.musicplayer.core.domain.model.AudioFile
-import com.engfred.musicplayer.core.domain.model.repository.FavoritesRepository
-import com.engfred.musicplayer.core.domain.model.repository.PlayerController
+import com.engfred.musicplayer.core.domain.repository.FavoritesRepository
+import com.engfred.musicplayer.core.domain.repository.PlayerController
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow // Import
-import kotlinx.coroutines.flow.StateFlow // Import
-import kotlinx.coroutines.flow.asStateFlow // Import
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.update // Import
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -28,13 +28,37 @@ class FavoritesViewModel @Inject constructor(
     private val playerController: PlayerController
 ) : ViewModel() {
 
-    // Change from 'var uiState by mutableStateOf' to MutableStateFlow
     private val _uiState = MutableStateFlow(FavoritesScreenState())
     val uiState: StateFlow<FavoritesScreenState> = _uiState.asStateFlow()
 
     init {
-        // Load favorite audio files
         loadFavoriteAudioFiles()
+        startObservingPlaybackState()
+    }
+
+    private fun startObservingPlaybackState() {
+        playerController.getPlaybackState().onEach { state ->
+            _uiState.update { currentState ->
+                if (state.currentAudioFile != null && state.isPlaying) {
+                    currentState.copy(
+                        currentPlayingId = state.currentAudioFile!!.id,
+                        isPlaying = true
+                    )
+                } else if (!state.isPlaying) {
+                    // If paused or stopped, clear current playing ID if it's the same song
+                    if (currentState.currentPlayingId == state.currentAudioFile?.id) {
+                        currentState.copy(
+                            currentPlayingId = null,
+                            isPlaying = false
+                        )
+                    } else {
+                        currentState
+                    }
+                } else {
+                    currentState
+                }
+            }
+        }.launchIn(viewModelScope)
     }
 
     fun onEvent(event: FavoritesEvent) {
@@ -44,31 +68,36 @@ class FavoritesViewModel @Inject constructor(
                     try {
                         favoritesRepository.removeFavoriteAudioFile(event.audioFileId)
                         Log.d("FavoritesViewModel", "Removed favorite audio file ID: ${event.audioFileId}")
-                        // No need to manually update uiState here as it's observed from the repository flow
                     } catch (e: Exception) {
                         _uiState.update { it.copy(error = "Error removing favorite: ${e.message}") }
                         Log.e("FavoritesViewModel", "Error removing favorite: ${e.message}", e)
                     }
                 }
-                is FavoritesEvent.OnAudioFileClick -> {
-                    Log.d("FavoritesViewModel", "Clicked on audio file: ${event.audioFile.title}")
-                    if (uiState.value.favoriteAudioFiles.isNotEmpty()) { // Access value for StateFlow
-                        // Update SharedAudioDataSource with favorite songs for playback queue
-                        val favoriteSongs = uiState.value.favoriteAudioFiles // Access value for StateFlow
-                        sharedAudioDataSource.clearAudioFiles()
-                        sharedAudioDataSource.setAudioFiles(favoriteSongs)
-                        Log.d("FavoritesViewModel", "Set playback queue to ${favoriteSongs.size} favorite songs.")
-                        playerController.initiatePlayback(event.audioFile.uri)
-                    } else {
-                        Log.d("FavoritesViewModel", "No favorite audio files to play.")
+                is FavoritesEvent.PlayAudio -> {
+                    startAudioPlayback(event.audioFile)
+                }
+
+                is FavoritesEvent.SwipedLeft -> {
+                    startAudioPlayback(event.audioFile)
+                }
+                is FavoritesEvent.SwipedRight -> {
+                    //pause only if the playback has an audio and it is playing
+                    if (_uiState.value.currentPlayingId == event.audioFile.id && _uiState.value.isPlaying) {
+                        playerController.playPause()
                     }
                 }
             }
         }
     }
 
+    private suspend fun startAudioPlayback(audioFile: AudioFile) {
+        val audioFiles =  uiState.value.favoriteAudioFiles
+        sharedAudioDataSource.setPlayingQueue(audioFiles)
+        playerController.initiatePlayback(audioFile.uri)
+    }
+
     private fun loadFavoriteAudioFiles() {
-        _uiState.update { it.copy(isLoading = true, error = null) } // Set loading state
+        _uiState.update { it.copy(isLoading = true, error = null) }
         favoritesRepository.getFavoriteAudioFiles().onEach { favoriteAudioFiles ->
             _uiState.update {
                 it.copy(
@@ -84,13 +113,15 @@ class FavoritesViewModel @Inject constructor(
 
 sealed class FavoritesEvent {
     data class RemoveFavorite(val audioFileId: Long) : FavoritesEvent()
-    data class OnAudioFileClick(val audioFile: AudioFile) : FavoritesEvent()
+    data class PlayAudio(val audioFile: AudioFile) : FavoritesEvent()
+    data class SwipedLeft(val audioFile: AudioFile) : FavoritesEvent()
+    data class SwipedRight(val audioFile: AudioFile) : FavoritesEvent()
 }
 
-// Ensure this data class is in a separate file or within the same file if you prefer
-// package com.engfred.musicplayer.feature_favorites.presentation.viewmodel
 data class FavoritesScreenState(
     val favoriteAudioFiles: List<AudioFile> = emptyList(),
     val isLoading: Boolean = true,
-    val error: String? = null
+    val error: String? = null,
+    val currentPlayingId: Long? = null,
+    val isPlaying: Boolean = false
 )

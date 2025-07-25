@@ -14,7 +14,7 @@ import com.engfred.musicplayer.core.ui.InfoIndicator
 @Composable
 fun PlaylistEmptyState(modifier: Modifier = Modifier) {
     AnimatedVisibility(
-        visible = true, // This component is only shown when the playlist is empty
+        visible = true,
         enter = fadeIn(),
         exit = fadeOut()
     ) {

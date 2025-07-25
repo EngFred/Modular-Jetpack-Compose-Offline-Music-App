@@ -148,9 +148,13 @@ fun MusicPlayerAppTheme(
             window.statusBarColor = Color.Transparent.toArgb()
             window.navigationBarColor = Color.Transparent.toArgb()
 
+            // Determine if the current theme is a light theme (Frostbyte)
+            val isLightTheme = selectedTheme == AppThemeType.FROSTBYTE
+
+            // Set status bar icons to dark for light themes, and light for dark themes
             WindowCompat.getInsetsController(window, view).apply {
-                isAppearanceLightStatusBars = false
-                isAppearanceLightNavigationBars = false
+                isAppearanceLightStatusBars = isLightTheme
+                isAppearanceLightNavigationBars = isLightTheme
             }
         }
     }

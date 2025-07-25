@@ -1,7 +1,7 @@
 package com.engfred.musicplayer.navigation
 
-import android.net.Uri
-import androidx.compose.material3.windowsizeclass.WindowSizeClass
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
@@ -9,20 +9,27 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.engfred.musicplayer.core.domain.model.AudioFile
+import com.engfred.musicplayer.core.domain.model.PlayerLayout
 import com.engfred.musicplayer.feature_player.presentation.screens.PlayerScreen
-import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerArgs
 import com.engfred.musicplayer.feature_playlist.presentation.screens.PlaylistDetailScreen
-import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.PlaylistDetailArgs
+import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.detail.PlaylistDetailArgs
 import com.engfred.musicplayer.feature_settings.presentation.screens.SettingsScreen
 import com.engfred.musicplayer.ui.MainScreen
 
 /**
  * Defines the main navigation graph for the application.
  */
+@RequiresApi(Build.VERSION_CODES.M)
 @Composable
 fun AppNavHost(
     rootNavController: NavHostController,
-    windowWidthSizeClass: WindowWidthSizeClass
+    windowWidthSizeClass: WindowWidthSizeClass,
+    onPlayPause: () -> Unit,
+    onPlayNext: () -> Unit,
+    onPlayPrev: () -> Unit,
+    playingAudioFile: AudioFile?,
+    isPlaying: Boolean
 ) {
     NavHost(
         navController = rootNavController,
@@ -31,31 +38,33 @@ fun AppNavHost(
         // Main Graph (with bottom nav)
         composable(AppDestinations.MainGraph.route) {
             MainScreen(
-                onPlayAudio = { audioFileUri ->
-                    val encodedUri = Uri.encode(audioFileUri)
-                    rootNavController.navigate(AppDestinations.Player.createRoute(encodedUri))
+                onNavigateToNowPlaying = {
+                    rootNavController.navigate(AppDestinations.NowPlaying.route)
                 },
                 onPlaylistClick = { playlistId ->
                     rootNavController.navigate(AppDestinations.PlaylistDetail.createRoute(playlistId))
                 },
                 onSettingsClick = {
                     rootNavController.navigate(AppDestinations.Settings.route)
-                }
+                },
+                onPlayPause = onPlayPause,
+                onPlayNext = onPlayNext,
+                onPlayPrev = onPlayPrev,
+                isPlaying = isPlaying,
+                playingAudioFile = playingAudioFile,
+                windowWidthSizeClass = windowWidthSizeClass
             )
         }
 
         // Player screen
         composable(
-            route = AppDestinations.Player.route,
-            arguments = listOf(
-                navArgument(PlayerArgs.AUDIO_FILE_URI) {
-                    type = NavType.StringType
-                    nullable = true
-                }
-            )
+            route = AppDestinations.NowPlaying.route
         ) {
             PlayerScreen(
-                windowWidthSizeClass = windowWidthSizeClass
+                windowWidthSizeClass = windowWidthSizeClass,
+                onNavigateUp = {
+                    rootNavController.navigateUp()
+                }
             )
         }
 
@@ -70,10 +79,10 @@ fun AppNavHost(
         ) {
             PlaylistDetailScreen(
                 onNavigateBack = { rootNavController.popBackStack() },
-                onAudioFileClick = { audioFileUri ->
-                    val encodedUri = Uri.encode(audioFileUri)
-                    rootNavController.navigate(AppDestinations.Player.createRoute(encodedUri))
+                onNavigateToNowPlaying = {
+                    rootNavController.navigate(AppDestinations.NowPlaying.route)
                 },
+                windowWidthSizeClass = windowWidthSizeClass
             )
         }
 

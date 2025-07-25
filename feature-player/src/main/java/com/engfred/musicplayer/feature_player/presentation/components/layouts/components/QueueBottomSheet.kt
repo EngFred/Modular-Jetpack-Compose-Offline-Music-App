@@ -9,9 +9,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -32,14 +31,14 @@ fun QueueBottomSheet(
     onDismissRequest: () -> Unit,
     sheetState: SheetState,
     playingQueue: List<AudioFile>,
-    currentSongIndex: Int,
     onPlayQueueItem: (AudioFile) -> Unit,
-    onRemoveQueueItem: (AudioFile) -> Unit
+    onRemoveQueueItem: (AudioFile) -> Unit,
+    playingAudio: AudioFile?
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f), // Slightly more opaque
+        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
         contentColor = MaterialTheme.colorScheme.onSurface
     ) {
         Column(
@@ -53,7 +52,7 @@ fun QueueBottomSheet(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Spacer(modifier = Modifier.size(48.dp)) // To balance the IconButton on the right
+                Spacer(modifier = Modifier.size(48.dp))
                 Text(
                     text = "Playing Queue",
                     style = MaterialTheme.typography.headlineSmall,
@@ -61,7 +60,7 @@ fun QueueBottomSheet(
                 )
                 IconButton(onClick = onDismissRequest) {
                     Icon(
-                        Icons.Default.Close,
+                        Icons.Rounded.Close,
                         contentDescription = "Close Queue",
                         tint = MaterialTheme.colorScheme.onSurface
                     )
@@ -80,12 +79,13 @@ fun QueueBottomSheet(
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    itemsIndexed(playingQueue) { index, item ->
+                    items(playingQueue.size, key = {playingQueue[it].id}) { index ->
+                        val currentAudio = playingQueue[index]
                         QueueItem(
-                            audioFile = item,
-                            isCurrent = index == currentSongIndex,
-                            onPlayClick = { onPlayQueueItem(item) },
-                            onRemoveClick = { onRemoveQueueItem(item) }
+                            audioFile = currentAudio,
+                            isCurrentlyPlaying = currentAudio.id == playingAudio?.id,
+                            onPlayClick = { onPlayQueueItem(currentAudio) },
+                            onRemoveClick = { onRemoveQueueItem(currentAudio) }
                         )
                     }
                 }

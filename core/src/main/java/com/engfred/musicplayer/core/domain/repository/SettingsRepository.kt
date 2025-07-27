@@ -1,6 +1,7 @@
 package com.engfred.musicplayer.core.domain.repository
 
 import com.engfred.musicplayer.core.domain.model.AppSettings
+import com.engfred.musicplayer.core.domain.model.FilterOption
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
 import com.engfred.musicplayer.core.domain.model.PlaylistLayoutType
 import com.engfred.musicplayer.core.ui.theme.AppThemeType
@@ -35,4 +36,6 @@ interface SettingsRepository {
      */
     suspend fun updatePlaylistLayout(layout: PlaylistLayoutType)
 
+    suspend fun updateFilterOption(filterOption: FilterOption)
+    fun getFilterOption(): Flow<FilterOption>
 }

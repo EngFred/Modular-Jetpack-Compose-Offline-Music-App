@@ -64,7 +64,7 @@ fun MiniPlayer(
     val isCompactWidth = windowWidthSizeClass == WindowWidthSizeClass.Compact
 
     AnimatedVisibility(
-        visible = playingAudioFile != null,
+        visible = playingAudioFile != null || isPlaying,
         enter = slideInVertically(initialOffsetY = { it / 2 }) + fadeIn(),
         exit = slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut(),
         modifier = modifier

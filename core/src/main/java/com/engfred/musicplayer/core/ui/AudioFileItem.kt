@@ -1,23 +1,50 @@
 package com.engfred.musicplayer.core.ui
 
 import android.widget.Toast
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.QueuePlayNext
 import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,8 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.engfred.musicplayer.core.domain.model.AudioFile
-import com.engfred.musicplayer.core.util.formatDuration
-import com.engfred.musicplayer.core.util.shareAudioFile
+import com.engfred.musicplayer.core.util.MediaUtils
 import com.skydoves.landscapist.coil.CoilImage
 
 @Composable
@@ -43,8 +69,10 @@ fun AudioFileItem(
     onSwipeLeft: (AudioFile) -> Unit = {},
     onSwipeRight: (AudioFile) -> Unit = {},
     onPlayNext: (AudioFile) -> Unit = {},
-    onAddToPlaylist: (AudioFile) -> Unit = {},
-    onDelete: (AudioFile) -> Unit,
+    onAddToPlaylist: (AudioFile) -> Unit,
+    onRemoveOrDelete: (AudioFile) -> Unit,
+    isFromAutomaticPlaylist: Boolean = false,
+    isFromLibrary: Boolean = false
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
@@ -143,7 +171,7 @@ fun AudioFileItem(
                     modifier = Modifier.fillMaxSize(),
                     loading = {
                         Icon(
-                            imageVector = Icons.Default.MusicNote,
+                            imageVector = Icons.Rounded.MusicNote,
                             contentDescription = "Loading icon",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                             modifier = Modifier
@@ -152,7 +180,7 @@ fun AudioFileItem(
                     },
                     failure = {
                         Icon(
-                            imageVector = Icons.Default.MusicNote,
+                            imageVector = Icons.Rounded.MusicNote,
                             contentDescription = "No album art available",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                             modifier = Modifier
@@ -187,7 +215,7 @@ fun AudioFileItem(
             }
 
             Text(
-                text = formatDuration(audioFile.duration),
+                text = MediaUtils.formatDuration(audioFile.duration), // Use MediaUtils
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 modifier = Modifier.padding(horizontal = 8.dp)
@@ -239,25 +267,27 @@ fun AudioFileItem(
                             )
                         }
                     )
-                    DropdownMenuItem(
-                        text = { Text("Delete Song") },
-                        onClick = {
-                            onDelete(audioFile)
-                            showMenu = false
-                        },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Rounded.Delete,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                        }
-                    )
+                    if (isFromAutomaticPlaylist.not()) {
+                        DropdownMenuItem(
+                            text = { Text(if (isFromLibrary) "Delete song" else "Remove song") },
+                            onClick = {
+                                onRemoveOrDelete(audioFile)
+                                showMenu = false
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Rounded.Delete,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        )
+                    }
                     // Call the separate share function
                     DropdownMenuItem(
                         text = { Text("Share Song") },
                         onClick = {
-                            shareAudioFile(context, audioFile)
+                            MediaUtils.shareAudioFile(context, audioFile) // Use MediaUtils
                             showMenu = false
                         },
                         leadingIcon = {

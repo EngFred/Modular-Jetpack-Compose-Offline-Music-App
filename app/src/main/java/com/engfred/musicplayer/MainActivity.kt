@@ -75,9 +75,9 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            val selectedTheme = initialAppSettings?.selectedTheme ?: AppThemeType.FROSTBYTE
+            val selectedTheme = initialAppSettings?.selectedTheme ?: AppThemeType.DEEP_BLUE
 
-            // --- GLOBAL ERROR TOAST LOGIC ---
+            // --- GLOBAL PLAYBACK ERROR TOAST LOGIC ---
             LaunchedEffect(playbackState.error) {
                 playbackState.error?.let { errorMessage ->
                     Toast.makeText(applicationContext, errorMessage, Toast.LENGTH_LONG).show()
@@ -85,7 +85,7 @@ class MainActivity : ComponentActivity() {
                     playerController.clearPlaybackError()
                 }
             }
-            // --- END GLOBAL ERROR TOAST LOGIC ---
+            // --- END GLOBAL PLAYBACK ERROR TOAST LOGIC ---
 
             MusicPlayerAppTheme(
                 selectedTheme = selectedTheme

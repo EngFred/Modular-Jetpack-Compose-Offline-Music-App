@@ -6,8 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.engfred.musicplayer.core.domain.repository.PlayerController
 import com.engfred.musicplayer.core.domain.model.PlaylistLayoutType
 import com.engfred.musicplayer.core.domain.repository.SettingsRepository
-import com.engfred.musicplayer.feature_playlist.domain.model.Playlist
-import com.engfred.musicplayer.feature_playlist.domain.repository.PlaylistRepository
+import com.engfred.musicplayer.core.domain.model.Playlist
+import com.engfred.musicplayer.core.domain.repository.PlaylistRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -23,6 +23,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * ViewModel for the Playlists screen.
+ * Manages UI state, interacts with playlist and player repositories, and settings.
+ */
+
 @HiltViewModel
 class PlaylistViewModel @Inject constructor(
     private val playlistRepository: PlaylistRepository,
@@ -30,7 +35,8 @@ class PlaylistViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
-    // Change from 'var uiState by mutableStateOf' to MutableStateFlow
+    private val TAG = "PlaylistViewModel"
+
     private val _uiState = MutableStateFlow(PlaylistScreenState())
     val uiState: StateFlow<PlaylistScreenState> = _uiState.asStateFlow()
 
@@ -41,13 +47,7 @@ class PlaylistViewModel @Inject constructor(
         loadPlaylists()
         playerController.getPlaybackState().onEach { state ->
             _uiState.update { currentState ->
-                if (state.currentAudioFile != null) {
-                    Log.d("PlaylistViewModel", "Is playing...")
-                    currentState.copy(isPlaying = true)
-                } else {
-                    Log.d("PlaylistViewModel", "Is not playing!!")
-                    currentState.copy(isPlaying = false)
-                }
+                currentState.copy(isPlaying = state.currentAudioFile != null && state.isPlaying)
             }
         }.launchIn(viewModelScope)
 
@@ -58,8 +58,7 @@ class PlaylistViewModel @Inject constructor(
                     currentState.copy(currentLayout = savedLayout)
                 }
             } catch (e: Exception) {
-                Log.e("PlaylistViewModel", "Failed to load playlist layout from settings: ${e.message}", e)
-                // Fallback to default if loading fails
+                Log.e(TAG, "Failed to load playlist layout from settings: ${e.message}", e)
                 _uiState.update { currentState ->
                     currentState.copy(currentLayout = PlaylistLayoutType.LIST)
                 }
@@ -72,17 +71,18 @@ class PlaylistViewModel @Inject constructor(
             when (event) {
                 is PlaylistEvent.CreatePlaylist -> {
                     if (event.name.isNotBlank()) {
-                        if (uiState.value.playlists.any { it.name.equals(event.name, ignoreCase = true) }) {
+                        if (uiState.value.userPlaylists.any { it.name.equals(event.name, ignoreCase = true) }) { // Check only user playlists
                             _uiState.update { it.copy(dialogInputError = "Playlist with this name already exists.") }
                             return@launch
                         }
 
-                        val newPlaylist = Playlist(name = event.name)
+                        val newPlaylist = Playlist(name = event.name, isAutomatic = false, type = null)
                         try {
                             playlistRepository.createPlaylist(newPlaylist)
                             _uiState.update { it.copy(showCreatePlaylistDialog = false, dialogInputError = null) }
                             _uiEvent.emit("Playlist '${event.name}' created!")
                         } catch (e: Exception) {
+                            Log.e(TAG, "Error creating playlist: ${e.message}", e)
                             _uiState.update { it.copy(dialogInputError = "Error creating playlist: ${e.message}") }
                             _uiEvent.emit("Error creating playlist: ${e.message}")
                         }
@@ -91,26 +91,41 @@ class PlaylistViewModel @Inject constructor(
                     }
                 }
                 is PlaylistEvent.DeletePlaylist -> {
+                    if (event.playlistId < 0) {
+                        _uiEvent.emit("Automatic playlists cannot be deleted.")
+                        return@launch
+                    }
                     try {
                         playlistRepository.deletePlaylist(event.playlistId)
                         _uiEvent.emit("Playlist deleted.")
                     } catch (e: Exception) {
+                        Log.e(TAG, "Error deleting playlist: ${e.message}", e)
                         _uiEvent.emit("Error deleting playlist: ${e.message}")
                     }
                 }
                 is PlaylistEvent.AddSongToPlaylist -> {
+                    if (event.playlistId < 0) {
+                        _uiEvent.emit("Cannot manually add songs to automatic playlists.")
+                        return@launch
+                    }
                     try {
                         playlistRepository.addSongToPlaylist(event.playlistId, event.audioFile)
                         _uiEvent.emit("Song added to playlist.")
                     } catch (e: Exception) {
+                        Log.e(TAG, "Error adding song to playlist: ${e.message}", e)
                         _uiEvent.emit("Error adding song: ${e.message}")
                     }
                 }
                 is PlaylistEvent.RemoveSongFromPlaylist -> {
+                    if (event.playlistId < 0) {
+                        _uiEvent.emit("Cannot manually remove songs from automatic playlists.")
+                        return@launch
+                    }
                     try {
                         playlistRepository.removeSongFromPlaylist(event.playlistId, event.audioFileId)
-                        _uiEvent.emit("Error removing song!")
+                        _uiEvent.emit("Song removed from playlist.")
                     } catch (e: Exception) {
+                        Log.e(TAG, "Error removing song from playlist: ${e.message}", e)
                         _uiEvent.emit("Error removing song: ${e.message}")
                     }
                 }
@@ -137,10 +152,13 @@ class PlaylistViewModel @Inject constructor(
 
     private fun loadPlaylists() {
         _uiState.update { it.copy(isLoading = true, error = null) }
-        playlistRepository.getPlaylists().onEach { playlists ->
+        playlistRepository.getPlaylists().onEach { allPlaylists ->
+            val automatic = allPlaylists.filter { it.isAutomatic }
+            val user = allPlaylists.filter { !it.isAutomatic }
             _uiState.update {
                 it.copy(
-                    playlists = playlists,
+                    automaticPlaylists = automatic,
+                    userPlaylists = user,
                     isLoading = false,
                     error = null
                 )

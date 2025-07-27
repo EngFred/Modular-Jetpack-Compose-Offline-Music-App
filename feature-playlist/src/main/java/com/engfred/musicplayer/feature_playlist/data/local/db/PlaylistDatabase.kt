@@ -8,16 +8,21 @@ import androidx.room.TypeConverters
 import com.engfred.musicplayer.feature_playlist.data.local.dao.PlaylistDao
 import com.engfred.musicplayer.feature_playlist.data.local.entity.PlaylistEntity
 import com.engfred.musicplayer.feature_playlist.data.local.entity.PlaylistSongEntity
+import com.engfred.musicplayer.feature_playlist.data.local.entity.SongPlayEventEntity // Import the new entity
 
 /**
  * Room Database for managing Playlists and their songs.
  */
 @Database(
-    entities = [PlaylistEntity::class, PlaylistSongEntity::class],
-    version = 1, // Start with version 1
+    entities = [
+        PlaylistEntity::class,
+        PlaylistSongEntity::class,
+        SongPlayEventEntity::class
+    ],
+    version = 2,
     exportSchema = false // For production, set to true and provide schema exports
 )
-@TypeConverters(Converters::class) // Apply TypeConverters for custom types
+@TypeConverters(Converters::class)
 abstract class PlaylistDatabase : RoomDatabase() {
     abstract fun playlistDao(): PlaylistDao
 }

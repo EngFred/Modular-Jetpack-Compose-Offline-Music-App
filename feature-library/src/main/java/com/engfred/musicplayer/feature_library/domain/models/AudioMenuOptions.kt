@@ -5,7 +5,7 @@ package com.engfred.musicplayer.feature_library.domain.models
  */
 enum class AudioMenuOption {
     PLAY_NEXT,
-    ADD_TO_ALBUM,
+    ADD_TO_PLAYLIST,
     DELETE,
     SHARE
 }

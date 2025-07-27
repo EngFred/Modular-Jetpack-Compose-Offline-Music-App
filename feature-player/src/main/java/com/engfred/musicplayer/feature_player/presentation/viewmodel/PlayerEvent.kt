@@ -22,4 +22,5 @@ sealed class PlayerEvent {
     data class RemoveFromFavorites(val audioFileId: Long) : PlayerEvent()
     data class SetSeeking(val seeking: Boolean) : PlayerEvent()
     data class SelectPlayerLayout(val layout: PlayerLayout) : PlayerEvent()
+    data class RemovedFromQueue(val audioFile: AudioFile) : PlayerEvent()
 }

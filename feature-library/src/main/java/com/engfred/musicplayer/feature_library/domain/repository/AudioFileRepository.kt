@@ -14,10 +14,10 @@ interface AudioFileRepository {
      */
     fun getAllAudioFiles(): Flow<List<AudioFile>>
 
-    /**
-     * Searches for audio files based on a query string.
-     * @param query The search query (e.g., song title, artist, album).
-     * @return A Flow emitting a list of matching AudioFile objects.
-     */
-    fun searchAudioFiles(query: String): Flow<List<AudioFile>>
+//    /**
+//     * Searches for audio files based on a query string.
+//     * @param query The search query (e.g., song title, artist, album).
+//     * @return A Flow emitting a list of matching AudioFile objects.
+//     */
+//    fun searchAudioFiles(query: String): Flow<List<AudioFile>>
 }

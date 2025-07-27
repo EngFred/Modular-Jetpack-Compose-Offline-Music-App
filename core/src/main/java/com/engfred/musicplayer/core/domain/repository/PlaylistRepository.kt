@@ -1,7 +1,7 @@
-package com.engfred.musicplayer.feature_playlist.domain.repository
+package com.engfred.musicplayer.core.domain.repository
 
 import com.engfred.musicplayer.core.domain.model.AudioFile
-import com.engfred.musicplayer.feature_playlist.domain.model.Playlist
+import com.engfred.musicplayer.core.domain.model.Playlist
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -44,4 +44,24 @@ interface PlaylistRepository {
      * Removes a song from a playlist.
      */
     suspend fun removeSongFromPlaylist(playlistId: Long, audioFileId: Long)
+
+    /**
+     * Retrieves a flow of recently added songs, sorted by date added (descending).
+     * @param limit The maximum number of songs to retrieve.
+     */
+    fun getRecentlyAddedSongs(limit: Int): Flow<List<AudioFile>>
+
+    /**
+     * Retrieves a flow of top played songs within a specific time frame.
+     * @param sinceTimestamp The timestamp (milliseconds) from which to count play events.
+     * @param limit The maximum number of songs to retrieve.
+     */
+    fun getTopPlayedSongs(sinceTimestamp: Long, limit: Int): Flow<List<AudioFile>>
+
+    /**
+     * Records a play event for a given audio file.
+     * This is used to track play counts for "Top Songs" functionality.
+     * @param audioFileId The ID of the audio file that was played.
+     */
+    suspend fun recordSongPlayEvent(audioFileId: Long)
 }

@@ -18,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -93,7 +94,10 @@ fun PlayerScreen(
                             },
                             onNavigateUp = onNavigateUp,
                             playingAudio = uiState.currentAudioFile,
-                            selectedLayout = it
+                            selectedLayout = it,
+                            onRemoveQueueItem = { audio ->
+                                viewModel.onEvent(PlayerEvent.RemovedFromQueue(audio))
+                            }
                         )
                     }
                     PlayerLayout.IMMERSIVE_CANVAS -> selectedLayout?.let {
@@ -106,12 +110,15 @@ fun PlayerScreen(
                             },
                             playingQueue = uiState.playingQueue,
                             currentSongIndex = uiState.playingSongIndex,
-                            onPlayQueueItem = {
-                                viewModel.onEvent(PlayerEvent.PlayAudioFile(it))
+                            onPlayQueueItem = { audio ->
+                                viewModel.onEvent(PlayerEvent.PlayAudioFile(audio))
                             },
                             onNavigateUp = onNavigateUp,
                             playingAudio = uiState.currentAudioFile,
-                            selectedLayout = it
+                            selectedLayout = it,
+                            onRemoveQueueItem = { audio ->
+                                viewModel.onEvent(PlayerEvent.RemovedFromQueue(audio))
+                            }
                         )
                     }
                     PlayerLayout.MINIMALIST_GROOVE -> selectedLayout?.let {
@@ -125,7 +132,7 @@ fun PlayerScreen(
                             currentSongIndex = uiState.playingSongIndex,
                             onNavigateUp = onNavigateUp,
                             selectedLayout = it,
-                            windowSizeClass = windowWidthSizeClass
+                            windowSizeClass = windowWidthSizeClass,
                         )
                     }
                     null -> {}

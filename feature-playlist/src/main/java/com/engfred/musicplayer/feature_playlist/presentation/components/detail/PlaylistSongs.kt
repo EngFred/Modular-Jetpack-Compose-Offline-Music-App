@@ -19,10 +19,13 @@ fun PlaylistSongs(
     songs: List<AudioFile>,
     currentPlayingId: Long?,
     isAudioPlaying: Boolean,
+    isFromAutomaticPlaylist: Boolean,
     onSongClick: (AudioFile) -> Unit,
-    onSongDelete: (AudioFile) -> Unit,
+    onSongRemove: (AudioFile) -> Unit,
     onSwipeLeft: (AudioFile) -> Unit,
     onSwipeRight: (AudioFile) -> Unit,
+    onAddToPlaylist: (AudioFile) -> Unit,
+    onPlayNext: (AudioFile) -> Unit,
     listState: LazyListState,
     modifier: Modifier = Modifier
 ) {
@@ -44,11 +47,14 @@ fun PlaylistSongs(
                     audioFile = audioFile,
                     isCurrentPlayingAudio = (audioFile.id == currentPlayingId),
                     onClick = onSongClick,
-                    onDelete = onSongDelete,
+                    onRemoveOrDelete = onSongRemove,
                     modifier = Modifier.animateItem(),
                     onSwipeLeft = onSwipeLeft,
                     onSwipeRight = onSwipeRight,
-                    isAudioPlaying = isAudioPlaying
+                    isAudioPlaying = isAudioPlaying,
+                    onAddToPlaylist = onAddToPlaylist,
+                    onPlayNext = onPlayNext,
+                    isFromAutomaticPlaylist = isFromAutomaticPlaylist
                 )
             }
         }

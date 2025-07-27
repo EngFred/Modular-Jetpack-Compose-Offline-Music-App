@@ -16,4 +16,6 @@ interface PlayerController {
     suspend fun releasePlayer()
     suspend fun addAudioToQueueNext(audioFile: AudioFile)
     fun clearPlaybackError()
+    suspend fun onAudioFileRemoved(deletedAudioFile: AudioFile)
+    suspend fun removeFromQueue(audioFile: AudioFile)
 }

@@ -1,4 +1,4 @@
-package com.engfred.musicplayer.feature_library.domain.models
+package com.engfred.musicplayer.core.domain.model
 
 /**
  * Represents the different filtering options for audio files.

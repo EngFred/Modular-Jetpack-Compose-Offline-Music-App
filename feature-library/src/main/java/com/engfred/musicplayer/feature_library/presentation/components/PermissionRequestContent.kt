@@ -24,17 +24,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionState
-import com.google.accompanist.permissions.rememberPermissionState
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun PermissionRequestContent(
     permissionState: PermissionState,
-    permission: String,
     shouldShowRationale: Boolean,
     isPermanentlyDenied: Boolean
 ) {
@@ -117,47 +114,5 @@ fun PermissionRequestContent(
                 Text(text = "Not Now", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-    }
-}
-
-@OptIn(ExperimentalPermissionsApi::class)
-@Preview(showBackground = true)
-@Composable
-fun PermissionRequestContentPreviewRationale() {
-    MaterialTheme {
-        PermissionRequestContent(
-            permissionState = rememberPermissionState(permission = "android.permission.READ_EXTERNAL_STORAGE"), // Dummy state
-            permission = "android.permission.READ_EXTERNAL_STORAGE",
-            shouldShowRationale = true,
-            isPermanentlyDenied = false
-        )
-    }
-}
-
-@OptIn(ExperimentalPermissionsApi::class)
-@Preview(showBackground = true)
-@Composable
-fun PermissionRequestContentPreviewPermanentlyDenied() {
-    MaterialTheme {
-        PermissionRequestContent(
-            permissionState = rememberPermissionState(permission = "android.permission.READ_EXTERNAL_STORAGE"), // Dummy state
-            permission = "android.permission.READ_EXTERNAL_STORAGE",
-            shouldShowRationale = false,
-            isPermanentlyDenied = true
-        )
-    }
-}
-
-@OptIn(ExperimentalPermissionsApi::class)
-@Preview(showBackground = true)
-@Composable
-fun PermissionRequestContentPreviewInitialRequest() {
-    MaterialTheme {
-        PermissionRequestContent(
-            permissionState = rememberPermissionState(permission = "android.permission.READ_EXTERNAL_STORAGE"), // Dummy state
-            permission = "android.permission.READ_EXTERNAL_STORAGE",
-            shouldShowRationale = false,
-            isPermanentlyDenied = false
-        )
     }
 }

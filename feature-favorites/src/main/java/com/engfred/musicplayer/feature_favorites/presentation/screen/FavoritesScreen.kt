@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.feature_favorites.presentation.screen
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,9 +26,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import com.engfred.musicplayer.core.ui.AudioFileItem
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
+import com.engfred.musicplayer.core.ui.AddSongToPlaylistDialog
+import com.engfred.musicplayer.core.ui.ConfirmationDialog
 
 @Composable
 fun FavoritesScreen(
@@ -35,6 +37,13 @@ fun FavoritesScreen(
     viewModel: FavoritesViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+
+    LaunchedEffect(viewModel.uiEvent) {
+        viewModel.uiEvent.collect { message ->
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        }
+    }
 
     Scaffold(
         containerColor = Color.Transparent
@@ -118,14 +127,51 @@ fun FavoritesScreen(
                                 },
                                 isAudioPlaying = uiState.isPlaying,
                                 isCurrentPlayingAudio = uiState.currentPlayingId == favoriteAudioFile.id,
-                                onDelete = {
-                                    viewModel.onEvent(FavoritesEvent.RemoveFavorite(it.id))
+                                onAddToPlaylist = { audioFile ->
+                                    viewModel.onEvent(FavoritesEvent.ShowPlaylistsDialog(audioFile))
+                                },
+                                onPlayNext = {
+                                    viewModel.onEvent(FavoritesEvent.PlayNext(it))
+                                },
+                                onRemoveOrDelete = {
+                                    viewModel.onEvent(FavoritesEvent.ShowRemoveFavoriteConfirmation(it))
                                 }
                             )
                         }
                     }
                 }
             }
+        }
+    }
+
+    // Show the dialog if showAddToPlaylistDialog is true
+    if (uiState.showAddToPlaylistDialog) {
+        AddSongToPlaylistDialog(
+            onDismiss = { viewModel.onEvent(FavoritesEvent.DismissAddToPlaylistDialog) },
+            playlists = uiState.playlists,
+            onAddSongToPlaylist = { playlist ->
+                viewModel.onEvent(FavoritesEvent.AddedSongToPlaylist(playlist))
+            }
+        )
+    }
+
+    if (uiState.showRemoveFavoriteConfirmationDialog) {
+        uiState.audioFileToRemove?.let { audioFile ->
+            ConfirmationDialog(
+                title = "Remove from Favorites?",
+                message = "Are you sure you want to remove '${audioFile.title}' from your favorites?",
+                confirmButtonText = "Remove",
+                dismissButtonText = "Cancel",
+                onConfirm = {
+                    viewModel.onEvent(FavoritesEvent.ConfirmRemoveFavorite)
+                },
+                onDismiss = {
+                    viewModel.onEvent(FavoritesEvent.DismissRemoveFavoriteConfirmation)
+                }
+            )
+        } ?: run {
+            // If dialog is somehow shown without an audioFileToRemove, dismiss it.
+            viewModel.onEvent(FavoritesEvent.DismissRemoveFavoriteConfirmation)
         }
     }
 }

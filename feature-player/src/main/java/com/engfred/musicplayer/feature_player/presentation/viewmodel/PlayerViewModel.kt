@@ -32,7 +32,6 @@ class PlayerViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(PlaybackState())
     val uiState: StateFlow<PlaybackState> = _uiState.asStateFlow()
 
-    // Initial default value. This will be immediately overwritten by setInitialPlayerLayout
     private val _playerLayoutState = MutableStateFlow<PlayerLayout?>(null)
     val playerLayoutState: StateFlow<PlayerLayout?> = _playerLayoutState.asStateFlow()
 
@@ -45,14 +44,13 @@ class PlayerViewModel @Inject constructor(
                     } else {
                         false
                     }
-                    playbackState.copy(
-                        isLoading = if (playbackState.currentAudioFile != currentState.currentAudioFile) {
-                            playbackState.isLoading
-                        } else {
-                            currentState.isLoading
-                        },
-                        isFavorite = isFavorite,
-                        isSeeking = currentState.isSeeking
+                    currentState.copy(
+                        currentAudioFile = playbackState.currentAudioFile,
+                        playingQueue = playbackState.playingQueue,
+                        playingSongIndex = playbackState.playingSongIndex,
+                        isPlaying = playbackState.isPlaying,
+                        isSeeking = playbackState.isSeeking,
+                        isFavorite = isFavorite
                     )
                 }
             }.launchIn(this)
@@ -114,6 +112,9 @@ class PlayerViewModel @Inject constructor(
                     is PlayerEvent.SelectPlayerLayout -> {
                         _playerLayoutState.value = event.layout
                         settingsRepository.updatePlayerLayout(event.layout)
+                    }
+                    is PlayerEvent.RemovedFromQueue -> {
+                        playerController.removeFromQueue(event.audioFile)
                     }
                 }
             } catch (e: Exception) {

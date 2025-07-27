@@ -1,33 +1,39 @@
 package com.engfred.musicplayer.feature_library.domain.usecases
 
+import android.util.Log
 import com.engfred.musicplayer.core.common.Resource
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.feature_library.domain.repository.AudioFileRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.onStart
 import javax.inject.Inject
 
 /**
- * Use case to get all audio files from the device.
- * It interacts with the AudioFileRepository and wraps the result in a Resource for UI state management.
+ * Use case class to fetch all audio files from the [AudioFileRepository].
+ * Wraps the result in a [Resource] for better UI handling (loading, success, error).
  */
 class GetAllAudioFilesUseCase @Inject constructor(
     private val repository: AudioFileRepository
 ) {
-    operator fun invoke(): Flow<Resource<List<AudioFile>>> = flow {
-        emit(Resource.Loading())
+    private val TAG = "GetAllAudioFilesUseCase"
 
-        try {
-            repository.getAllAudioFiles().collect { audioFiles ->
+    operator fun invoke(): Flow<Resource<List<AudioFile>>> {
+        return repository.getAllAudioFiles()
+            .map { audioFiles ->
                 if (audioFiles.isEmpty()) {
-                    emit(Resource.Error("No audio files found on device."))
+                    Resource.Error("No audio files found on device.")
                 } else {
-                    emit(Resource.Success(audioFiles))
+                    Resource.Success(audioFiles)
                 }
             }
-        } catch (e: Exception) {
-            // Emit Error state if any exception occurs during data fetching or processing
-            emit(Resource.Error("Could not load audio files: ${e.localizedMessage}"))
-        }
+            .onStart {
+                emit(Resource.Loading())
+            }
+            .catch { e ->
+                Log.e(TAG, "Error loading audio files", e)
+                emit(Resource.Error("Could not load audio files: ${e.localizedMessage ?: "Unknown error"}"))
+            }
     }
 }

@@ -18,7 +18,6 @@ import com.engfred.musicplayer.core.ui.AudioFileItem
 import com.engfred.musicplayer.core.ui.ErrorIndicator
 import com.engfred.musicplayer.core.ui.InfoIndicator
 import com.engfred.musicplayer.core.ui.LoadingIndicator
-import com.engfred.musicplayer.feature_library.domain.models.AudioMenuOption
 import com.engfred.musicplayer.feature_library.presentation.viewmodel.LibraryScreenState
 
 /**
@@ -27,9 +26,7 @@ import com.engfred.musicplayer.feature_library.presentation.viewmodel.LibraryScr
  * @param uiState The current UI state of the Library screen.
  * @param onAudioClick Callback when an audio file is clicked.
  * @param onSwipeLeft Callback when an audio file is swiped to navigate to the now-playing screen.
- * @param onMenuOptionSelected Callback when a menu option is selected for an "AudioFileItem".
  * @param onRetry Callback when the retry button is clicked on error.
- * @param snackbarHostState The SnackbarHostState to pass to AudioFileItem.
  * @param modifier Modifier for the composable.
  */
 @Composable
@@ -38,7 +35,9 @@ fun LibraryContent(
     onAudioClick: (AudioFile) -> Unit,
     onSwipeLeft: (AudioFile) -> Unit,
     onSwipeRight: (AudioFile) -> Unit,
-    onMenuOptionSelected: (AudioMenuOption, AudioFile) -> Unit,
+    onRemoveOrDelete: (AudioFile) -> Unit,
+    onPlayNext: (AudioFile) -> Unit,
+    onAddToPlaylist: (AudioFile) -> Unit,
     onRetry: () -> Unit,
     isAudioPlaying: Boolean,
     modifier: Modifier = Modifier
@@ -98,10 +97,11 @@ fun LibraryContent(
                             onClick = onAudioClick,
                             onSwipeLeft = onSwipeLeft,
                             onSwipeRight = onSwipeRight,
-                            onPlayNext = { onMenuOptionSelected(AudioMenuOption.PLAY_NEXT, audioFile) },
-                            onAddToPlaylist = { onMenuOptionSelected(AudioMenuOption.ADD_TO_ALBUM, audioFile) },
-                            onDelete = { onMenuOptionSelected(AudioMenuOption.DELETE, audioFile) },
-                            modifier = Modifier.fillMaxWidth()
+                            onPlayNext = onPlayNext,
+                            onAddToPlaylist = onAddToPlaylist,
+                            onRemoveOrDelete = onRemoveOrDelete,
+                            modifier = Modifier.fillMaxWidth(),
+                            isFromLibrary = true
                         )
                     }
                 }

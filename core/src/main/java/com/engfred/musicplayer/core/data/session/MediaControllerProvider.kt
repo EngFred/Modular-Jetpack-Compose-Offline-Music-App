@@ -1,4 +1,3 @@
-// core/data/session/MediaControllerProvider.kt
 package com.engfred.musicplayer.core.data.session
 
 import android.content.ComponentName
@@ -29,8 +28,6 @@ import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
-// REMOVE all custom command imports related to audio session ID
-// REMOVE KEY_AUDIO_SESSION_ID import as it's not used here anymore
 
 private const val TAG = "MediaControllerProvider"
 

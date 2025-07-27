@@ -90,7 +90,7 @@ fun EtherealFlowLayout(
     onLayoutSelected: (PlayerLayout) -> Unit,
     playingAudio: AudioFile?
 ) {
-    // Assuming playbackPositionMs exists in PlaybackState.
+
     var sliderValue by remember { mutableFloatStateOf(uiState.playbackPositionMs.toFloat()) }
     val view = LocalView.current
     val context = LocalContext.current
@@ -290,7 +290,6 @@ fun EtherealFlowLayout(
                             .fillMaxSize()
                             .padding(horizontal = 24.dp, vertical = 24.dp)
                             .semantics {
-                                // CORRECT WAY to add custom accessibility actions
                                 this.customActions = listOf(
                                     CustomAccessibilityAction(
                                         label = "Skip to previous song",

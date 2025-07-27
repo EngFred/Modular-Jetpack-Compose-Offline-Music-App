@@ -6,11 +6,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
@@ -23,7 +26,8 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass // Import for responsiveness
+import androidx.compose.material3.Text
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -33,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.engfred.musicplayer.core.ui.ErrorIndicator
@@ -45,6 +50,13 @@ import com.engfred.musicplayer.feature_playlist.presentation.components.list.Pla
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.list.PlaylistEvent
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.list.PlaylistViewModel
 
+/**
+    * Composable for the Playlists screen, displaying user-created and automatic playlists.
+    *
+    * @param viewModel The ViewModel for managing playlist state and events.
+    * @param onPlaylistClick Callback when a playlist is clicked, providing its ID.
+    * @param windowWidthSizeClass The current window width size class for responsive layout.
+*/
 @Composable
 fun PlaylistsScreen(
     viewModel: PlaylistViewModel = hiltViewModel(),
@@ -60,19 +72,21 @@ fun PlaylistsScreen(
         }
     }
 
-    // Determine padding and grid columns based on window size class
     val contentHorizontalPadding = when (windowWidthSizeClass) {
         WindowWidthSizeClass.Compact -> 8.dp
-        WindowWidthSizeClass.Medium -> 24.dp // More padding for tablets portrait/foldables
-        WindowWidthSizeClass.Expanded -> 32.dp // Even more for tablets landscape/desktops
-        else -> 8.dp // Default case
+        WindowWidthSizeClass.Medium -> 24.dp
+        WindowWidthSizeClass.Expanded -> 32.dp
+        else -> 8.dp
     }
 
-    val gridCells = when (windowWidthSizeClass) {
-        WindowWidthSizeClass.Compact -> GridCells.Fixed(2) // 2 columns for phones
-        WindowWidthSizeClass.Medium -> GridCells.Adaptive(minSize = 160.dp) // Adaptive for medium screens, aiming for 3-4 items
-        WindowWidthSizeClass.Expanded -> GridCells.Adaptive(minSize = 180.dp) // Adaptive for large screens, aiming for 4+ items
-        else -> GridCells.Fixed(2)
+    val gridCells = when (uiState.currentLayout) {
+        PlaylistLayoutType.LIST -> GridCells.Fixed(1)
+        PlaylistLayoutType.GRID -> when (windowWidthSizeClass) {
+            WindowWidthSizeClass.Compact -> GridCells.Fixed(2)
+            WindowWidthSizeClass.Medium -> GridCells.Adaptive(minSize = 160.dp)
+            WindowWidthSizeClass.Expanded -> GridCells.Adaptive(minSize = 180.dp)
+            else -> GridCells.Fixed(2)
+        }
     }
 
     Scaffold(
@@ -83,7 +97,7 @@ fun PlaylistsScreen(
                 horizontalAlignment = Alignment.End,
                 modifier = Modifier
                     .padding(bottom = bottomPadding)
-                    .padding(end = 16.dp) // Consistent right padding for FABs
+                    .padding(end = 16.dp)
             ) {
                 FloatingActionButton(
                     onClick = { viewModel.onEvent(PlaylistEvent.ShowCreatePlaylistDialog) },
@@ -138,7 +152,7 @@ fun PlaylistsScreen(
                         )
                     }
                 }
-                uiState.playlists.isEmpty() -> {
+                uiState.automaticPlaylists.isEmpty() && uiState.userPlaylists.isEmpty() -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         InfoIndicator(
                             message = "No playlists found.\nTap the '+' button to create your first playlist!",
@@ -149,7 +163,6 @@ fun PlaylistsScreen(
                 else -> {
                     if (uiState.currentLayout == PlaylistLayoutType.LIST) {
                         LazyColumn(
-                            // Apply responsive horizontal padding here
                             contentPadding = PaddingValues(
                                 horizontal = contentHorizontalPadding,
                                 vertical = 8.dp
@@ -157,33 +170,104 @@ fun PlaylistsScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            items(uiState.playlists, key = { it.playlistId }) { playlist ->
-                                PlaylistItem(
-                                    playlist = playlist,
-                                    onClick = onPlaylistClick,
-                                    onDeleteClick = { playlistId ->
-                                        viewModel.onEvent(PlaylistEvent.DeletePlaylist(playlistId))
-                                    }
-                                )
+                            if (uiState.automaticPlaylists.isNotEmpty()) {
+                                item {
+                                    Text(
+                                        text = "Automatic Playlists",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onBackground,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                    )
+                                }
+                                items(uiState.automaticPlaylists, key = { it.id }) { playlist ->
+                                    PlaylistItem(
+                                        playlist = playlist,
+                                        onClick = onPlaylistClick,
+                                        onDeleteClick = { playlistId ->
+                                            viewModel.onEvent(PlaylistEvent.DeletePlaylist(playlistId))
+                                        },
+                                        isDeletable = false // Automatic playlists are not deletable
+                                    )
+                                    Spacer(Modifier.height(16.dp)) // Space between sections
+                                }
+                            }
+
+                            if (uiState.userPlaylists.isNotEmpty()) {
+                                item {
+                                    Text(
+                                        text = "My Playlists",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onBackground,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                    )
+                                }
+                                items(uiState.userPlaylists, key = { it.id }) { playlist ->
+                                    PlaylistItem(
+                                        playlist = playlist,
+                                        onClick = onPlaylistClick,
+                                        onDeleteClick = { playlistId ->
+                                            viewModel.onEvent(PlaylistEvent.DeletePlaylist(playlistId))
+                                        },
+                                        isDeletable = true
+                                    )
+                                }
                             }
                         }
-                    } else {
+                    } else { // Grid Layout
                         LazyVerticalGrid(
-                            columns = gridCells, // Use responsive grid cells
-                            // Apply responsive padding for the grid
+                            columns = gridCells,
                             contentPadding = PaddingValues(contentHorizontalPadding),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            items(uiState.playlists, key = { it.playlistId }) { playlist ->
-                                PlaylistGridItem(
-                                    playlist = playlist,
-                                    onClick = onPlaylistClick,
-                                    onDeleteClick = { playlistId ->
-                                        viewModel.onEvent(PlaylistEvent.DeletePlaylist(playlistId))
-                                    }
-                                )
+                            if (uiState.automaticPlaylists.isNotEmpty()) {
+                                item(span = { GridItemSpan(maxLineSpan) }) {
+                                    Text(
+                                        text = "Automatic Playlists",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onBackground,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                    )
+                                }
+                                items(uiState.automaticPlaylists, key = { it.id }) { playlist ->
+                                    PlaylistGridItem(
+                                        playlist = playlist,
+                                        onClick = onPlaylistClick,
+                                        onDeleteClick = { playlistId ->
+                                            viewModel.onEvent(PlaylistEvent.DeletePlaylist(playlistId))
+                                        },
+                                        isDeletable = false // Automatic playlists are not deletable
+                                    )
+                                }
+                                item(span = { GridItemSpan(maxLineSpan) }) { // Spacer for grid
+                                    Spacer(Modifier.height(16.dp))
+                                }
+                            }
+
+                            if (uiState.userPlaylists.isNotEmpty()) {
+                                item(span = { GridItemSpan(maxLineSpan) }) { // Span across all columns for header
+                                    Text(
+                                        text = "My Playlists",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onBackground,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                    )
+                                }
+                                items(uiState.userPlaylists, key = { it.id }) { playlist ->
+                                    PlaylistGridItem(
+                                        playlist = playlist,
+                                        onClick = onPlaylistClick,
+                                        onDeleteClick = { playlistId ->
+                                            viewModel.onEvent(PlaylistEvent.DeletePlaylist(playlistId))
+                                        },
+                                        isDeletable = true
+                                    )
+                                }
                             }
                         }
                     }

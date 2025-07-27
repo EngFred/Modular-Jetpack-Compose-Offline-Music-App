@@ -1,6 +1,8 @@
 package com.engfred.musicplayer.feature_playlist.presentation.screens
 
 import MiniPlayer
+import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -49,10 +51,23 @@ import com.engfred.musicplayer.feature_playlist.presentation.components.detail.R
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.detail.PlaylistDetailEvent
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.detail.PlaylistDetailViewModel
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.draw.clip
 import com.engfred.musicplayer.feature_playlist.presentation.components.detail.PlaylistSongs
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
+import com.engfred.musicplayer.core.ui.AddSongToPlaylistDialog
+import com.engfred.musicplayer.core.ui.ConfirmationDialog
 
+/**
+ * Composable for the Playlist Detail screen.
+ * Displays the details of a specific playlist, including its songs and playback controls.
+ *
+ * @param viewModel The ViewModel for managing playlist detail state and events.
+ * @param onNavigateBack Callback to navigate back from the screen.
+ * @param onNavigateToNowPlaying Callback to navigate to the now playing screen.
+ * @param windowWidthSizeClass The current window width size class for responsive layout.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaylistDetailScreen(
@@ -63,10 +78,18 @@ fun PlaylistDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val mainLazyListState = rememberLazyListState()
+    val context = LocalContext.current
 
     var moreMenuExpanded by remember { mutableStateOf(false) }
     var sortMenuExpanded by remember { mutableStateOf(false) }
     var currentSortOrder by remember { mutableStateOf(PlaylistSortOrder.DATE_ADDED) }
+
+
+    LaunchedEffect(viewModel.uiEvent) {
+        viewModel.uiEvent.collect { message ->
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        }
+    }
 
     val sortedSongs = remember(uiState.playlist?.songs, currentSortOrder) {
         uiState.playlist?.songs?.let { songs ->
@@ -148,7 +171,8 @@ fun PlaylistDetailScreen(
                         onRenamePlaylistClick = { viewModel.onEvent(PlaylistDetailEvent.ShowRenameDialog) },
                         moreMenuExpanded = moreMenuExpanded,
                         onMoreMenuExpandedChange = { moreMenuExpanded = it },
-                        isCompact = true
+                        isCompact = true,
+                        isAutomaticPlaylist = uiState.playlist?.isAutomatic ?: false
                     )
                 }
 
@@ -204,13 +228,20 @@ fun PlaylistDetailScreen(
                             audioFile = audioFile,
                             isCurrentPlayingAudio = (audioFile.id == uiState.currentPlayingAudioFile?.id),
                             onClick = { clickedAudioFile -> viewModel.onEvent(PlaylistDetailEvent.PlaySong(clickedAudioFile)) },
-                            onDelete = { song -> viewModel.onEvent(PlaylistDetailEvent.RemoveSong(song.id)) },
+                            onRemoveOrDelete = { song -> viewModel.onEvent(PlaylistDetailEvent.ShowRemoveSongConfirmation(song)) },
                             modifier = Modifier.animateItem(),
                             onSwipeLeft = { audioFile ->
                                 if (uiState.currentPlayingAudioFile?.id != audioFile.id) { viewModel.onEvent(PlaylistDetailEvent.SwipedLeft(audioFile)) } else { onNavigateToNowPlaying() }
                             },
                             onSwipeRight = { viewModel.onEvent(PlaylistDetailEvent.SwipedRight(it)) },
-                            isAudioPlaying = uiState.isPlaying
+                            isAudioPlaying = uiState.isPlaying,
+                            onAddToPlaylist = {
+                                viewModel.onEvent(PlaylistDetailEvent.ShowPlaylistsDialog(it))
+                            },
+                            onPlayNext = {
+                                viewModel.onEvent(PlaylistDetailEvent.SetPlayNext(it))
+                            },
+                            isFromAutomaticPlaylist = uiState.playlist?.isAutomatic ?: false
                         )
                         Spacer(Modifier.height(8.dp))
                     }
@@ -225,8 +256,8 @@ fun PlaylistDetailScreen(
                         .fillMaxHeight()
                         .background(Color.Transparent)
                         .padding(end = 24.dp)
-                        .verticalScroll(rememberScrollState()), // FIXED: Changed to rememberScrollState()
-                    horizontalAlignment = Alignment.CenterHorizontally // FIXED: Changed to horizontalAlignment
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     PlaylistDetailHeaderSection(
                         playlist = uiState.playlist,
@@ -235,7 +266,8 @@ fun PlaylistDetailScreen(
                         onRenamePlaylistClick = { viewModel.onEvent(PlaylistDetailEvent.ShowRenameDialog) },
                         moreMenuExpanded = moreMenuExpanded,
                         onMoreMenuExpandedChange = { moreMenuExpanded = it },
-                        isCompact = false
+                        isCompact = false,
+                        isAutomaticPlaylist = uiState.playlist?.isAutomatic ?: false
                     )
 
                     Spacer(modifier = Modifier.height(40.dp))
@@ -286,14 +318,21 @@ fun PlaylistDetailScreen(
                                     songs = sortedSongs,
                                     currentPlayingId = uiState.currentPlayingAudioFile?.id,
                                     onSongClick = { clickedAudioFile -> viewModel.onEvent(PlaylistDetailEvent.PlaySong(clickedAudioFile)) },
-                                    onSongDelete = { song -> viewModel.onEvent(PlaylistDetailEvent.RemoveSong(song.id)) },
+                                    onSongRemove = { song -> viewModel.onEvent(PlaylistDetailEvent.ShowRemoveSongConfirmation(song)) },
                                     listState = rememberLazyListState(),
                                     isAudioPlaying = uiState.isPlaying,
                                     onSwipeRight = { viewModel.onEvent(PlaylistDetailEvent.SwipedRight(it)) },
                                     onSwipeLeft = { audioFile ->
                                         if (uiState.currentPlayingAudioFile?.id != audioFile.id) { viewModel.onEvent(PlaylistDetailEvent.SwipedLeft(audioFile)) } else { onNavigateToNowPlaying() }
                                     },
-                                    modifier = Modifier.fillMaxSize()
+                                    modifier = Modifier.fillMaxSize(),
+                                    onAddToPlaylist = {
+                                        viewModel.onEvent(PlaylistDetailEvent.ShowPlaylistsDialog(it))
+                                    },
+                                    onPlayNext = {
+                                        viewModel.onEvent(PlaylistDetailEvent.SetPlayNext(it))
+                                    },
+                                    isFromAutomaticPlaylist = uiState.playlist?.isAutomatic ?: false
                                 )
                             }
                         }
@@ -313,6 +352,39 @@ fun PlaylistDetailScreen(
                 },
                 errorMessage = uiState.error
             )
+        }
+    }
+
+    if (uiState.showAddToPlaylistDialog) {
+        Log.d("PlaylistDetailScreen", "Showing add to playlist dialog")
+        AddSongToPlaylistDialog(
+            onDismiss = { viewModel.onEvent(PlaylistDetailEvent.DismissAddToPlaylistDialog) },
+            playlists = uiState.playlists,
+            onAddSongToPlaylist = { playlist ->
+                viewModel.onEvent(PlaylistDetailEvent.AddedSongToPlaylist(playlist))
+            }
+        )
+    } else {
+        Log.d("PlaylistDetailScreen", "Add to playlist dialog dismissed")
+    }
+
+    if (uiState.showRemoveSongConfirmationDialog) {
+        uiState.audioFileToRemove?.let { audioFile ->
+            ConfirmationDialog(
+                title = "Remove '${audioFile.title}'?",
+                message = "Are you sure you want to remove this song from '${uiState.playlist?.name}'?",
+                confirmButtonText = "Remove",
+                dismissButtonText = "Cancel",
+                onConfirm = {
+                    viewModel.onEvent(PlaylistDetailEvent.ConfirmRemoveSong)
+                },
+                onDismiss = {
+                    viewModel.onEvent(PlaylistDetailEvent.DismissRemoveSongConfirmation)
+                }
+            )
+        } ?: run {
+            // If dialog is somehow shown without an audioFileToRemove, dismiss it.
+            viewModel.onEvent(PlaylistDetailEvent.DismissRemoveSongConfirmation)
         }
     }
 }

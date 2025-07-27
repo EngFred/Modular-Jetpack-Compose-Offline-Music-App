@@ -37,7 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
-import com.engfred.musicplayer.feature_library.domain.models.FilterOption
+import com.engfred.musicplayer.core.domain.model.FilterOption
 
 /**
  * A standard and professional search bar component with an integrated filter option.

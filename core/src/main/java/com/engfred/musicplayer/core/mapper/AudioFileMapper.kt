@@ -10,7 +10,12 @@ import javax.inject.Singleton
 
 @Singleton
 class AudioFileMapper @Inject constructor() {
+    private val TAG = "AudioFileMapper"
 
+    /**
+     * Maps a MediaItem from Media3 player to an AudioFile domain model.
+     * Returns null if mapping fails.
+     */
     fun mapMediaItemToAudioFile(mediaItem: MediaItem): AudioFile? {
         return try {
             mediaItem.mediaMetadata.let { metadata ->
@@ -22,18 +27,21 @@ class AudioFileMapper @Inject constructor() {
                     duration = metadata.durationMs ?: 0L,
                     uri = mediaItem.localConfiguration?.uri ?: Uri.EMPTY,
                     albumArtUri = metadata.artworkUri,
-                    dateAdded = metadata.recordingDay?.toLong() ?: 0L // Use recordingDay or fallback
+                    dateAdded = metadata.recordingDay?.toLong() ?: 0L
                 )
             }.also {
-                Log.d("AudioFileMapper", "Mapped MediaItem ${mediaItem.mediaId} to AudioFile: ${it.title}")
+                Log.d(TAG, "Mapped MediaItem ${mediaItem.mediaId} to AudioFile: ${it.title}")
             }
         } catch (e: Exception) {
-            Log.e("AudioFileMapper", "Failed to map MediaItem to AudioFile: ${e.message}")
-            // FirebaseCrashlytics.getInstance().recordException(e) // Uncomment if using Crashlytics
+            Log.e(TAG, "Failed to map MediaItem to AudioFile", e)
             null
         }
     }
 
+    /**
+     * Maps an AudioFile domain model to a MediaItem for Media3 player.
+     * Returns MediaItem.EMPTY if mapping fails.
+     */
     fun mapAudioFileToMediaItem(audioFile: AudioFile): MediaItem {
         return try {
             MediaItem.Builder()
@@ -50,12 +58,11 @@ class AudioFileMapper @Inject constructor() {
                 )
                 .build()
                 .also {
-                    Log.d("AudioFileMapper", "Mapped AudioFile ${audioFile.id} to MediaItem: ${it.mediaId}")
+                    Log.d(TAG, "Mapped AudioFile ${audioFile.id} to MediaItem: ${it.mediaId}")
                 }
         } catch (e: Exception) {
-            Log.e("AudioFileMapper", "Failed to map AudioFile to MediaItem: ${e.message}")
-            // FirebaseCrashlytics.getInstance().recordException(e)
-            MediaItem.EMPTY // Fallback to empty MediaItem
+            Log.e(TAG, "Failed to map AudioFile to MediaItem", e)
+            MediaItem.EMPTY
         }
     }
 }

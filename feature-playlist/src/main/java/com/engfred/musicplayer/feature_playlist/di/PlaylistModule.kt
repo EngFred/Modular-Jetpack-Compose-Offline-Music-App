@@ -5,7 +5,8 @@ import androidx.room.Room
 import com.engfred.musicplayer.feature_playlist.data.local.dao.PlaylistDao
 import com.engfred.musicplayer.feature_playlist.data.local.db.PlaylistDatabase
 import com.engfred.musicplayer.feature_playlist.data.repository.PlaylistRepositoryImpl
-import com.engfred.musicplayer.feature_playlist.domain.repository.PlaylistRepository
+import com.engfred.musicplayer.core.domain.repository.PlaylistRepository
+import com.engfred.musicplayer.feature_playlist.data.local.dao.PlaylistDatabaseMigrations
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -23,8 +24,10 @@ object PlaylistModule {
         return Room.databaseBuilder(
             context,
             PlaylistDatabase::class.java,
-            "music_player_playlist_db" // Database name
-        ).build()
+            "music_player_playlist_db"
+        )
+            .addMigrations(PlaylistDatabaseMigrations.MIGRATION_1_2)
+            .build()
     }
 
     @Provides

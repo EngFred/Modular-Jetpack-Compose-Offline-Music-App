@@ -1,16 +1,14 @@
 package com.engfred.musicplayer.core.ui
 
 import android.widget.Toast
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,7 +16,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -39,18 +36,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -66,8 +59,6 @@ fun AudioFileItem(
     isCurrentPlayingAudio: Boolean,
     isAudioPlaying: Boolean,
     onClick: (AudioFile) -> Unit,
-    onSwipeLeft: (AudioFile) -> Unit = {},
-    onSwipeRight: (AudioFile) -> Unit = {},
     onPlayNext: (AudioFile) -> Unit = {},
     onAddToPlaylist: (AudioFile) -> Unit,
     onRemoveOrDelete: (AudioFile) -> Unit,
@@ -75,57 +66,14 @@ fun AudioFileItem(
     isFromLibrary: Boolean = false
 ) {
     var showMenu by remember { mutableStateOf(false) }
-    var dragOffset by remember { mutableFloatStateOf(0f) }
     val context = LocalContext.current
-
-    val scale by animateFloatAsState(
-        targetValue = if (isCurrentPlayingAudio) 1.05f else 1f,
-        animationSpec = tween(durationMillis = 300),
-        label = "album_art_scale_animation"
-    )
-    val pulse by animateFloatAsState(
-        targetValue = if (isCurrentPlayingAudio) 1.1f else 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "album_art_pulse_animation"
-    )
-
-    LaunchedEffect(audioFile) {
-        dragOffset = 0f
-    }
 
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .offset(x = dragOffset.dp)
             .padding(vertical = 4.dp, horizontal = 10.dp)
             .clip(RoundedCornerShape(16.dp))
-            .clickable { onClick(audioFile) }
-            .draggable(
-                state = rememberDraggableState { delta ->
-                    // Allow dragging left (negative delta) always
-                    // Allow dragging right (positive delta) only if playing
-                    dragOffset = if (delta < 0 || (delta > 0 && isAudioPlaying && isCurrentPlayingAudio)) {
-                        (dragOffset + delta).coerceIn(-100f, 100f) // Allow right drag up to 100f
-                    } else {
-                        dragOffset // Do not update offset if trying to drag right when not playing
-                    }
-                },
-                orientation = Orientation.Horizontal,
-                onDragStopped = {
-                    when {
-                        dragOffset < -75f -> { // Swiped left
-                            onSwipeLeft(audioFile)
-                        }
-                        dragOffset > 75f && isCurrentPlayingAudio -> { // Swiped right and playing
-                            onSwipeRight(audioFile)
-                        }
-                    }
-                    dragOffset = 0f // Reset drag offset after drag stops
-                }
-            ),
+            .clickable { onClick(audioFile) },
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
             contentColor = MaterialTheme.colorScheme.onSurface
@@ -139,31 +87,21 @@ fun AudioFileItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
-                    brush = if (isCurrentPlayingAudio) {
-                        Brush.linearGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
-                                MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)
-                            )
+                    Brush.linearGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surfaceVariant,
+                            MaterialTheme.colorScheme.surfaceVariant
                         )
-                    } else {
-                        Brush.linearGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.surfaceVariant,
-                                MaterialTheme.colorScheme.surfaceVariant
-                            )
-                        )
-                    }
+                    )
                 )
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Album art (no scaling or animation anymore)
             Box(
                 modifier = Modifier
                     .size(56.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .scale(if (isCurrentPlayingAudio) scale * pulse else scale)
-                    .graphicsLayer { shadowElevation = if (isCurrentPlayingAudio) 8f else 0f },
+                    .clip(RoundedCornerShape(10.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 CoilImage(
@@ -174,8 +112,7 @@ fun AudioFileItem(
                             imageVector = Icons.Rounded.MusicNote,
                             contentDescription = "Loading icon",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                            modifier = Modifier
-                                .size(56.dp)
+                            modifier = Modifier.size(56.dp)
                         )
                     },
                     failure = {
@@ -183,8 +120,7 @@ fun AudioFileItem(
                             imageVector = Icons.Rounded.MusicNote,
                             contentDescription = "No album art available",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                            modifier = Modifier
-                                .size(56.dp)
+                            modifier = Modifier.size(56.dp)
                         )
                     }
                 )
@@ -214,12 +150,21 @@ fun AudioFileItem(
                 )
             }
 
-            Text(
-                text = MediaUtils.formatDuration(audioFile.duration), // Use MediaUtils
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                modifier = Modifier.padding(horizontal = 8.dp)
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = MediaUtils.formatDuration(audioFile.duration),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+
+                // Visualizer below time (only visible if this is the playing audio)
+                if (isCurrentPlayingAudio && isAudioPlaying) {
+                    VisualizerBars()
+                }
+            }
 
             // Anchor for the DropdownMenu
             Box {
@@ -242,7 +187,11 @@ fun AudioFileItem(
                         text = { Text("Play Next") },
                         onClick = {
                             onPlayNext(audioFile)
-                            Toast.makeText(context, "Added '${audioFile.title}' to play next.", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(
+                                context,
+                                "Added '${audioFile.title}' to play next.",
+                                Toast.LENGTH_SHORT
+                            ).show()
                             showMenu = false
                         },
                         leadingIcon = {
@@ -267,7 +216,7 @@ fun AudioFileItem(
                             )
                         }
                     )
-                    if (isFromAutomaticPlaylist.not()) {
+                    if (!isFromAutomaticPlaylist) {
                         DropdownMenuItem(
                             text = { Text(if (isFromLibrary) "Delete song" else "Remove song") },
                             onClick = {
@@ -283,11 +232,10 @@ fun AudioFileItem(
                             }
                         )
                     }
-                    // Call the separate share function
                     DropdownMenuItem(
                         text = { Text("Share Song") },
                         onClick = {
-                            MediaUtils.shareAudioFile(context, audioFile) // Use MediaUtils
+                            MediaUtils.shareAudioFile(context, audioFile)
                             showMenu = false
                         },
                         leadingIcon = {
@@ -300,6 +248,40 @@ fun AudioFileItem(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun VisualizerBars() {
+    val transition = rememberInfiniteTransition(label = "visualizer")
+    val heights = List(4) { i ->
+        transition.animateFloat(
+            initialValue = 4f,
+            targetValue = 12f + (i * 4),
+            animationSpec = infiniteRepeatable(
+                animation = tween(400 + (i * 100)),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "bar$i"
+        )
+    }
+
+    Row(
+        modifier = Modifier
+            .padding(top = 2.dp)
+            .height(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.Bottom
+    ) {
+        heights.forEach { anim ->
+            Box(
+                modifier = Modifier
+                    .width(3.dp)
+                    .height(anim.value.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(MaterialTheme.colorScheme.primary)
+            )
         }
     }
 }

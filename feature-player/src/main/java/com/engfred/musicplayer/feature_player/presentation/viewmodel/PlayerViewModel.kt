@@ -16,7 +16,7 @@ import javax.inject.Inject
 import androidx.media3.common.util.UnstableApi
 import com.engfred.musicplayer.core.domain.repository.FavoritesRepository
 import com.engfred.musicplayer.core.domain.repository.PlaybackState
-import com.engfred.musicplayer.core.domain.repository.PlayerController
+import com.engfred.musicplayer.core.domain.repository.PlaybackController
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
 import com.engfred.musicplayer.core.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.first
@@ -24,7 +24,7 @@ import kotlinx.coroutines.flow.first
 @UnstableApi
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
-    private val playerController: PlayerController,
+    private val playbackController: PlaybackController,
     private val favoritesRepository: FavoritesRepository,
     private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
@@ -37,20 +37,21 @@ class PlayerViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            playerController.getPlaybackState().onEach { playbackState ->
+            playbackController.getPlaybackState().onEach { playbackState ->
                 _uiState.update { currentState ->
                     val isFavorite = if (playbackState.currentAudioFile != null) {
                         favoritesRepository.isFavorite(playbackState.currentAudioFile!!.id)
                     } else {
                         false
                     }
-                    currentState.copy(
-                        currentAudioFile = playbackState.currentAudioFile,
-                        playingQueue = playbackState.playingQueue,
-                        playingSongIndex = playbackState.playingSongIndex,
-                        isPlaying = playbackState.isPlaying,
-                        isSeeking = playbackState.isSeeking,
-                        isFavorite = isFavorite
+                    playbackState.copy(
+                        isLoading = if (playbackState.currentAudioFile != currentState.currentAudioFile) {
+                            playbackState.isLoading
+                        } else {
+                            currentState.isLoading
+                        },
+                        isFavorite = isFavorite,
+                        isSeeking = currentState.isSeeking
                     )
                 }
             }.launchIn(this)
@@ -75,25 +76,25 @@ class PlayerViewModel @Inject constructor(
             try {
                 when (event) {
                     PlayerEvent.PlayPause -> {
-                        playerController.playPause()
+                        playbackController.playPause()
                     }
                     PlayerEvent.SkipToNext -> {
-                        playerController.skipToNext()
+                        playbackController.skipToNext()
                     }
                     PlayerEvent.SkipToPrevious -> {
-                        playerController.skipToPrevious()
+                        playbackController.skipToPrevious()
                     }
                     is PlayerEvent.SeekTo -> {
-                        playerController.seekTo(event.positionMs)
+                        playbackController.seekTo(event.positionMs)
                     }
                     is PlayerEvent.SetRepeatMode -> {
-                        playerController.setRepeatMode(event.mode)
+                        playbackController.setRepeatMode(event.mode)
                     }
                     is PlayerEvent.SetShuffleMode -> {
-                        playerController.setShuffleMode(event.mode)
+                        playbackController.setShuffleMode(event.mode)
                     }
                     PlayerEvent.ReleasePlayer -> {
-                        playerController.releasePlayer()
+                        playbackController.releasePlayer()
                     }
                     is PlayerEvent.AddToFavorites -> {
                         favoritesRepository.addFavoriteAudioFile(event.audioFile)
@@ -107,14 +108,14 @@ class PlayerViewModel @Inject constructor(
                         _uiState.update { it.copy(isSeeking = event.seeking) }
                     }
                     is PlayerEvent.PlayAudioFile -> {
-                        playerController.initiatePlayback(event.audioFile.uri)
+                        playbackController.initiatePlayback(event.audioFile.uri)
                     }
                     is PlayerEvent.SelectPlayerLayout -> {
                         _playerLayoutState.value = event.layout
                         settingsRepository.updatePlayerLayout(event.layout)
                     }
                     is PlayerEvent.RemovedFromQueue -> {
-                        playerController.removeFromQueue(event.audioFile)
+                        playbackController.removeFromQueue(event.audioFile)
                     }
                 }
             } catch (e: Exception) {

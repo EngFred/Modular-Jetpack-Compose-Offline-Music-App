@@ -13,18 +13,19 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.windowsizeclass.WindowHeightSizeClass
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -57,23 +58,6 @@ import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerEvent
 import com.engfred.musicplayer.feature_player.utils.getDynamicGradientColors
 import kotlinx.coroutines.launch
 
-/**
- * The Ethereal Flow layout for the music player screen.
- * Adapts its structure and behavior based on the [WindowWidthSizeClass].
- * Provides dynamic background gradients, haptic feedback, and gesture controls.
- *
- * @param uiState The current playback state of the player.
- * @param onEvent Callback for dispatching [PlayerEvent]s to the ViewModel.
- * @param onNavigateUp Callback to navigate up in the navigation stack.
- * @param playingQueue The list of songs in the current playback queue.
- * @param currentSongIndex The index of the currently playing song in the queue.
- * @param onPlayQueueItem Callback to play a specific item from the queue.
- * @param onRemoveQueueItem Callback to remove an item from the queue (used in Expanded layout).
- * @param windowSizeClass The current window size class (Compact, Medium, Expanded).
- * @param selectedLayout The currently selected player layout.
- * @param onLayoutSelected Callback to change the selected player layout.
- * @param playingAudio The currently playing [AudioFile].
- */
 @RequiresApi(Build.VERSION_CODES.M)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,13 +69,12 @@ fun EtherealFlowLayout(
     currentSongIndex: Int,
     onPlayQueueItem: (AudioFile) -> Unit,
     onRemoveQueueItem: (AudioFile) -> Unit = {},
-    windowSizeClass: WindowWidthSizeClass,
+    windowWidthSizeClass: WindowWidthSizeClass,
+    windowHeightSizeClass: WindowHeightSizeClass,
     selectedLayout: PlayerLayout,
     onLayoutSelected: (PlayerLayout) -> Unit,
     playingAudio: AudioFile?
 ) {
-
-    var sliderValue by remember { mutableFloatStateOf(uiState.playbackPositionMs.toFloat()) }
     val view = LocalView.current
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -104,27 +87,17 @@ fun EtherealFlowLayout(
         value = getDynamicGradientColors(context, uri?.toString())
     }
 
-    LaunchedEffect(uiState.playbackPositionMs, uiState.isSeeking) {
-        if (!uiState.isSeeking) {
-            sliderValue = uiState.playbackPositionMs.toFloat()
-        }
-    }
-
     val dynamicContentColor by remember(gradientColors) {
         val topGradientColor = gradientColors.firstOrNull() ?: Color.Black
         val targetLuminance = topGradientColor.luminance()
-        val chosenColor = if (targetLuminance > 0.5f) {
-            Color.Black
-        } else {
-            Color.White
-        }
+        val chosenColor = if (targetLuminance > 0.5f) Color.Black else Color.White
         mutableStateOf(chosenColor)
     }
 
     var showQueueBottomSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    if (showQueueBottomSheet && windowSizeClass != WindowWidthSizeClass.Expanded) {
+    if (showQueueBottomSheet && windowWidthSizeClass != WindowWidthSizeClass.Expanded) {
         QueueBottomSheet(
             onDismissRequest = { showQueueBottomSheet = false },
             sheetState = sheetState,
@@ -155,14 +128,30 @@ fun EtherealFlowLayout(
                     )
                 }
         ) {
-            when (windowSizeClass) {
+            // Responsive padding based on width and height
+            val horizontalPadding = when {
+                windowWidthSizeClass == WindowWidthSizeClass.Expanded || windowHeightSizeClass == WindowHeightSizeClass.Expanded -> 32.dp
+                windowWidthSizeClass == WindowWidthSizeClass.Medium || windowHeightSizeClass == WindowHeightSizeClass.Medium -> 28.dp
+                else -> 24.dp
+            }
+            val verticalPadding = when {
+                windowHeightSizeClass == WindowHeightSizeClass.Expanded -> 36.dp
+                windowHeightSizeClass == WindowHeightSizeClass.Medium -> 32.dp
+                else -> 28.dp
+            }
+            val spacing = when {
+                windowHeightSizeClass == WindowHeightSizeClass.Expanded -> 24.dp
+                windowHeightSizeClass == WindowHeightSizeClass.Medium -> 20.dp
+                else -> 16.dp
+            }
+
+            when (windowWidthSizeClass) {
                 WindowWidthSizeClass.Compact -> {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 24.dp, vertical = 32.dp)
+                            .padding(bottom = verticalPadding)
                             .semantics {
-                                // CORRECT WAY to add custom accessibility actions
                                 customActions = listOf(
                                     CustomAccessibilityAction(
                                         label = "Skip to previous song",
@@ -212,24 +201,26 @@ fun EtherealFlowLayout(
                                 coroutineScope.launch { sheetState.show() }
                                 showQueueBottomSheet = true
                             },
-                            windowWidthSizeClass = windowSizeClass,
+                            windowWidthSizeClass = windowWidthSizeClass,
                             selectedLayout = selectedLayout,
-                            onLayoutSelected = onLayoutSelected
+                            onLayoutSelected = onLayoutSelected,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .statusBarsPadding()
                         )
-
                         AlbumArtDisplay(
                             albumArtUri = uiState.currentAudioFile?.albumArtUri,
                             isPlaying = uiState.isPlaying,
-                            windowWidthSizeClass = windowSizeClass,
+                            windowWidthSizeClass = windowWidthSizeClass,
                             playerLayout = PlayerLayout.ETHEREAL_FLOW
                         )
-
                         TrackInfo(
                             title = uiState.currentAudioFile?.title,
                             artist = uiState.currentAudioFile?.artist,
-                            playerLayout = PlayerLayout.ETHEREAL_FLOW
+                            playerLayout = PlayerLayout.ETHEREAL_FLOW,
+                            modifier = Modifier.fillMaxWidth()
                         )
-
+                        Spacer(modifier = Modifier.height(spacing / 2))
                         FavoriteButton(
                             isFavorite = uiState.isFavorite,
                             onToggleFavorite = {
@@ -241,26 +232,26 @@ fun EtherealFlowLayout(
                                     }
                                 }
                                 view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-                            }
-                        )
-
-                        SeekBarSection(
-                            sliderValue = sliderValue,
-                            totalDurationMs = uiState.totalDurationMs,
-                            playbackPositionMs = uiState.playbackPositionMs,
-                            isSeeking = uiState.isSeeking,
-                            onSliderValueChange = { newValue ->
-                                sliderValue = newValue
-                                if (!uiState.isSeeking) onEvent(PlayerEvent.SetSeeking(true))
-                            },
-                            onSliderValueChangeFinished = {
-                                onEvent(PlayerEvent.SeekTo(sliderValue.toLong()))
-                                onEvent(PlayerEvent.SetSeeking(false))
-                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                             },
                             playerLayout = PlayerLayout.ETHEREAL_FLOW
                         )
-
+                        Spacer(modifier = Modifier.height(spacing))
+                        SeekBarSection(
+                            sliderValue = uiState.playbackPositionMs.toFloat(),
+                            totalDurationMs = uiState.totalDurationMs,
+                            playbackPositionMs = uiState.playbackPositionMs,
+                            onSliderValueChange = { newValue ->
+                                onEvent(PlayerEvent.SetSeeking(true))
+                                onEvent(PlayerEvent.SeekTo(newValue.toLong()))
+                            },
+                            onSliderValueChangeFinished = {
+                                onEvent(PlayerEvent.SetSeeking(false))
+                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                            },
+                            playerLayout = PlayerLayout.ETHEREAL_FLOW,
+                            modifier = Modifier.padding(horizontal = 24.dp)
+                        )
+                        Spacer(modifier = Modifier.height(spacing))
                         ControlBar(
                             shuffleMode = uiState.shuffleMode,
                             isPlaying = uiState.isPlaying,
@@ -279,18 +270,20 @@ fun EtherealFlowLayout(
                             },
                             onSetShuffleMode = { newMode -> onEvent(PlayerEvent.SetShuffleMode(newMode)) },
                             onSetRepeatMode = { newMode -> onEvent(PlayerEvent.SetRepeatMode(newMode)) },
-                            playerLayout = PlayerLayout.ETHEREAL_FLOW
+                            playerLayout = PlayerLayout.ETHEREAL_FLOW,
+                            windowWidthSizeClass = windowWidthSizeClass,
+                            windowHeightSizeClass = windowHeightSizeClass,
+                            modifier = Modifier.padding(horizontal = 24.dp)
                         )
                     }
                 }
-
                 WindowWidthSizeClass.Medium -> {
                     Row(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 24.dp, vertical = 24.dp)
+                            .padding(horizontal = horizontalPadding, vertical = verticalPadding)
                             .semantics {
-                                this.customActions = listOf(
+                                customActions = listOf(
                                     CustomAccessibilityAction(
                                         label = "Skip to previous song",
                                         action = {
@@ -341,13 +334,11 @@ fun EtherealFlowLayout(
                             AlbumArtDisplay(
                                 albumArtUri = uiState.currentAudioFile?.albumArtUri,
                                 isPlaying = uiState.isPlaying,
-                                windowWidthSizeClass = windowSizeClass,
+                                windowWidthSizeClass = windowWidthSizeClass,
                                 playerLayout = PlayerLayout.ETHEREAL_FLOW
                             )
                         }
-
-                        Spacer(modifier = Modifier.width(24.dp))
-
+                        Spacer(modifier = Modifier.width(horizontalPadding))
                         Column(
                             modifier = Modifier
                                 .weight(1.5f)
@@ -363,18 +354,18 @@ fun EtherealFlowLayout(
                                     coroutineScope.launch { sheetState.show() }
                                     showQueueBottomSheet = true
                                 },
-                                windowWidthSizeClass = windowSizeClass,
+                                windowWidthSizeClass = windowWidthSizeClass,
                                 selectedLayout = selectedLayout,
                                 onLayoutSelected = onLayoutSelected
                             )
-                            Spacer(modifier = Modifier.height(16.dp))
-
+                            Spacer(modifier = Modifier.height(spacing))
                             TrackInfo(
                                 title = uiState.currentAudioFile?.title,
                                 artist = uiState.currentAudioFile?.artist,
-                                playerLayout = PlayerLayout.ETHEREAL_FLOW
+                                playerLayout = PlayerLayout.ETHEREAL_FLOW,
+                                modifier = Modifier.fillMaxWidth()
                             )
-
+                            Spacer(modifier = Modifier.height(spacing / 2))
                             FavoriteButton(
                                 isFavorite = uiState.isFavorite,
                                 onToggleFavorite = {
@@ -386,28 +377,25 @@ fun EtherealFlowLayout(
                                         }
                                     }
                                     view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-                                }
+                                },
+                                playerLayout = PlayerLayout.ETHEREAL_FLOW
                             )
-                            Spacer(modifier = Modifier.height(16.dp))
-
+                            Spacer(modifier = Modifier.height(spacing))
                             SeekBarSection(
-                                sliderValue = sliderValue,
+                                sliderValue = uiState.playbackPositionMs.toFloat(),
                                 totalDurationMs = uiState.totalDurationMs,
                                 playbackPositionMs = uiState.playbackPositionMs,
-                                isSeeking = uiState.isSeeking,
                                 onSliderValueChange = { newValue ->
-                                    sliderValue = newValue
-                                    if (!uiState.isSeeking) onEvent(PlayerEvent.SetSeeking(true))
+                                    onEvent(PlayerEvent.SetSeeking(true))
+                                    onEvent(PlayerEvent.SeekTo(newValue.toLong()))
                                 },
                                 onSliderValueChangeFinished = {
-                                    onEvent(PlayerEvent.SeekTo(sliderValue.toLong()))
                                     onEvent(PlayerEvent.SetSeeking(false))
                                     view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                                 },
                                 playerLayout = PlayerLayout.ETHEREAL_FLOW
                             )
-                            Spacer(modifier = Modifier.height(16.dp))
-
+                            Spacer(modifier = Modifier.height(spacing))
                             ControlBar(
                                 shuffleMode = uiState.shuffleMode,
                                 isPlaying = uiState.isPlaying,
@@ -426,20 +414,20 @@ fun EtherealFlowLayout(
                                 },
                                 onSetShuffleMode = { newMode -> onEvent(PlayerEvent.SetShuffleMode(newMode)) },
                                 onSetRepeatMode = { newMode -> onEvent(PlayerEvent.SetRepeatMode(newMode)) },
-                                playerLayout = PlayerLayout.ETHEREAL_FLOW
+                                playerLayout = PlayerLayout.ETHEREAL_FLOW,
+                                windowWidthSizeClass = windowWidthSizeClass,
+                                windowHeightSizeClass = windowHeightSizeClass
                             )
                         }
                     }
                 }
-
                 WindowWidthSizeClass.Expanded -> {
                     Row(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 32.dp, vertical = 24.dp)
+                            .padding(horizontal = horizontalPadding, vertical = verticalPadding)
                             .semantics {
-                                // CORRECT WAY to add custom accessibility actions
-                                this.customActions = listOf(
+                                customActions = listOf(
                                     CustomAccessibilityAction(
                                         label = "Skip to previous song",
                                         action = {
@@ -490,13 +478,11 @@ fun EtherealFlowLayout(
                             AlbumArtDisplay(
                                 albumArtUri = uiState.currentAudioFile?.albumArtUri,
                                 isPlaying = uiState.isPlaying,
-                                windowWidthSizeClass = windowSizeClass,
+                                windowWidthSizeClass = windowWidthSizeClass,
                                 playerLayout = PlayerLayout.ETHEREAL_FLOW
                             )
                         }
-
-                        Spacer(modifier = Modifier.width(32.dp))
-
+                        Spacer(modifier = Modifier.width(horizontalPadding))
                         Column(
                             modifier = Modifier
                                 .weight(1.5f)
@@ -509,18 +495,18 @@ fun EtherealFlowLayout(
                                 currentSongIndex = currentSongIndex,
                                 totalQueueSize = playingQueue.size,
                                 onOpenQueue = { /* No-op for expanded, queue is visible */ },
-                                windowWidthSizeClass = windowSizeClass,
+                                windowWidthSizeClass = windowWidthSizeClass,
                                 selectedLayout = selectedLayout,
                                 onLayoutSelected = onLayoutSelected
                             )
-                            Spacer(modifier = Modifier.height(24.dp))
-
+                            Spacer(modifier = Modifier.height(spacing))
                             TrackInfo(
                                 title = uiState.currentAudioFile?.title,
                                 artist = uiState.currentAudioFile?.artist,
-                                playerLayout = PlayerLayout.ETHEREAL_FLOW
+                                playerLayout = PlayerLayout.ETHEREAL_FLOW,
+                                modifier = Modifier.fillMaxWidth()
                             )
-
+                            Spacer(modifier = Modifier.height(spacing / 2))
                             FavoriteButton(
                                 isFavorite = uiState.isFavorite,
                                 onToggleFavorite = {
@@ -532,28 +518,25 @@ fun EtherealFlowLayout(
                                         }
                                     }
                                     view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-                                }
+                                },
+                                playerLayout = PlayerLayout.ETHEREAL_FLOW
                             )
-                            Spacer(modifier = Modifier.height(24.dp))
-
+                            Spacer(modifier = Modifier.height(spacing))
                             SeekBarSection(
-                                sliderValue = sliderValue,
+                                sliderValue = uiState.playbackPositionMs.toFloat(),
                                 totalDurationMs = uiState.totalDurationMs,
                                 playbackPositionMs = uiState.playbackPositionMs,
-                                isSeeking = uiState.isSeeking,
                                 onSliderValueChange = { newValue ->
-                                    sliderValue = newValue
-                                    if (!uiState.isSeeking) onEvent(PlayerEvent.SetSeeking(true))
+                                    onEvent(PlayerEvent.SetSeeking(true))
+                                    onEvent(PlayerEvent.SeekTo(newValue.toLong()))
                                 },
                                 onSliderValueChangeFinished = {
-                                    onEvent(PlayerEvent.SeekTo(sliderValue.toLong()))
                                     onEvent(PlayerEvent.SetSeeking(false))
                                     view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                                 },
                                 playerLayout = PlayerLayout.ETHEREAL_FLOW
                             )
-                            Spacer(modifier = Modifier.height(24.dp))
-
+                            Spacer(modifier = Modifier.height(spacing))
                             ControlBar(
                                 shuffleMode = uiState.shuffleMode,
                                 isPlaying = uiState.isPlaying,
@@ -572,12 +555,12 @@ fun EtherealFlowLayout(
                                 },
                                 onSetShuffleMode = { newMode -> onEvent(PlayerEvent.SetShuffleMode(newMode)) },
                                 onSetRepeatMode = { newMode -> onEvent(PlayerEvent.SetRepeatMode(newMode)) },
-                                playerLayout = PlayerLayout.ETHEREAL_FLOW
+                                playerLayout = PlayerLayout.ETHEREAL_FLOW,
+                                windowWidthSizeClass = windowWidthSizeClass,
+                                windowHeightSizeClass = windowHeightSizeClass
                             )
                         }
-
-                        Spacer(modifier = Modifier.width(32.dp))
-
+                        Spacer(modifier = Modifier.width(horizontalPadding))
                         Column(
                             modifier = Modifier
                                 .weight(1f)

@@ -51,12 +51,12 @@ import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.list.Play
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.list.PlaylistViewModel
 
 /**
-    * Composable for the Playlists screen, displaying user-created and automatic playlists.
-    *
-    * @param viewModel The ViewModel for managing playlist state and events.
-    * @param onPlaylistClick Callback when a playlist is clicked, providing its ID.
-    * @param windowWidthSizeClass The current window width size class for responsive layout.
-*/
+ * Composable for the Playlists screen, displaying user-created and automatic playlists.
+ *
+ * @param viewModel The ViewModel for managing playlist state and events.
+ * @param onPlaylistClick Callback when a playlist is clicked, providing its ID.
+ * @param windowWidthSizeClass The current window width size class for responsive layout.
+ */
 @Composable
 fun PlaylistsScreen(
     viewModel: PlaylistViewModel = hiltViewModel(),
@@ -170,27 +170,16 @@ fun PlaylistsScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            if (uiState.automaticPlaylists.isNotEmpty()) {
-                                item {
-                                    Text(
-                                        text = "Automatic Playlists",
-                                        style = MaterialTheme.typography.titleLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onBackground,
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                                    )
-                                }
-                                items(uiState.automaticPlaylists, key = { it.id }) { playlist ->
-                                    PlaylistItem(
-                                        playlist = playlist,
-                                        onClick = onPlaylistClick,
-                                        onDeleteClick = { playlistId ->
-                                            viewModel.onEvent(PlaylistEvent.DeletePlaylist(playlistId))
-                                        },
-                                        isDeletable = false // Automatic playlists are not deletable
-                                    )
-                                    Spacer(Modifier.height(16.dp)) // Space between sections
-                                }
+                            items(uiState.automaticPlaylists, key = { it.id }) { playlist ->
+                                PlaylistItem(
+                                    playlist = playlist,
+                                    onClick = onPlaylistClick,
+                                    onDeleteClick = { playlistId ->
+                                        viewModel.onEvent(PlaylistEvent.DeletePlaylist(playlistId))
+                                    },
+                                    isDeletable = false // Automatic playlists are not deletable
+                                )
+                                Spacer(Modifier.height(16.dp)) // Space between sections
                             }
 
                             if (uiState.userPlaylists.isNotEmpty()) {
@@ -223,31 +212,21 @@ fun PlaylistsScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            if (uiState.automaticPlaylists.isNotEmpty()) {
-                                item(span = { GridItemSpan(maxLineSpan) }) {
-                                    Text(
-                                        text = "Automatic Playlists",
-                                        style = MaterialTheme.typography.titleLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onBackground,
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                                    )
-                                }
-                                items(uiState.automaticPlaylists, key = { it.id }) { playlist ->
-                                    PlaylistGridItem(
-                                        playlist = playlist,
-                                        onClick = onPlaylistClick,
-                                        onDeleteClick = { playlistId ->
-                                            viewModel.onEvent(PlaylistEvent.DeletePlaylist(playlistId))
-                                        },
-                                        isDeletable = false // Automatic playlists are not deletable
-                                    )
-                                }
+                            items(uiState.automaticPlaylists, key = { it.id }) { playlist ->
+                                PlaylistGridItem(
+                                    playlist = playlist,
+                                    onClick = onPlaylistClick,
+                                    onDeleteClick = { playlistId ->
+                                        viewModel.onEvent(PlaylistEvent.DeletePlaylist(playlistId))
+                                    },
+                                    isDeletable = false // Automatic playlists are not deletable
+                                )
+                            }
+                            if (uiState.automaticPlaylists.isNotEmpty() && uiState.userPlaylists.isNotEmpty()) {
                                 item(span = { GridItemSpan(maxLineSpan) }) { // Spacer for grid
                                     Spacer(Modifier.height(16.dp))
                                 }
                             }
-
                             if (uiState.userPlaylists.isNotEmpty()) {
                                 item(span = { GridItemSpan(maxLineSpan) }) { // Span across all columns for header
                                     Text(

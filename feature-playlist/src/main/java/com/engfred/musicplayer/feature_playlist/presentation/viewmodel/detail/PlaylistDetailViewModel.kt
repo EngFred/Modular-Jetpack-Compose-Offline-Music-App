@@ -6,7 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
 import com.engfred.musicplayer.core.domain.model.AudioFile
-import com.engfred.musicplayer.core.domain.repository.PlayerController
+import com.engfred.musicplayer.core.domain.repository.PlaybackController
 import com.engfred.musicplayer.core.domain.repository.PlaylistRepository
 import com.engfred.musicplayer.core.domain.repository.ShuffleMode
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -33,7 +33,7 @@ object PlaylistDetailArgs {
 class PlaylistDetailViewModel @Inject constructor(
     private val playlistRepository: PlaylistRepository,
     private val sharedAudioDataSource: SharedAudioDataSource,
-    private val playerController: PlayerController,
+    private val playbackController: PlaybackController,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -54,7 +54,7 @@ class PlaylistDetailViewModel @Inject constructor(
             }
         }.launchIn(viewModelScope)
         loadPlaylistDetails(savedStateHandle)
-        startObservingPlaybackState(playerController)
+        startObservingPlaybackState(playbackController)
 
         // Filter out the current playlist from the list of playlists available for "Add to another playlist"
         playlistRepository.getPlaylists().onEach { allPlaylists ->
@@ -66,8 +66,8 @@ class PlaylistDetailViewModel @Inject constructor(
         }.launchIn(viewModelScope)
     }
 
-    private fun startObservingPlaybackState(playerController: PlayerController) {
-        playerController.getPlaybackState().onEach { state ->
+    private fun startObservingPlaybackState(playbackController: PlaybackController) {
+        playbackController.getPlaybackState().onEach { state ->
             _uiState.update { currentState ->
                 currentState.copy(currentPlayingAudioFile = state.currentAudioFile, isPlaying = state.isPlaying)
             }
@@ -110,7 +110,7 @@ class PlaylistDetailViewModel @Inject constructor(
                         }
                         try {
                             playlistRepository.removeSongFromPlaylist(playlistId, audioFileToRemove.id)
-                            playerController.removeFromQueue(audioFileToRemove)
+                            playbackController.removeFromQueue(audioFileToRemove)
                             _uiEvent.emit("Removed '${audioFileToRemove.title}' from playlist.")
                             Log.d(TAG, "Removed song ID: ${audioFileToRemove.id} from playlist ID: $playlistId")
                         } catch (e: Exception) {
@@ -193,7 +193,7 @@ class PlaylistDetailViewModel @Inject constructor(
                 PlaylistDetailEvent.ShufflePlay -> {
                     uiState.value.playlist?.songs?.let {
                         if (it.isNotEmpty()) {
-                            playerController.setShuffleMode(ShuffleMode.ON)
+                            playbackController.setShuffleMode(ShuffleMode.ON)
                             startAudioPlayback(it.shuffled()[0])
                         } else {
                             _uiEvent.emit("Playlist is empty, cannot shuffle play.")
@@ -204,24 +204,15 @@ class PlaylistDetailViewModel @Inject constructor(
                     loadPlaylistDetails(savedStateHandle)
                 }
 
-                is PlaylistDetailEvent.SwipedLeft -> {
-                    startAudioPlayback(event.audioFile)
-                }
-                is PlaylistDetailEvent.SwipedRight -> {
-                    if (_uiState.value.currentPlayingAudioFile?.id == event.audioFile.id && _uiState.value.isPlaying) {
-                        playerController.playPause()
-                    }
-                }
-
                 PlaylistDetailEvent.PlayNext -> {
-                    playerController.skipToNext()
+                    playbackController.skipToNext()
                 }
                 PlaylistDetailEvent.PlayPause -> {
-                    playerController.playPause()
+                    playbackController.playPause()
                 }
 
                 PlaylistDetailEvent.PlayPrev -> {
-                    playerController.skipToPrevious()
+                    playbackController.skipToPrevious()
                 }
 
                 is PlaylistDetailEvent.AddedSongToPlaylist -> {
@@ -258,7 +249,7 @@ class PlaylistDetailViewModel @Inject constructor(
 
                 is PlaylistDetailEvent.SetPlayNext -> {
                     Log.d(TAG, "SetPlayNext event received")
-                    playerController.addAudioToQueueNext(event.audioFile)
+                    playbackController.addAudioToQueueNext(event.audioFile)
                 }
             }
         }
@@ -293,7 +284,7 @@ class PlaylistDetailViewModel @Inject constructor(
     private suspend fun startAudioPlayback(audioFile: AudioFile) {
         uiState.value.playlist?.songs?.let {
             sharedAudioDataSource.setPlayingQueue(it)
-            playerController.initiatePlayback(audioFile.uri)
+            playbackController.initiatePlayback(audioFile.uri)
         }
     }
 }

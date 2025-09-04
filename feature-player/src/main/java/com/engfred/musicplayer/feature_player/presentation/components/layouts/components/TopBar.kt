@@ -1,9 +1,13 @@
 package com.engfred.musicplayer.feature_player.presentation.components.layouts.components
 
+import android.app.Activity
+import android.content.pm.ActivityInfo
+import android.widget.Toast
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -18,8 +22,9 @@ import androidx.compose.material.icons.rounded.ArrowBackIosNew
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.ScreenRotation
+import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
@@ -33,30 +38,25 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
+import android.view.HapticFeedbackConstants
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.ui.semantics.customActions
 
-/**
- * TopBar component for the music player screen.
- * Adapts its content and arrangement based on the selected [PlayerLayout]
- * and [WindowWidthSizeClass]. Provides navigation, queue status, and layout selection.
- *
- * @param modifier The modifier to be applied to the TopBar.
- * @param onNavigateUp Callback for navigating back.
- * @param currentSongIndex The 0-based index of the currently playing song in the queue.
- * @param totalQueueSize The total number of songs in the playback queue.
- * @param onOpenQueue Callback to open the playback queue (e.g., as a bottom sheet).
- * @param windowWidthSizeClass The current window size class.
- * @param selectedLayout The currently active player layout.
- * @param onLayoutSelected Callback to change the active player layout.
- * @param isFavorite Boolean indicating if the current song is a favorite (only used in Minimalist Groove).
- * @param onToggleFavorite Callback to toggle the favorite status (only used in Minimalist Groove).
- */
 @Composable
 fun TopBar(
     modifier: Modifier = Modifier,
@@ -67,11 +67,33 @@ fun TopBar(
     windowWidthSizeClass: WindowWidthSizeClass,
     selectedLayout: PlayerLayout,
     onLayoutSelected: (PlayerLayout) -> Unit,
-    // These parameters are specific to Minimalist Groove and will be passed conditionally
     isFavorite: Boolean = false,
     onToggleFavorite: () -> Unit = {}
 ) {
     var showLayoutMenu by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val view = LocalView.current
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+
+    // Function to toggle device orientation
+    fun toggleOrientation() {
+        val activity = context as? Activity
+        if (activity != null) {
+            try {
+                activity.requestedOrientation = if (isLandscape) {
+                    ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                } else {
+                    ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                }
+                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+            } catch (e: Exception) {
+                Toast.makeText(context, "Unable to change orientation", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Toast.makeText(context, "Orientation change not supported", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     when (selectedLayout) {
         PlayerLayout.MINIMALIST_GROOVE -> {
@@ -84,27 +106,21 @@ fun TopBar(
                     modifier = Modifier.align(Alignment.CenterVertically)
                 ) {
                     Icon(
-                        Icons.Rounded.ArrowBackIosNew,
+                        Icons.AutoMirrored.Rounded.ArrowBack,
                         contentDescription = "Navigate up",
                         tint = LocalContentColor.current
                     )
                 }
 
-                // Centered "Now Playing" text
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Now Playing",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = LocalContentColor.current.copy(alpha = 0.8f),
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
+                Spacer(modifier = Modifier.size(8.dp))
+                Text(
+                    text = "Now Playing",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = LocalContentColor.current.copy(alpha = 0.8f),
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.size(8.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -116,6 +132,28 @@ fun TopBar(
                             modifier = Modifier.size(24.dp)
                         )
                     }
+                    // Rotation icon
+                    IconButton(
+                        onClick = { toggleOrientation() },
+                        modifier = Modifier.semantics {
+                            customActions = listOf(
+                                CustomAccessibilityAction(
+                                    label = if (isLandscape) "Switch to portrait" else "Switch to landscape",
+                                    action = {
+                                        toggleOrientation()
+                                        true
+                                    }
+                                )
+                            )
+                        }
+                    ) {
+                        Icon(
+                            Icons.Rounded.ScreenRotation,
+                            contentDescription = if (isLandscape) "Switch to portrait" else "Switch to landscape",
+                            tint = LocalContentColor.current,
+                            modifier = Modifier.rotate(if (isLandscape) 90f else 0f)
+                        )
+                    }
                     IconButton(onClick = { showLayoutMenu = true }) {
                         Icon(
                             Icons.Rounded.MoreVert,
@@ -123,7 +161,6 @@ fun TopBar(
                             tint = LocalContentColor.current
                         )
                     }
-                    // Layout selection dropdown for Minimalist Groove
                     LayoutDropdownMenu(
                         expanded = showLayoutMenu,
                         onDismissRequest = { showLayoutMenu = false },
@@ -145,22 +182,47 @@ fun TopBar(
                     modifier = Modifier.align(Alignment.CenterVertically)
                 ) {
                     Icon(
-                        Icons.Rounded.ArrowBackIosNew,
+                        Icons.AutoMirrored.Rounded.ArrowBack,
                         contentDescription = "Navigate up",
                         tint = LocalContentColor.current
                     )
                 }
 
+                Spacer(modifier = Modifier.size(8.dp))
                 Text(
                     text = "${currentSongIndex + 1}/$totalQueueSize",
                     style = MaterialTheme.typography.titleMedium,
                     color = LocalContentColor.current.copy(alpha = 0.8f),
                     fontWeight = FontWeight.SemiBold
                 )
+                Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.size(8.dp))
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Rotation icon
+                    IconButton(
+                        onClick = { toggleOrientation() },
+                        modifier = Modifier.semantics {
+                            customActions = listOf(
+                                CustomAccessibilityAction(
+                                    label = if (isLandscape) "Switch to portrait" else "Switch to landscape",
+                                    action = {
+                                        toggleOrientation()
+                                        true
+                                    }
+                                )
+                            )
+                        }
+                    ) {
+                        Icon(
+                            Icons.Rounded.ScreenRotation,
+                            contentDescription = if (isLandscape) "Switch to portrait" else "Switch to landscape",
+                            tint = LocalContentColor.current,
+                            modifier = Modifier.rotate(if (isLandscape) 90f else 0f)
+                        )
+                    }
                     IconButton(onClick = { showLayoutMenu = true }) {
                         Icon(
                             Icons.Rounded.MoreVert,
@@ -168,7 +230,6 @@ fun TopBar(
                             tint = LocalContentColor.current
                         )
                     }
-                    // Layout selection dropdown for Immersive Canvas
                     LayoutDropdownMenu(
                         expanded = showLayoutMenu,
                         onDismissRequest = { showLayoutMenu = false },
@@ -189,26 +250,22 @@ fun TopBar(
                     modifier = Modifier.align(Alignment.CenterVertically)
                 ) {
                     Icon(
-                        Icons.Rounded.ArrowBackIosNew,
+                        Icons.AutoMirrored.Rounded.ArrowBack,
                         contentDescription = "Navigate up",
                         tint = LocalContentColor.current
                     )
                 }
 
-                // Centered song index text
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "${currentSongIndex + 1}/$totalQueueSize",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = LocalContentColor.current.copy(alpha = 0.8f),
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
+                Spacer(modifier = Modifier.size(8.dp))
+                Text(
+                    text = "${currentSongIndex + 1}/$totalQueueSize",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = LocalContentColor.current.copy(alpha = 0.8f),
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.size(8.dp))
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically
@@ -222,8 +279,29 @@ fun TopBar(
                             )
                         }
                     } else {
-                        // Maintain spacing when queue button is not shown in expanded mode
                         Spacer(modifier = Modifier.size(48.dp)) // Matches IconButton size
+                    }
+                    // Rotation icon
+                    IconButton(
+                        onClick = { toggleOrientation() },
+                        modifier = Modifier.semantics {
+                            customActions = listOf(
+                                CustomAccessibilityAction(
+                                    label = if (isLandscape) "Switch to portrait" else "Switch to landscape",
+                                    action = {
+                                        toggleOrientation()
+                                        true
+                                    }
+                                )
+                            )
+                        }
+                    ) {
+                        Icon(
+                            Icons.Rounded.ScreenRotation,
+                            contentDescription = if (isLandscape) "Switch to portrait" else "Switch to landscape",
+                            tint = LocalContentColor.current,
+                            modifier = Modifier.rotate(if (isLandscape) 90f else 0f)
+                        )
                     }
                     IconButton(onClick = { showLayoutMenu = true }) {
                         Icon(
@@ -232,7 +310,6 @@ fun TopBar(
                             tint = LocalContentColor.current
                         )
                     }
-                    // Layout selection dropdown for Ethereal Flow
                     LayoutDropdownMenu(
                         expanded = showLayoutMenu,
                         onDismissRequest = { showLayoutMenu = false },
@@ -246,7 +323,7 @@ fun TopBar(
 }
 
 /**
- * Reusable Composable for the player layout selection dropdown menu.
+ * Reusable Composable for the player layout selection dropdown menu, styled like WhatsApp.
  *
  * @param expanded Whether the dropdown menu is currently expanded.
  * @param onDismissRequest Callback to dismiss the dropdown menu.
@@ -268,8 +345,7 @@ private fun LayoutDropdownMenu(
                 MaterialTheme.colorScheme.surface,
                 shape = RoundedCornerShape(12.dp)
             )
-            .shadow(8.dp, RoundedCornerShape(12.dp))
-            .animateContentSize()
+            .animateContentSize(animationSpec = tween(durationMillis = 200))
             .alpha(
                 animateFloatAsState(
                     targetValue = if (expanded) 1f else 0f,
@@ -277,35 +353,47 @@ private fun LayoutDropdownMenu(
                     label = "dropdownFade"
                 ).value
             ),
-        offset = DpOffset(x = (-12).dp, y = 8.dp) // Offset the dropdown for better alignment with the icon
+        offset = DpOffset(x = (-8).dp, y = 8.dp) // Aligns menu to the right of MoreVert icon
     ) {
-        PlayerLayout.entries.forEach { layout ->
-            DropdownMenuItem(
-                text = {
-                    Text(
-                        text = when (layout) {
-                            PlayerLayout.ETHEREAL_FLOW -> "Ethereal Flow"
-                            PlayerLayout.IMMERSIVE_CANVAS -> "Immersive Canvas"
-                            PlayerLayout.MINIMALIST_GROOVE -> "Minimalist Groove"
-                        },
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = if (selectedLayout == layout) FontWeight.Bold else FontWeight.Normal // Use Normal for non-selected
-                    )
-                },
-                onClick = {
-                    onLayoutSelected(layout)
-                    onDismissRequest() // Dismiss the menu after selection
-                },
+        PlayerLayout.entries.forEachIndexed { index, layout ->
+            // Menu item with ripple effect and highlight for selected item
+            Box(
                 modifier = Modifier
                     .background(
                         if (selectedLayout == layout)
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                         else
-                            Color.Transparent // Use Color.Transparent for default background
+                            Color.Transparent
                     )
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            )
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null // Ripple is handled by MaterialTheme
+                    ) {
+                        onLayoutSelected(layout)
+                        onDismissRequest()
+                    }
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .fillMaxWidth()
+            ) {
+                Text(
+                    text = when (layout) {
+                        PlayerLayout.ETHEREAL_FLOW -> "Ethereal Flow"
+                        PlayerLayout.IMMERSIVE_CANVAS -> "Immersive Canvas"
+                        PlayerLayout.MINIMALIST_GROOVE -> "Minimalist Groove"
+                    },
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = if (selectedLayout == layout) FontWeight.Medium else FontWeight.Normal
+                )
+            }
+            // Add divider between items, except for the last one
+            if (index < PlayerLayout.entries.size - 1) {
+                Divider(
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                    thickness = 0.5.dp,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+            }
         }
     }
 }

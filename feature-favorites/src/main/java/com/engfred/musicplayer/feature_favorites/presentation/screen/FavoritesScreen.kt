@@ -33,7 +33,6 @@ import com.engfred.musicplayer.core.ui.ConfirmationDialog
 
 @Composable
 fun FavoritesScreen(
-    onNavigateToNowPlaying: () -> Unit,
     viewModel: FavoritesViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -112,18 +111,6 @@ fun FavoritesScreen(
                                 audioFile = favoriteAudioFile,
                                 onClick = { clickedAudioFile ->
                                     viewModel.onEvent(FavoritesEvent.PlayAudio(clickedAudioFile))
-                                },
-                                onSwipeLeft = { audioFile ->
-                                    if (uiState.currentPlayingId != audioFile.id) {
-                                        //another song was playing, stop it and play this one!
-                                        viewModel.onEvent(FavoritesEvent.SwipedLeft(audioFile))
-                                    } else {
-                                        //song already playing, navigate to the now playing
-                                        onNavigateToNowPlaying()
-                                    }
-                                },
-                                onSwipeRight = {
-                                    viewModel.onEvent(FavoritesEvent.SwipedRight(it))
                                 },
                                 isAudioPlaying = uiState.isPlaying,
                                 isCurrentPlayingAudio = uiState.currentPlayingId == favoriteAudioFile.id,

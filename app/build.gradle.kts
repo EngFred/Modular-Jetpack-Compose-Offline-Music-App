@@ -101,7 +101,6 @@ dependencies {
     implementation(project(":feature-playlist"))
     implementation(project(":feature-favorites"))
     implementation(project(":feature-settings"))
-    implementation(project(":feature-equalizer"))
 
     // Testing Dependencies
     testImplementation(libs.junit)

@@ -32,7 +32,6 @@ sealed class AppDestinations(val route: String) {
         data object Library : BottomNavItem("library", Icons.Rounded.LibraryMusic, "Library")
         data object Playlists : BottomNavItem("playlists", Icons.AutoMirrored.Rounded.List, "Playlists")
         data object Favorites : BottomNavItem("favorites", Icons.Rounded.Favorite, "Favorites")
-        data object Equalizer : BottomNavItem("equalizer", Icons.Rounded.Equalizer, "Equalizer")
     }
 
     // Settings screen

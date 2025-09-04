@@ -1,17 +1,15 @@
 package com.engfred.musicplayer.feature_player.data.repository
 
 import android.content.Context
-import android.net.Uri
 import android.util.Log
 import androidx.media3.common.C
 import androidx.media3.common.Player
-import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
-import com.engfred.musicplayer.core.data.session.MediaControllerProvider
+import androidx.media3.session.SessionToken
 import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.domain.repository.PlaybackState
-import com.engfred.musicplayer.core.domain.repository.PlayerController
+import com.engfred.musicplayer.core.domain.repository.PlaybackController
 import com.engfred.musicplayer.core.domain.repository.PlaylistRepository
 import com.engfred.musicplayer.core.domain.repository.RepeatMode
 import com.engfred.musicplayer.core.domain.repository.ShuffleMode
@@ -29,6 +27,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -36,34 +35,19 @@ import javax.inject.Singleton
 
 private const val TAG = "PlayerControllerImpl"
 
-/**
- * An implementation of [PlayerController] that manages playback using a [MediaController]
- * (which interacts with a Media3 MediaSessionService).
- * This class also handles tracking song play events for the "Top Tracks" feature.
- *
- * It observes the shared [MediaController] instance and updates the playback state accordingly.
- */
-@UnstableApi
+
 @Singleton
-class PlayerControllerImpl @Inject constructor(
+class PlaybackControllerImpl @Inject constructor(
     private val sharedAudioDataSource: SharedAudioDataSource,
     private val audioFileMapper: AudioFileMapper,
-    mediaControllerProvider: MediaControllerProvider,
     private val permissionHandlerUseCase: PermissionHandlerUseCase,
     private val playlistRepository: PlaylistRepository,
-    @ApplicationContext private val context: Context
-) : PlayerController {
+    @ApplicationContext private val context: Context,
+    private val sessionToken: SessionToken,
+) : PlaybackController {
 
-    /**
-     * A [Flow] that provides the current [MediaController] instance.
-     * This controller is used to send commands to the playback service.
-     */
-    private val mediaControllerFlow = mediaControllerProvider.mediaController
+    private val mediaController = MutableStateFlow<MediaController?>(null)
 
-    /**
-     * A [MutableStateFlow] holding the current playback state of the player.
-     * Exposed as a read-only [Flow] via [getPlaybackState].
-     */
     private val _playbackState = MutableStateFlow(PlaybackState())
 
     /**
@@ -87,7 +71,6 @@ class PlayerControllerImpl @Inject constructor(
      */
     private val _currentAudioFilePlaybackProgress = MutableStateFlow(CurrentAudioFilePlaybackProgress())
 
-
     /**
      * A [CoroutineScope] tied to the lifecycle of this repository,
      * using [SupervisorJob] for resilience and [Dispatchers.IO] for background operations.
@@ -108,9 +91,18 @@ class PlayerControllerImpl @Inject constructor(
     init {
         Log.d(TAG, "Initializing PlayerControllerImpl")
 
+        // ---------------------------------------------
+        // CHANGE: Build/connect MediaController once this repo is created.
+        // This keeps ownership explicit in this layer. If you truly want a single "shared" controller
+        // app-wide, extract this into a dedicated Manager and inject its StateFlow here.
+        // ---------------------------------------------
+        repositoryScope.launch {
+            buildAndConnectController()
+        }
+
         // Launch a coroutine to observe changes in the MediaController instance
         repositoryScope.launch {
-            mediaControllerFlow.collectLatest { newController ->
+            mediaController.collectLatest { newController ->
                 withContext(Dispatchers.Main) { // Ensure UI-related operations are on Main thread
                     // Remove listener from the previously attached controller, if any
                     attachedController?.removeListener(controllerCallback)
@@ -142,6 +134,39 @@ class PlayerControllerImpl @Inject constructor(
         }
     }
 
+    // ---------------------------------------------
+    // CHANGE: Build the MediaController (Main thread) and push it into the StateFlow.
+    // Uses coroutines-guava 'await' to suspend until the controller is ready.
+    // Includes a small retry loop for resilience if the service isn't up yet.
+    // ---------------------------------------------
+    private suspend fun buildAndConnectController() {
+        withContext(Dispatchers.Main) {
+            var attempts = 0
+            val maxAttempts = 3
+            var lastError: Throwable? = null
+
+            while (attempts < maxAttempts) {
+                try {
+                    val controller = MediaController.Builder(context, sessionToken)
+                        .buildAsync()
+                        .await()
+                    Log.d(TAG, "MediaController connected (attempt ${attempts + 1}).")
+                    mediaController.value = controller
+                    return@withContext
+                } catch (e: Exception) {
+                    lastError = e
+                    attempts++
+                    Log.w(TAG, "Failed to connect MediaController (attempt $attempts/$maxAttempts): ${e.message}")
+                    delay(300L * attempts) // backoff
+                }
+            }
+
+            Log.e(TAG, "Unable to connect MediaController after $maxAttempts attempts.", lastError)
+            mediaController.value = null
+            _playbackState.update { it.copy(error = "Player not initialized.") }
+        }
+    }
+
     /**
      * Starts a continuous loop to update the current playback position in the [_playbackState]
      * and [_currentAudioFilePlaybackProgress] at regular intervals (every 500ms).
@@ -149,7 +174,7 @@ class PlayerControllerImpl @Inject constructor(
     private suspend fun startPlaybackPositionUpdates() {
         while (true) {
             withContext(Dispatchers.Main) {
-                mediaControllerFlow.value?.let { actualController ->
+                mediaController.value?.let { actualController ->
                     // Only update if player is not idle or ended, to avoid unnecessary updates
                     if (actualController.playbackState != Player.STATE_IDLE && actualController.playbackState != Player.STATE_ENDED) {
                         updatePlaybackState()
@@ -179,16 +204,15 @@ class PlayerControllerImpl @Inject constructor(
         } ?: _currentAudioFilePlaybackProgress.update { CurrentAudioFilePlaybackProgress() }
     }
 
-
     /**
      * Initiates playback of a given audio file within the current playing queue.
      * If the queue doesn't match the controller's queue, it will be set.
      *
-     * @param initialAudioFileUri The [Uri] of the audio file to start playback from.
+     * @param initialAudioFileUri The [android.net.Uri] of the audio file to start playback from.
      */
-    override suspend fun initiatePlayback(initialAudioFileUri: Uri) {
+    override suspend fun initiatePlayback(initialAudioFileUri: android.net.Uri) {
         withContext(Dispatchers.Main) {
-            val controller = mediaControllerFlow.value
+            val controller = mediaController.value
             if (controller == null) {
                 Log.e(TAG, "MediaController not available for playback initiation.")
                 _playbackState.update { it.copy(error = "Player not initialized.") }
@@ -277,7 +301,7 @@ class PlayerControllerImpl @Inject constructor(
      */
     override suspend fun playPause() {
         withContext(Dispatchers.Main) {
-            mediaControllerFlow.value?.run {
+            mediaController.value?.run {
                 if (isPlaying) pause() else play()
             } ?: Log.w(TAG, "MediaController not set when trying to play/pause.")
         }
@@ -288,7 +312,7 @@ class PlayerControllerImpl @Inject constructor(
      */
     override suspend fun skipToNext() {
         withContext(Dispatchers.Main) {
-            mediaControllerFlow.value?.seekToNextMediaItem() ?: Log.w(TAG, "MediaController not set when trying to skip next.")
+            mediaController.value?.seekToNextMediaItem() ?: Log.w(TAG, "MediaController not set when trying to skip next.")
         }
     }
 
@@ -297,7 +321,7 @@ class PlayerControllerImpl @Inject constructor(
      */
     override suspend fun skipToPrevious() {
         withContext(Dispatchers.Main) {
-            mediaControllerFlow.value?.seekToPreviousMediaItem() ?: Log.w(TAG, "MediaController not set when trying to skip previous.")
+            mediaController.value?.seekToPreviousMediaItem() ?: Log.w(TAG, "MediaController not set when trying to skip previous.")
         }
     }
 
@@ -308,7 +332,7 @@ class PlayerControllerImpl @Inject constructor(
      */
     override suspend fun seekTo(positionMs: Long) {
         withContext(Dispatchers.Main) {
-            mediaControllerFlow.value?.let { controller ->
+            mediaController.value?.let { controller ->
                 controller.seekTo(positionMs)
                 updatePlaybackState() // Update state immediately after seeking
                 updateCurrentAudioFilePlaybackProgress(controller) // Update progress tracker after seeking
@@ -323,7 +347,7 @@ class PlayerControllerImpl @Inject constructor(
      */
     override suspend fun setRepeatMode(mode: RepeatMode) {
         withContext(Dispatchers.Main) {
-            mediaControllerFlow.value?.let { controller ->
+            mediaController.value?.let { controller ->
                 controller.repeatMode = when (mode) {
                     RepeatMode.OFF -> Player.REPEAT_MODE_OFF
                     RepeatMode.ONE -> Player.REPEAT_MODE_ONE
@@ -340,7 +364,7 @@ class PlayerControllerImpl @Inject constructor(
      */
     override suspend fun setShuffleMode(mode: ShuffleMode) {
         withContext(Dispatchers.Main) {
-            mediaControllerFlow.value?.let { controller ->
+            mediaController.value?.let { controller ->
                 controller.shuffleModeEnabled = (mode == ShuffleMode.ON)
             } ?: Log.w(TAG, "MediaController not set when trying to set shuffle mode.")
         }
@@ -353,7 +377,7 @@ class PlayerControllerImpl @Inject constructor(
      */
     override suspend fun addAudioToQueueNext(audioFile: AudioFile) {
         withContext(Dispatchers.Main) {
-            val controller = mediaControllerFlow.value
+            val controller = mediaController.value
             if (controller == null) {
                 Log.e(TAG, "MediaController not available. Cannot add to queue.")
                 _playbackState.update { it.copy(error = "Player not initialized. Cannot add to queue.") }
@@ -404,6 +428,12 @@ class PlayerControllerImpl @Inject constructor(
      * and cancelling coroutines. Should be called when the player is no longer needed.
      */
     override suspend fun releasePlayer() {
+        // ---------------------------------------------
+        // CHANGE: Ensure we also release the underlying MediaController we created here.
+        // If you centralize the controller elsewhere, remove the release() here and delegate to that owner.
+        // ---------------------------------------------
+        val controllerToRelease = mediaController.value
+
         repositoryScope.cancel() // Cancel all coroutines launched in this scope
         withContext(Dispatchers.Main) {
             attachedController?.removeListener(controllerCallback)
@@ -411,6 +441,14 @@ class PlayerControllerImpl @Inject constructor(
             Log.d(TAG, "PlayerControllerImpl resources released and listener removed.")
             controllerCallback.resetTracking() // Reset event tracking
             _currentAudioFilePlaybackProgress.value = CurrentAudioFilePlaybackProgress() // Reset progress tracker
+
+            try {
+                controllerToRelease?.release()
+            } catch (e: Exception) {
+                Log.w(TAG, "Error releasing MediaController: ${e.message}")
+            } finally {
+                mediaController.value = null
+            }
         }
     }
 
@@ -537,7 +575,7 @@ class PlayerControllerImpl @Inject constructor(
     override suspend fun onAudioFileRemoved(deletedAudioFile: AudioFile) {
         Log.d(TAG, "onAudioFileRemoved: Attempting to remove '${deletedAudioFile.title}' (ID: ${deletedAudioFile.id}) from player queue.")
         withContext(Dispatchers.Main) {
-            val controller = mediaControllerFlow.value
+            val controller = mediaController.value
             if (controller == null) {
                 Log.e(TAG, "MediaController not available. Cannot remove audio file from player queue.")
                 return@withContext
@@ -596,7 +634,7 @@ class PlayerControllerImpl @Inject constructor(
 
     override suspend fun removeFromQueue(audioFile: AudioFile) {
         withContext(Dispatchers.Main) {
-            val controller = mediaControllerFlow.value
+            val controller = mediaController.value
             if (controller == null) {
                 Log.e(TAG, "MediaController not available. Cannot remove from queue.")
                 _playbackState.update { it.copy(error = "Player not initialized. Cannot remove from queue.") }
@@ -653,7 +691,7 @@ class PlayerControllerImpl @Inject constructor(
      * This method is called periodically and upon significant player events.
      */
     private fun updatePlaybackState() {
-        mediaControllerFlow.value?.let { controller ->
+        mediaController.value?.let { controller ->
             val currentMediaItem = controller.currentMediaItem
             val playingQueue = sharedAudioDataSource.playingQueueAudioFiles.value
 

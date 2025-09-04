@@ -33,8 +33,6 @@ import com.engfred.musicplayer.feature_library.presentation.viewmodel.LibraryScr
 fun LibraryContent(
     uiState: LibraryScreenState,
     onAudioClick: (AudioFile) -> Unit,
-    onSwipeLeft: (AudioFile) -> Unit,
-    onSwipeRight: (AudioFile) -> Unit,
     onRemoveOrDelete: (AudioFile) -> Unit,
     onPlayNext: (AudioFile) -> Unit,
     onAddToPlaylist: (AudioFile) -> Unit,
@@ -95,8 +93,6 @@ fun LibraryContent(
                             isCurrentPlayingAudio = uiState.currentPlayingId == audioFile.id,
                             isAudioPlaying = isAudioPlaying,
                             onClick = onAudioClick,
-                            onSwipeLeft = onSwipeLeft,
-                            onSwipeRight = onSwipeRight,
                             onPlayNext = onPlayNext,
                             onAddToPlaylist = onAddToPlaylist,
                             onRemoveOrDelete = onRemoveOrDelete,

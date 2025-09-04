@@ -14,8 +14,6 @@ sealed class LibraryEvent {
     data class PlayAudio(val audioFile: AudioFile) : LibraryEvent()
     data class SearchQueryChanged(val query: String) : LibraryEvent()
     data class FilterSelected(val filterOption: FilterOption) : LibraryEvent()
-    data class SwipedLeft(val audioFile: AudioFile) : LibraryEvent()
-    data class SwipedRight(val audioFile: AudioFile) : LibraryEvent()
     data object DismissAddToPlaylistDialog : LibraryEvent()
     data class AddedSongToPlaylist(val playlist: Playlist) : LibraryEvent()
     data class ShowDeleteConfirmation(val audioFile: AudioFile) : LibraryEvent()

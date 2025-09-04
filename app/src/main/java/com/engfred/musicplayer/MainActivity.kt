@@ -23,7 +23,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import com.engfred.musicplayer.core.domain.repository.PlaybackState
-import com.engfred.musicplayer.core.domain.repository.PlayerController
+import com.engfred.musicplayer.core.domain.repository.PlaybackController
 import com.engfred.musicplayer.core.ui.theme.AppThemeType
 import com.engfred.musicplayer.core.ui.theme.MusicPlayerAppTheme
 import com.engfred.musicplayer.core.domain.model.AppSettings
@@ -40,7 +40,7 @@ class MainActivity : ComponentActivity() {
     lateinit var getAppSettingsUseCase: GetAppSettingsUseCase
 
     @Inject
-    lateinit var playerController: PlayerController
+    lateinit var playbackController: PlaybackController
 
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     @RequiresApi(Build.VERSION_CODES.S)
@@ -69,7 +69,7 @@ class MainActivity : ComponentActivity() {
         var playbackState by mutableStateOf(PlaybackState())
 
         lifecycleScope.launch {
-            playerController.getPlaybackState().collect{
+            playbackController.getPlaybackState().collect{
                 playbackState = it
             }
         }
@@ -82,7 +82,7 @@ class MainActivity : ComponentActivity() {
                 playbackState.error?.let { errorMessage ->
                     Toast.makeText(applicationContext, errorMessage, Toast.LENGTH_LONG).show()
                     // Clear the error in PlayerController after showing the toast
-                    playerController.clearPlaybackError()
+                    playbackController.clearPlaybackError()
                 }
             }
             // --- END GLOBAL PLAYBACK ERROR TOAST LOGIC ---
@@ -105,19 +105,20 @@ class MainActivity : ComponentActivity() {
                     AppNavHost(
                         rootNavController = navController,
                         windowWidthSizeClass =  windowSizeClass.widthSizeClass,
+                        windowHeightSizeClass = windowSizeClass.heightSizeClass,
                         onPlayPause = {
                             lifecycleScope.launch {
-                                playerController.playPause()
+                                playbackController.playPause()
                             }
                         },
                         onPlayNext = {
                             lifecycleScope.launch {
-                                playerController.skipToNext()
+                                playbackController.skipToNext()
                             }
                         },
                         onPlayPrev = {
                             lifecycleScope.launch {
-                                playerController.skipToPrevious()
+                                playbackController.skipToPrevious()
                             }
                         },
                         isPlaying = playbackState.isPlaying,

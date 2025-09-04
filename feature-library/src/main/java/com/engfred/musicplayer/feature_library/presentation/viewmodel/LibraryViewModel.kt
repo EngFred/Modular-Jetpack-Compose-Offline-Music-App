@@ -8,7 +8,7 @@ import androidx.activity.result.IntentSenderRequest
 import com.engfred.musicplayer.core.common.Resource
 import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
 import com.engfred.musicplayer.core.domain.model.AudioFile
-import com.engfred.musicplayer.core.domain.repository.PlayerController
+import com.engfred.musicplayer.core.domain.repository.PlaybackController
 import com.engfred.musicplayer.core.domain.repository.PlaylistRepository
 import com.engfred.musicplayer.core.domain.model.FilterOption
 import com.engfred.musicplayer.feature_library.domain.usecases.GetAllAudioFilesUseCase
@@ -26,7 +26,7 @@ class LibraryViewModel @Inject constructor(
     private val getAudioFilesUseCase: GetAllAudioFilesUseCase,
     private val permissionHandlerUseCase: PermissionHandlerUseCase,
     private val sharedAudioDataSource: SharedAudioDataSource,
-    private val playerController: PlayerController,
+    private val playbackController: PlaybackController,
     private val playlistRepository: PlaylistRepository,
     private val settingsRepository: SettingsRepository,
     @ApplicationContext private val context: Context
@@ -54,7 +54,7 @@ class LibraryViewModel @Inject constructor(
     }
 
     private fun startObservingPlaybackState() {
-        playerController.getPlaybackState().onEach { state ->
+        playbackController.getPlaybackState().onEach { state ->
             _uiState.update { currentState ->
                 currentState.copy(
                     currentPlayingId = state.currentAudioFile?.id,
@@ -106,18 +106,6 @@ class LibraryViewModel @Inject constructor(
                 }
 
                 is LibraryEvent.PlayAudio -> startAudioPlayback(event.audioFile)
-
-                is LibraryEvent.SwipedLeft -> {
-                    if (_uiState.value.currentPlayingId != event.audioFile.id) {
-                        startAudioPlayback(event.audioFile)
-                    }
-                }
-
-                is LibraryEvent.SwipedRight -> {
-                    if (_uiState.value.currentPlayingId == event.audioFile.id) {
-                        playerController.playPause()
-                    }
-                }
 
                 is LibraryEvent.SearchQueryChanged -> {
                     _uiState.update { it.copy(searchQuery = event.query) }
@@ -211,7 +199,7 @@ class LibraryViewModel @Inject constructor(
                             )
                         }
 
-                        playerController.onAudioFileRemoved(audioFile)
+                        playbackController.onAudioFileRemoved(audioFile)
                         sharedAudioDataSource.deleteAudioFile(audioFile)
                         _uiEvent.emit("Successfully deleted '${audioFile.title}'.")
                     } else {
@@ -221,7 +209,7 @@ class LibraryViewModel @Inject constructor(
                 }
 
                 is LibraryEvent.PlayedNext -> {
-                    playerController.addAudioToQueueNext(event.audioFile)
+                    playbackController.addAudioToQueueNext(event.audioFile)
                     _uiEvent.emit("Added '${event.audioFile.title}' to play next.")
                 }
 
@@ -263,7 +251,7 @@ class LibraryViewModel @Inject constructor(
     private suspend fun startAudioPlayback(audioFile: AudioFile) {
         val list = _uiState.value.filteredAudioFiles.ifEmpty { _uiState.value.audioFiles }
         sharedAudioDataSource.setPlayingQueue(list)
-        playerController.initiatePlayback(audioFile.uri)
+        playbackController.initiatePlayback(audioFile.uri)
     }
 
     fun getRequiredPermission(): String {

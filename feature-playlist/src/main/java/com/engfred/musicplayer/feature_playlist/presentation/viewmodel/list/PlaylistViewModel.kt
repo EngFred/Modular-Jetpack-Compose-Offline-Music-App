@@ -3,7 +3,7 @@ package com.engfred.musicplayer.feature_playlist.presentation.viewmodel.list
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.engfred.musicplayer.core.domain.repository.PlayerController
+import com.engfred.musicplayer.core.domain.repository.PlaybackController
 import com.engfred.musicplayer.core.domain.model.PlaylistLayoutType
 import com.engfred.musicplayer.core.domain.repository.SettingsRepository
 import com.engfred.musicplayer.core.domain.model.Playlist
@@ -23,15 +23,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/**
- * ViewModel for the Playlists screen.
- * Manages UI state, interacts with playlist and player repositories, and settings.
- */
 
 @HiltViewModel
 class PlaylistViewModel @Inject constructor(
     private val playlistRepository: PlaylistRepository,
-    playerController: PlayerController,
+    playbackController: PlaybackController,
     private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
@@ -45,7 +41,7 @@ class PlaylistViewModel @Inject constructor(
 
     init {
         loadPlaylists()
-        playerController.getPlaybackState().onEach { state ->
+        playbackController.getPlaybackState().onEach { state ->
             _uiState.update { currentState ->
                 currentState.copy(isPlaying = state.currentAudioFile != null && state.isPlaying)
             }

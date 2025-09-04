@@ -56,11 +56,12 @@ fun SettingsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 16.dp) // Apply vertical padding here for content
+                    .padding(end = 16.dp, top = 16.dp, bottom = 16.dp) // Apply vertical padding here for content
                     .verticalScroll(rememberScrollState()) // Make the entire content scrollable
             ) {
                 CustomTopBar(
                     title = "Settings",
+                    showNavigationIcon = true,
                     onNavigateBack = onNavigateBack
                 )
                 if (uiState.error != null) {
@@ -78,10 +79,10 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    modifier = Modifier.padding(bottom = 8.dp, start = 16.dp)
                 )
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(start = 16.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(2.dp)
                 ) {

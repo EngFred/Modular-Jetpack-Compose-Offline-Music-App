@@ -11,6 +11,7 @@ coreKtx = "1.16.0"
 junit = "4.13.2"
 junitVersion = "1.2.1" # For androidx.test.ext:junit
 espressoCore = "3.6.1"
+kotlinxCoroutinesGuava = "1.10.2"
 landscapistCoil = "2.5.1"
 lifecycleRuntimeKtx = "2.9.2"
 activityCompose = "1.10.1"
@@ -77,6 +78,7 @@ hilt-android-compiler = { group = "com.google.dagger", name = "hilt-android-comp
 hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
 
 # Room
+kotlinx-coroutines-guava = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-guava", version.ref = "kotlinxCoroutinesGuava" }
 landscapist-coil = { module = "com.github.skydoves:landscapist-coil", version.ref = "landscapistCoil" }
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }

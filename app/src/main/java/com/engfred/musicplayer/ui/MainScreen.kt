@@ -26,7 +26,6 @@ import com.engfred.musicplayer.navigation.AppDestinations
 import androidx.compose.material.icons.Icons
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import com.engfred.musicplayer.feature_equalizer.presentation.screens.EqualizerScreen
 import com.engfred.musicplayer.core.ui.CustomTopBar
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material.icons.rounded.MoreVert
@@ -65,7 +64,6 @@ fun MainScreen(
         AppDestinations.BottomNavItem.Library,
         AppDestinations.BottomNavItem.Playlists,
         AppDestinations.BottomNavItem.Favorites,
-        AppDestinations.BottomNavItem.Equalizer
     )
 
     var showDropdownMenu by remember { mutableStateOf(false) }
@@ -173,18 +171,13 @@ fun MainScreen(
                     .fillMaxSize()
             ) {
                 composable(AppDestinations.BottomNavItem.Library.baseRoute) {
-                    LibraryScreen(
-                        onNavigateToNowPlaying = onNavigateToNowPlaying
-                    )
+                    LibraryScreen()
                 }
                 composable(AppDestinations.BottomNavItem.Playlists.baseRoute) {
                     PlaylistsScreen(onPlaylistClick = onPlaylistClick, windowWidthSizeClass = windowWidthSizeClass)
                 }
                 composable(AppDestinations.BottomNavItem.Favorites.baseRoute) {
-                    FavoritesScreen(onNavigateToNowPlaying = onNavigateToNowPlaying)
-                }
-                composable(AppDestinations.BottomNavItem.Equalizer.baseRoute) {
-                    EqualizerScreen(windowWidthSizeClass = windowWidthSizeClass)
+                    FavoritesScreen()
                 }
             }
         }

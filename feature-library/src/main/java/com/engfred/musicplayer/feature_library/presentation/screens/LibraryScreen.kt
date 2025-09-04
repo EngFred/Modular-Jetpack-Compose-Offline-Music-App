@@ -35,7 +35,6 @@ import com.google.accompanist.permissions.shouldShowRationale
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun LibraryScreen(
-    onNavigateToNowPlaying: () -> Unit,
     viewModel: LibraryViewModel = hiltViewModel()
 ) {
     val uiState = viewModel.uiState.collectAsState().value
@@ -125,16 +124,6 @@ fun LibraryScreen(
                     uiState = uiState,
                     onAudioClick = { audioFile ->
                         viewModel.onEvent(LibraryEvent.PlayAudio(audioFile))
-                    },
-                    onSwipeLeft = { audioFile ->
-                        if (uiState.currentPlayingId != audioFile.id) {
-                            viewModel.onEvent(LibraryEvent.SwipedLeft(audioFile))
-                        } else {
-                            onNavigateToNowPlaying()
-                        }
-                    },
-                    onSwipeRight = { audioFile ->
-                        viewModel.onEvent(LibraryEvent.SwipedRight(audioFile))
                     },
                     isAudioPlaying = uiState.isPlaying,
                     onRetry = { viewModel.onEvent(LibraryEvent.Retry) },

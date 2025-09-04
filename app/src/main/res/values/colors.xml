@@ -9,6 +9,7 @@
     <color name="white">#FFFFFFFF</color>
 
     <!-- Splash Screen Colors -->
-    <color name="splash_background_color">#FFBB86FC</color> <!-- Example: Purple -->
-    <color name="splash_icon_background_color">#FFFFFF</color> <!-- Example: White -->
+    <color name="splash_background_color2">#FF3e0543</color>
+    <color name="splash_background_color">#FF23052b</color>
+    <color name="splash_icon_background_color">#FFFFFF</color>
 </resources>

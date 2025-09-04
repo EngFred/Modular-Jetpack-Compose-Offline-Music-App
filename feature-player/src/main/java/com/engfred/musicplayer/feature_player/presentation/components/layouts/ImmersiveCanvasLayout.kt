@@ -29,15 +29,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.windowsizeclass.WindowHeightSizeClass
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,29 +60,11 @@ import com.engfred.musicplayer.feature_player.presentation.components.layouts.co
 import com.engfred.musicplayer.feature_player.presentation.components.layouts.components.TrackInfo
 import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerEvent
 import kotlinx.coroutines.launch
-import android.widget.Toast // Import Toast
+import android.widget.Toast
+import androidx.compose.runtime.rememberCoroutineScope
 import com.engfred.musicplayer.feature_player.utils.loadBitmapFromUri
 import com.engfred.musicplayer.feature_player.utils.saveBitmapToPictures
 
-/**
- * The Immersive Canvas layout for the music player screen.
- * This layout focuses on a split-screen design in compact mode,
- * featuring the album art prominently on top and controls below.
- * In wider screen sizes, it transitions to a horizontal arrangement.
- * It provides responsive design, haptic feedback, and gesture controls for navigation.
- *
- * @param uiState The current playback state of the player.
- * @param onEvent Callback for dispatching [PlayerEvent]s to the ViewModel.
- * @param onNavigateUp Callback to navigate up in the navigation stack.
- * @param playingQueue The list of songs in the current playback queue.
- * @param currentSongIndex The index of the currently playing song in the queue.
- * @param onPlayQueueItem Callback to play a specific item from the queue.
- * @param onRemoveQueueItem Callback to remove an item from the queue.
- * @param windowSizeClass The current window size class (Compact, Medium, Expanded).
- * @param selectedLayout The currently selected player layout.
- * @param onLayoutSelected Callback to change the selected player layout.
- * @param playingAudio The currently playing [AudioFile].
- */
 @RequiresApi(Build.VERSION_CODES.M)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,19 +76,12 @@ fun ImmersiveCanvasLayout(
     currentSongIndex: Int,
     onPlayQueueItem: (AudioFile) -> Unit,
     onRemoveQueueItem: (AudioFile) -> Unit = {},
-    windowSizeClass: WindowWidthSizeClass,
+    windowWidthSizeClass: WindowWidthSizeClass,
+    windowHeightSizeClass: WindowHeightSizeClass,
     selectedLayout: PlayerLayout,
     onLayoutSelected: (PlayerLayout) -> Unit,
     playingAudio: AudioFile?
 ) {
-    // Synchronize slider with actual playback position, but only if not actively seeking
-    var sliderValue by remember { mutableFloatStateOf(uiState.playbackPositionMs.toFloat()) }
-    LaunchedEffect(uiState.playbackPositionMs, uiState.isSeeking) {
-        if (!uiState.isSeeking) {
-            sliderValue = uiState.playbackPositionMs.toFloat()
-        }
-    }
-
     val view = LocalView.current
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -119,7 +92,7 @@ fun ImmersiveCanvasLayout(
     var showQueueBottomSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    if (showQueueBottomSheet && windowSizeClass != WindowWidthSizeClass.Expanded) {
+    if (showQueueBottomSheet && windowWidthSizeClass != WindowWidthSizeClass.Expanded) {
         QueueBottomSheet(
             onDismissRequest = { showQueueBottomSheet = false },
             sheetState = sheetState,
@@ -135,7 +108,6 @@ fun ImmersiveCanvasLayout(
             modifier = Modifier
                 .fillMaxSize()
                 .background(backgroundColor)
-                // Add semantics for accessibility actions to the entire Box
                 .semantics {
                     customActions = listOf(
                         CustomAccessibilityAction(
@@ -190,24 +162,41 @@ fun ImmersiveCanvasLayout(
                     )
                 }
         ) {
-            val sectionHorizontalPadding = 24.dp
-            val contentVerticalPadding = 24.dp
-            val spacingInfoToButtons = 24.dp
-            val spacingButtonsToSeekBar = 32.dp
-            val spacingSeekBarToControlBar = 24.dp
+            // Responsive padding based on width and height
+            val sectionHorizontalPadding = when {
+                windowWidthSizeClass == WindowWidthSizeClass.Expanded || windowHeightSizeClass == WindowHeightSizeClass.Expanded -> 32.dp
+                windowWidthSizeClass == WindowWidthSizeClass.Medium || windowHeightSizeClass == WindowHeightSizeClass.Medium -> 28.dp
+                else -> 24.dp
+            }
+            val contentVerticalPadding = when {
+                windowHeightSizeClass == WindowHeightSizeClass.Expanded -> 32.dp
+                windowHeightSizeClass == WindowHeightSizeClass.Medium -> 28.dp
+                else -> 24.dp
+            }
+            val spacingInfoToButtons = when {
+                windowHeightSizeClass == WindowHeightSizeClass.Expanded -> 28.dp
+                else -> 24.dp
+            }
+            val spacingButtonsToSeekBar = when {
+                windowHeightSizeClass == WindowHeightSizeClass.Expanded -> 36.dp
+                else -> 32.dp
+            }
+            val spacingSeekBarToControlBar = when {
+                windowHeightSizeClass == WindowHeightSizeClass.Expanded -> 28.dp
+                else -> 24.dp
+            }
 
-            if (windowSizeClass == WindowWidthSizeClass.Compact) {
+            if (windowWidthSizeClass == WindowWidthSizeClass.Compact) {
                 Column(modifier = Modifier.fillMaxSize()) {
-                    // TOP HALF: Album Art (backdrop) + Overlaying Top Controls
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f) // Takes 50% of the screen height
+                            .weight(1f)
                     ) {
                         AlbumArtDisplay(
                             albumArtUri = uiState.currentAudioFile?.albumArtUri,
                             isPlaying = uiState.isPlaying,
-                            windowWidthSizeClass = windowSizeClass,
+                            windowWidthSizeClass = windowWidthSizeClass,
                             playerLayout = PlayerLayout.IMMERSIVE_CANVAS,
                             modifier = Modifier.fillMaxSize()
                         )
@@ -219,32 +208,28 @@ fun ImmersiveCanvasLayout(
                                 coroutineScope.launch { sheetState.show() }
                                 showQueueBottomSheet = true
                             },
-                            windowWidthSizeClass = windowSizeClass,
+                            windowWidthSizeClass = windowWidthSizeClass,
                             selectedLayout = selectedLayout,
                             onLayoutSelected = onLayoutSelected,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .statusBarsPadding()
-                                .padding(horizontal = sectionHorizontalPadding, vertical = 8.dp)
                                 .align(Alignment.TopCenter)
                         )
                     }
-
-                    // BOTTOM HALF: Info, Buttons (Download, Share, Queue), Seekbar, Control Bar
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f) // Takes remaining 50% of the screen height
+                            .weight(1f)
                             .background(backgroundColor)
                             .padding(horizontal = sectionHorizontalPadding),
                         horizontalAlignment = Alignment.Start,
-                        verticalArrangement = Arrangement.SpaceAround // Use SpaceAround to fill remaining height
+                        verticalArrangement = Arrangement.SpaceAround
                     ) {
                         Spacer(modifier = Modifier.height(contentVerticalPadding))
-
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.Top,
+                            verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             TrackInfo(
@@ -264,12 +249,11 @@ fun ImmersiveCanvasLayout(
                                         }
                                     }
                                     view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-                                }
+                                },
+                                playerLayout = PlayerLayout.IMMERSIVE_CANVAS
                             )
                         }
                         Spacer(modifier = Modifier.height(spacingInfoToButtons))
-
-                        // Row: Download, Share, and Queue Buttons
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceAround,
@@ -299,7 +283,7 @@ fun ImmersiveCanvasLayout(
                                 } ?: run {
                                     Toast.makeText(context, "No album art available for this song.", Toast.LENGTH_SHORT).show()
                                 }
-                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY) // Haptic feedback on click
+                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                             }) {
                                 Icon(
                                     Icons.Rounded.Download,
@@ -308,7 +292,6 @@ fun ImmersiveCanvasLayout(
                                 )
                             }
                             IconButton(onClick = {
-                                // Ensure currentSongIndex is valid before sharing
                                 if (currentSongIndex >= 0 && currentSongIndex < playingQueue.size) {
                                     shareAudioFile(context, playingQueue[currentSongIndex])
                                 }
@@ -331,25 +314,21 @@ fun ImmersiveCanvasLayout(
                             }
                         }
                         Spacer(modifier = Modifier.height(spacingButtonsToSeekBar))
-
                         SeekBarSection(
-                            sliderValue = sliderValue,
+                            sliderValue = uiState.playbackPositionMs.toFloat(),
                             totalDurationMs = uiState.totalDurationMs,
                             playbackPositionMs = uiState.playbackPositionMs,
-                            isSeeking = uiState.isSeeking,
                             onSliderValueChange = { newValue ->
-                                sliderValue = newValue
-                                if (!uiState.isSeeking) onEvent(PlayerEvent.SetSeeking(true))
+                                onEvent(PlayerEvent.SetSeeking(true))
+                                onEvent(PlayerEvent.SeekTo(newValue.toLong()))
                             },
                             onSliderValueChangeFinished = {
-                                onEvent(PlayerEvent.SeekTo(sliderValue.toLong()))
                                 onEvent(PlayerEvent.SetSeeking(false))
                                 view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                             },
                             playerLayout = PlayerLayout.IMMERSIVE_CANVAS
                         )
                         Spacer(modifier = Modifier.height(spacingSeekBarToControlBar))
-
                         ControlBar(
                             shuffleMode = uiState.shuffleMode,
                             isPlaying = uiState.isPlaying,
@@ -368,20 +347,24 @@ fun ImmersiveCanvasLayout(
                             },
                             onSetShuffleMode = { newMode -> onEvent(PlayerEvent.SetShuffleMode(newMode)) },
                             onSetRepeatMode = { newMode -> onEvent(PlayerEvent.SetRepeatMode(newMode)) },
-                            playerLayout = PlayerLayout.IMMERSIVE_CANVAS
+                            playerLayout = PlayerLayout.IMMERSIVE_CANVAS,
+                            windowWidthSizeClass = windowWidthSizeClass,
+                            windowHeightSizeClass = windowHeightSizeClass
                         )
                         Spacer(modifier = Modifier.height(contentVerticalPadding))
                     }
                 }
-            } else { // Medium or Expanded Window Width Class (Tablet/Desktop Layout)
+            } else {
                 Row(
                     modifier = Modifier.fillMaxSize(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+
+                    //Album art section
                     Column(
                         modifier = Modifier
-                            .weight(1.5f) // Album art takes more space than in desktop mode
+                            .weight(1f)
                             .fillMaxHeight(),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
@@ -389,22 +372,20 @@ fun ImmersiveCanvasLayout(
                         AlbumArtDisplay(
                             albumArtUri = uiState.currentAudioFile?.albumArtUri,
                             isPlaying = uiState.isPlaying,
-                            windowWidthSizeClass = windowSizeClass,
+                            windowWidthSizeClass = windowWidthSizeClass,
                             playerLayout = PlayerLayout.IMMERSIVE_CANVAS,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .aspectRatio(1f) // Maintain square aspect ratio
-                                .padding(horizontal = 24.dp) // Add padding to album art on larger screens
+                                .aspectRatio(1f)
+                                .padding(start = sectionHorizontalPadding)
                         )
                     }
-
                     Spacer(modifier = Modifier.width(32.dp))
-
+                    //info section
                     Column(
                         modifier = Modifier
-                            .weight(2f)
+                            .weight(1.5f)
                             .fillMaxHeight()
-                            .padding(horizontal = sectionHorizontalPadding, vertical = contentVerticalPadding)
                             .statusBarsPadding(),
                         horizontalAlignment = Alignment.Start,
                         verticalArrangement = Arrangement.SpaceAround
@@ -414,12 +395,11 @@ fun ImmersiveCanvasLayout(
                             currentSongIndex = currentSongIndex,
                             totalQueueSize = playingQueue.size,
                             onOpenQueue = { /* No-op for Expanded, queue is visible */ },
-                            windowWidthSizeClass = windowSizeClass,
+                            windowWidthSizeClass = windowWidthSizeClass,
                             selectedLayout = selectedLayout,
                             onLayoutSelected = onLayoutSelected
                         )
                         Spacer(modifier = Modifier.height(spacingInfoToButtons))
-
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -442,12 +422,11 @@ fun ImmersiveCanvasLayout(
                                         }
                                     }
                                     view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-                                }
+                                },
+                                playerLayout = PlayerLayout.IMMERSIVE_CANVAS
                             )
                         }
-                        Spacer(modifier = Modifier.height(spacingButtonsToSeekBar))
-
-                        // Download and Share buttons for wider screens (Queue button not here as queue is visible)
+                        Spacer(modifier = Modifier.height(16.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -477,7 +456,7 @@ fun ImmersiveCanvasLayout(
                                 } ?: run {
                                     Toast.makeText(context, "No album art available for this song.", Toast.LENGTH_SHORT).show()
                                 }
-                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY) // Haptic feedback on click
+                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                             }) {
                                 Icon(
                                     Icons.Rounded.Download,
@@ -497,26 +476,22 @@ fun ImmersiveCanvasLayout(
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.height(spacingButtonsToSeekBar))
-
+//                        Spacer(modifier = Modifier.height(16.dp))
                         SeekBarSection(
-                            sliderValue = sliderValue,
+                            sliderValue = uiState.playbackPositionMs.toFloat(),
                             totalDurationMs = uiState.totalDurationMs,
                             playbackPositionMs = uiState.playbackPositionMs,
-                            isSeeking = uiState.isSeeking,
                             onSliderValueChange = { newValue ->
-                                sliderValue = newValue
-                                if (!uiState.isSeeking) onEvent(PlayerEvent.SetSeeking(true))
+                                onEvent(PlayerEvent.SetSeeking(true))
+                                onEvent(PlayerEvent.SeekTo(newValue.toLong()))
                             },
                             onSliderValueChangeFinished = {
-                                onEvent(PlayerEvent.SeekTo(sliderValue.toLong()))
                                 onEvent(PlayerEvent.SetSeeking(false))
                                 view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                             },
                             playerLayout = PlayerLayout.IMMERSIVE_CANVAS
                         )
-                        Spacer(modifier = Modifier.height(spacingSeekBarToControlBar))
-
+//                        Spacer(modifier = Modifier.height(16.dp))
                         ControlBar(
                             shuffleMode = uiState.shuffleMode,
                             isPlaying = uiState.isPlaying,
@@ -535,18 +510,20 @@ fun ImmersiveCanvasLayout(
                             },
                             onSetShuffleMode = { newMode -> onEvent(PlayerEvent.SetShuffleMode(newMode)) },
                             onSetRepeatMode = { newMode -> onEvent(PlayerEvent.SetRepeatMode(newMode)) },
-                            playerLayout = PlayerLayout.IMMERSIVE_CANVAS
+                            playerLayout = PlayerLayout.IMMERSIVE_CANVAS,
+                            windowWidthSizeClass = windowWidthSizeClass,
+                            windowHeightSizeClass = windowHeightSizeClass
                         )
+                        Spacer(modifier = Modifier.height(16.dp))
                     }
-
-                    if (windowSizeClass == WindowWidthSizeClass.Expanded) {
+                    if (windowWidthSizeClass == WindowWidthSizeClass.Expanded) {
                         Spacer(modifier = Modifier.width(32.dp))
                         Column(
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight()
                                 .statusBarsPadding()
-                                .padding(vertical = contentVerticalPadding), // Add vertical padding to match other sections
+                                .padding(end = sectionHorizontalPadding, top = sectionHorizontalPadding, bottom = sectionHorizontalPadding),
                             horizontalAlignment = Alignment.Start,
                             verticalArrangement = Arrangement.Top
                         ) {

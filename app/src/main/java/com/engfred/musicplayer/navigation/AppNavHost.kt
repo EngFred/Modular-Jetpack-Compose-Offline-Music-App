@@ -1,9 +1,12 @@
 package com.engfred.musicplayer.navigation
 
 import android.os.Build
+import androidx.annotation.OptIn
 import androidx.annotation.RequiresApi
+import androidx.compose.material3.windowsizeclass.WindowHeightSizeClass
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
+import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -20,11 +23,13 @@ import com.engfred.musicplayer.ui.MainScreen
 /**
  * Defines the main navigation graph for the application.
  */
+@OptIn(UnstableApi::class)
 @RequiresApi(Build.VERSION_CODES.M)
 @Composable
 fun AppNavHost(
     rootNavController: NavHostController,
     windowWidthSizeClass: WindowWidthSizeClass,
+    windowHeightSizeClass: WindowHeightSizeClass,
     onPlayPause: () -> Unit,
     onPlayNext: () -> Unit,
     onPlayPrev: () -> Unit,
@@ -62,6 +67,7 @@ fun AppNavHost(
         ) {
             PlayerScreen(
                 windowWidthSizeClass = windowWidthSizeClass,
+                windowHeightSizeClass = windowHeightSizeClass,
                 onNavigateUp = {
                     rootNavController.navigateUp()
                 }

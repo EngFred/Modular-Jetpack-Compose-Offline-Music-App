@@ -28,16 +28,6 @@ import com.engfred.musicplayer.core.domain.model.PlayerLayout
 import com.skydoves.landscapist.ImageOptions
 import com.skydoves.landscapist.coil.CoilImage
 
-/**
- * Displays the album art for the current song, adapting its size, shape, and shadow
- * based on the playback state, window size, and selected player layout.
- *
- * @param albumArtUri The URI of the album art to display. Can be null.
- * @param isPlaying Boolean indicating if the song is currently playing.
- * @param windowWidthSizeClass The current window size class.
- * @param playerLayout The currently active player layout.
- * @param modifier The modifier to be applied to the Album Art display.
- */
 @Composable
 fun AlbumArtDisplay(
     albumArtUri: Any?, // Can be Uri, String, or null
@@ -73,30 +63,31 @@ fun AlbumArtDisplay(
     )
 
     BoxWithConstraints(
-        modifier = modifier // Apply the external modifier here to control overall placement/sizing
+        modifier = modifier
+            .size(baseNonImmersiveAlbumArtSize) // Fix the outer size to prevent layout shifts
     ) {
-        // Determine the actual size of the Box that holds the album art
+        // Determine the actual size of the inner Box that holds the album art
         val currentBoxSize = if (playerLayout == PlayerLayout.IMMERSIVE_CANVAS) {
-            // For ImmersiveCanvas, the size is controlled by external modifiers like fillMaxSize / aspectRatio
-            // This 'size' is primarily for the content's aspect ratio if needed, but not for fixed size of the Box itself.
-            minOf(maxWidth, maxHeight) // Use available space, but ensure it's not excessively large
+            // For ImmersiveCanvas, use available space
+            minOf(maxWidth, maxHeight)
         } else {
             // For other layouts, use the animated size
-            minOf(animatedNonImmersiveAlbumArtSize, maxWidth, maxHeight)
+            animatedNonImmersiveAlbumArtSize
         }
 
         Box(
             modifier = Modifier
                 .then(
                     if (playerLayout != PlayerLayout.IMMERSIVE_CANVAS) {
-                        // Apply fixed size for non-Immersive layouts
-                        Modifier.size(currentBoxSize)
+                        // Apply animated size for non-Immersive layouts, centered within the fixed outer box
+                        Modifier
+                            .size(currentBoxSize)
+                            .align(Alignment.Center)
                     } else {
-                        // For ImmersiveCanvas, the parent modifier should handle size (e.g., fillMaxWidth, aspectRatio)
-                        Modifier.fillMaxSize() // Fill its parent BoxWithConstraints
+                        // For ImmersiveCanvas, the parent modifier should handle size
+                        Modifier.fillMaxSize()
                     }
                 )
-                .align(Alignment.Center) // Center this Box within BoxWithConstraints
                 .clip(
                     if (playerLayout == PlayerLayout.IMMERSIVE_CANVAS) {
                         RoundedCornerShape(0.dp) // Rectangular for full backdrop

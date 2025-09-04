@@ -44,7 +44,7 @@
 
         <!-- Music Service Declaration -->
         <service
-            android:name="com.engfred.musicplayer.feature_player.data.service.MusicService"
+            android:name="com.engfred.musicplayer.feature_player.data.service.PlaybackService"
             android:foregroundServiceType="mediaPlayback"
             android:exported="true">
             <intent-filter>

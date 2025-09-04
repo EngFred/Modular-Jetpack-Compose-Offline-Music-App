@@ -230,10 +230,6 @@ fun PlaylistDetailScreen(
                             onClick = { clickedAudioFile -> viewModel.onEvent(PlaylistDetailEvent.PlaySong(clickedAudioFile)) },
                             onRemoveOrDelete = { song -> viewModel.onEvent(PlaylistDetailEvent.ShowRemoveSongConfirmation(song)) },
                             modifier = Modifier.animateItem(),
-                            onSwipeLeft = { audioFile ->
-                                if (uiState.currentPlayingAudioFile?.id != audioFile.id) { viewModel.onEvent(PlaylistDetailEvent.SwipedLeft(audioFile)) } else { onNavigateToNowPlaying() }
-                            },
-                            onSwipeRight = { viewModel.onEvent(PlaylistDetailEvent.SwipedRight(it)) },
                             isAudioPlaying = uiState.isPlaying,
                             onAddToPlaylist = {
                                 viewModel.onEvent(PlaylistDetailEvent.ShowPlaylistsDialog(it))
@@ -321,10 +317,6 @@ fun PlaylistDetailScreen(
                                     onSongRemove = { song -> viewModel.onEvent(PlaylistDetailEvent.ShowRemoveSongConfirmation(song)) },
                                     listState = rememberLazyListState(),
                                     isAudioPlaying = uiState.isPlaying,
-                                    onSwipeRight = { viewModel.onEvent(PlaylistDetailEvent.SwipedRight(it)) },
-                                    onSwipeLeft = { audioFile ->
-                                        if (uiState.currentPlayingAudioFile?.id != audioFile.id) { viewModel.onEvent(PlaylistDetailEvent.SwipedLeft(audioFile)) } else { onNavigateToNowPlaying() }
-                                    },
                                     modifier = Modifier.fillMaxSize(),
                                     onAddToPlaylist = {
                                         viewModel.onEvent(PlaylistDetailEvent.ShowPlaylistsDialog(it))

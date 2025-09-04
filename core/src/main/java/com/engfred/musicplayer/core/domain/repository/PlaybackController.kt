@@ -4,7 +4,7 @@ import android.net.Uri
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import kotlinx.coroutines.flow.Flow
 
-interface PlayerController {
+interface PlaybackController {
     fun getPlaybackState(): Flow<PlaybackState>
     suspend fun initiatePlayback(initialAudioFileUri: Uri)
     suspend fun playPause()

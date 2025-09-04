@@ -1,8 +1,5 @@
 package com.engfred.musicplayer.feature_player.presentation.components.layouts.components
 
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -23,13 +20,11 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SliderState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.engfred.musicplayer.core.util.formatDuration
@@ -55,29 +50,17 @@ fun SeekBarSection(
     sliderValue: Float,
     totalDurationMs: Long,
     playbackPositionMs: Long,
-    isSeeking: Boolean,
     onSliderValueChange: (Float) -> Unit,
     onSliderValueChangeFinished: () -> Unit,
     playerLayout: PlayerLayout,
     modifier: Modifier = Modifier,
-    horizontalPadding: Dp = 0.dp // Added for responsiveness
+    horizontalPadding: Dp = 0.dp
 ) {
-    // Custom thumb: A small, animated circular indicator
-    val customThumb: @Composable (SliderState) -> Unit = { sliderState ->
-        val thumbScale by animateFloatAsState(
-            // React to the `isSeeking` parameter from the parent, or sliderState.isThumbBeingDragged
-            targetValue = if (isSeeking) 1.2f else 1f,
-            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-            label = "sliderThumbScale"
-        )
+    // Custom thumb: A static circular indicator
+    val customThumb: @Composable (SliderState) -> Unit = {
         Box(
             modifier = Modifier
                 .size(16.dp)
-                .graphicsLayer {
-                    scaleX = thumbScale
-                    scaleY = thumbScale
-                }
-                .shadow(if (isSeeking) 8.dp else 4.dp, CircleShape, spotColor = MaterialTheme.colorScheme.primary)
                 .background(MaterialTheme.colorScheme.primary, CircleShape)
         )
     }
@@ -85,7 +68,7 @@ fun SeekBarSection(
     // Custom track: A layered track for active and inactive portions
     val customTrack: @Composable (SliderState) -> Unit = { sliderState ->
         val activeTrackColor = MaterialTheme.colorScheme.primary
-        val inactiveTrackColor = LocalContentColor.current.copy(alpha = 0.15f) // Adjusted alpha for better contrast
+        val inactiveTrackColor = LocalContentColor.current.copy(alpha = 0.15f)
 
         // Calculate progress directly from SliderState's value and valueRange
         val totalRange = sliderState.valueRange.endInclusive - sliderState.valueRange.start
@@ -100,11 +83,11 @@ fun SeekBarSection(
                 .fillMaxWidth()
                 .height(4.dp)
                 .clip(RoundedCornerShape(2.dp))
-                .background(inactiveTrackColor) // Inactive part fills the whole width initially
+                .background(inactiveTrackColor)
         ) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(currentProgressFraction) // Active part covers a fraction of the width
+                    .fillMaxWidth(currentProgressFraction)
                     .height(4.dp)
                     .clip(RoundedCornerShape(2.dp))
                     .background(activeTrackColor)
@@ -120,7 +103,7 @@ fun SeekBarSection(
         Row(
             modifier = modifier
                 .fillMaxWidth()
-                .padding(horizontal = horizontalPadding), // Use the passed horizontalPadding
+                .padding(horizontal = horizontalPadding),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -136,7 +119,7 @@ fun SeekBarSection(
                 onValueChange = onSliderValueChange,
                 onValueChangeFinished = onSliderValueChangeFinished,
                 valueRange = sliderValueRange,
-                colors = SliderDefaults.colors( // Colors still apply for consistency, though track uses custom
+                colors = SliderDefaults.colors(
                     thumbColor = MaterialTheme.colorScheme.primary,
                     activeTrackColor = MaterialTheme.colorScheme.primary,
                     inactiveTrackColor = LocalContentColor.current.copy(alpha = 0.2f)
@@ -156,18 +139,19 @@ fun SeekBarSection(
                 modifier = Modifier.padding(start = 8.dp)
             )
         }
-    } else { // EtherealFlowLayout or MinimalistGrooveLayout styles: Times below slider
+    } else {
+        // EtherealFlowLayout or MinimalistGrooveLayout styles: Times below slider
         Column(
             modifier = modifier
                 .fillMaxWidth()
-                .padding(horizontal = horizontalPadding) // Use the passed horizontalPadding
+                .padding(horizontal = horizontalPadding)
         ) {
             Slider(
                 value = sliderValue,
                 onValueChange = onSliderValueChange,
                 onValueChangeFinished = onSliderValueChangeFinished,
                 valueRange = sliderValueRange,
-                colors = SliderDefaults.colors( // Colors still apply for consistency, though track uses custom
+                colors = SliderDefaults.colors(
                     thumbColor = MaterialTheme.colorScheme.primary,
                     activeTrackColor = MaterialTheme.colorScheme.primary,
                     inactiveTrackColor = LocalContentColor.current.copy(alpha = 0.2f)
@@ -180,7 +164,7 @@ fun SeekBarSection(
                 modifier = Modifier.fillMaxWidth()
             )
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(

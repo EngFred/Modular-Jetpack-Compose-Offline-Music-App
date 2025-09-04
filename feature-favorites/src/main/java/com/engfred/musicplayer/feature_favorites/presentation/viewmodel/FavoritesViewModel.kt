@@ -6,7 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.domain.repository.FavoritesRepository
-import com.engfred.musicplayer.core.domain.repository.PlayerController
+import com.engfred.musicplayer.core.domain.repository.PlaybackController
 import com.engfred.musicplayer.core.domain.repository.PlaylistRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -24,7 +24,7 @@ import javax.inject.Inject
 class FavoritesViewModel @Inject constructor(
     private val favoritesRepository: FavoritesRepository,
     private val sharedAudioDataSource: SharedAudioDataSource,
-    private val playerController: PlayerController,
+    private val playbackController: PlaybackController,
     private val playlistRepository: PlaylistRepository
 ) : ViewModel() {
 
@@ -44,7 +44,7 @@ class FavoritesViewModel @Inject constructor(
     }
 
     private fun startObservingPlaybackState() {
-        playerController.getPlaybackState().onEach { state ->
+        playbackController.getPlaybackState().onEach { state ->
             _uiState.update { currentState ->
                 if (state.currentAudioFile != null && state.isPlaying) {
                     currentState.copy(
@@ -91,7 +91,7 @@ class FavoritesViewModel @Inject constructor(
                     _uiState.value.audioFileToRemove?.let { audioFile ->
                         try {
                             favoritesRepository.removeFavoriteAudioFile(audioFile.id)
-                            playerController.removeFromQueue(audioFile)
+                            playbackController.removeFromQueue(audioFile)
                             _uiEvent.emit("Removed '${audioFile.title}' from favorites.")
                             Log.d("FavoritesViewModel", "Removed favorite audio file ID: ${audioFile.id}")
                         } catch (e: Exception) {
@@ -112,15 +112,6 @@ class FavoritesViewModel @Inject constructor(
 
                 is FavoritesEvent.PlayAudio -> {
                     startAudioPlayback(event.audioFile)
-                }
-
-                is FavoritesEvent.SwipedLeft -> {
-                    startAudioPlayback(event.audioFile)
-                }
-                is FavoritesEvent.SwipedRight -> {
-                    if (_uiState.value.currentPlayingId == event.audioFile.id && _uiState.value.isPlaying) {
-                        playerController.playPause()
-                    }
                 }
 
                 is FavoritesEvent.ShowPlaylistsDialog -> {
@@ -158,7 +149,7 @@ class FavoritesViewModel @Inject constructor(
                 }
 
                 is FavoritesEvent.PlayNext -> {
-                    playerController.addAudioToQueueNext(event.audioFile)
+                    playbackController.addAudioToQueueNext(event.audioFile)
                 }
             }
         }
@@ -167,7 +158,7 @@ class FavoritesViewModel @Inject constructor(
     private suspend fun startAudioPlayback(audioFile: AudioFile) {
         val audioFiles =  uiState.value.favoriteAudioFiles
         sharedAudioDataSource.setPlayingQueue(audioFiles)
-        playerController.initiatePlayback(audioFile.uri)
+        playbackController.initiatePlayback(audioFile.uri)
     }
 
     private fun loadFavoriteAudioFiles() {

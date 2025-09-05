@@ -5,6 +5,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -27,6 +28,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,16 +60,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import com.engfred.musicplayer.core.ui.AddSongToPlaylistDialog
 import com.engfred.musicplayer.core.ui.ConfirmationDialog
+import com.engfred.musicplayer.feature_playlist.presentation.components.detail.PlaylistDetailTopBar
+import com.skydoves.landscapist.ImageOptions
+import com.skydoves.landscapist.coil.CoilImage
 
-/**
- * Composable for the Playlist Detail screen.
- * Displays the details of a specific playlist, including its songs and playback controls.
- *
- * @param viewModel The ViewModel for managing playlist detail state and events.
- * @param onNavigateBack Callback to navigate back from the screen.
- * @param onNavigateToNowPlaying Callback to navigate to the now playing screen.
- * @param windowWidthSizeClass The current window width size class for responsive layout.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaylistDetailScreen(
@@ -119,6 +115,21 @@ fun PlaylistDetailScreen(
 
     val isCompactWidth = windowWidthSizeClass == WindowWidthSizeClass.Compact
 
+    // We need to know if the first item (header section) is visible.
+    // Derived state to check if the first item is no longer visible,
+    // which indicates the user has scrolled past the header.
+    // **FIX**: The previous logic only checked if the scroll offset was greater than 0,
+    // which triggered the top bar immediately. The new logic checks if the scroll
+    // offset is greater than a threshold that corresponds to the header's height,
+    // minus the height of the sticky top bar itself.
+    val scrolledPastHeader by remember {
+        derivedStateOf {
+            val threshold = 350 // This value needs to be tuned to the height of your header, adjust as needed.
+            mainLazyListState.firstVisibleItemIndex > 0 ||
+                    (mainLazyListState.firstVisibleItemIndex == 0 && mainLazyListState.firstVisibleItemScrollOffset > threshold)
+        }
+    }
+
     Scaffold(
         bottomBar = {
             if (uiState.currentPlayingAudioFile != null) {
@@ -157,89 +168,121 @@ fun PlaylistDetailScreen(
 
         if (isCompactWidth) {
             // --- Compact Layout (Phones - Portrait) ---
-            LazyColumn(
-                modifier = mainContentModifier.padding(horizontal = 16.dp),
-                state = mainLazyListState,
-                contentPadding = PaddingValues(top = 0.dp, bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(0.dp)
-            ) {
-                item {
-                    PlaylistDetailHeaderSection(
-                        playlist = uiState.playlist,
-                        onNavigateBack = onNavigateBack,
-                        onAddSongsClick = { showAddSongsBottomSheet = true },
-                        onRenamePlaylistClick = { viewModel.onEvent(PlaylistDetailEvent.ShowRenameDialog) },
-                        moreMenuExpanded = moreMenuExpanded,
-                        onMoreMenuExpandedChange = { moreMenuExpanded = it },
-                        isCompact = true,
-                        isAutomaticPlaylist = uiState.playlist?.isAutomatic ?: false
-                    )
-                }
+            Box(modifier = Modifier.fillMaxSize()) {
+                // PlaylistDetailTopBar is now on top and always visible
+                // and its content changes based on scroll position.
+                // 1. New: The top bar is now a separate composable that is placed in a Box.
+                // 2. New: `scrolledPastHeader` and `isCompactWidth` are passed to it.
+                PlaylistDetailTopBar(
+                    playlistName = uiState.playlist?.name,
+                    playlistArtUri = uiState.playlist?.songs?.firstOrNull()?.albumArtUri,
+                    scrolledPastHeader = scrolledPastHeader,
+                    onNavigateBack = onNavigateBack,
+                    onMoreMenuExpandedChange = { moreMenuExpanded = it },
+                    isAutomaticPlaylist = uiState.playlist?.isAutomatic ?: false,
+                    onAddSongsClick = { showAddSongsBottomSheet = true },
+                    onRenamePlaylistClick = { viewModel.onEvent(PlaylistDetailEvent.ShowRenameDialog) },
+                    moreMenuExpanded = moreMenuExpanded,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .zIndex(2f) // Ensures it's always on top of the list
+                )
 
-                item { Spacer(modifier = Modifier.height(24.dp)) }
+                LazyColumn(
+                    modifier = mainContentModifier
+                        .padding(horizontal = 16.dp),
+                    state = mainLazyListState,
+                    contentPadding = PaddingValues(top = 0.dp, bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(0.dp)
+                ) {
+                    item {
+                        // We put the original header content here, but without the top bar.
+                        // We also add padding to account for the new sticky top bar.
+                        // 3. New: `topBarPadding` is added to push the content down.
+                        val topBarPadding = 64.dp
+                        PlaylistDetailHeaderSection(
+                            playlist = uiState.playlist,
+                            isCompact = true,
+                            modifier = Modifier.padding(top = topBarPadding) // Add top padding for the sticky bar
+                        )
+                    }
 
-                item {
-                    when {
-                        uiState.isLoading -> LoadingIndicator(modifier = Modifier.fillMaxWidth().height(200.dp))
-                        uiState.error != null -> ErrorIndicator(modifier = Modifier.fillMaxWidth().height(200.dp), message = uiState.error!!)
-                        uiState.playlist == null -> InfoIndicator(modifier = Modifier.fillMaxWidth().height(200.dp), message = "Playlist not found or could not be loaded.", icon = Icons.Outlined.LibraryMusic)
-                        else -> {
-                            Column(Modifier.fillMaxWidth()) {
-                                PlaylistActionButtons(
-                                    onPlayClick = {
-                                        uiState.playlist?.songs?.firstOrNull()?.let { firstSong ->
-                                            viewModel.onEvent(PlaylistDetailEvent.PlaySong(firstSong))
-                                        }
-                                    },
-                                    onShuffleClick = {
-                                        if (uiState.playlist?.songs?.isNotEmpty() == true) {
-                                            viewModel.onEvent(PlaylistDetailEvent.ShufflePlay)
-                                        }
-                                    },
-                                    isCompact = true
-                                )
+                    item { Spacer(modifier = Modifier.height(5.dp)) }
 
-                                Spacer(modifier = Modifier.height(24.dp))
+                    item {
+                        when {
+                            uiState.isLoading -> LoadingIndicator(modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp))
 
-                                PlaylistSongsHeader(
-                                    songCount = uiState.playlist?.songs?.size ?: 0,
-                                    currentSortOrder = currentSortOrder,
-                                    onSortOrderChange = { currentSortOrder = it },
-                                    sortMenuExpanded = sortMenuExpanded,
-                                    onSortMenuExpandedChange = { sortMenuExpanded = it }
-                                )
+                            uiState.error != null -> ErrorIndicator(modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp), message = uiState.error!!)
 
-                                Spacer(modifier = Modifier.height(16.dp))
+                            uiState.playlist == null -> InfoIndicator(modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp), message = "Playlist not found or could not be loaded.", icon = Icons.Outlined.LibraryMusic)
+
+                            else -> {
+                                Column(Modifier.fillMaxWidth()) {
+                                    PlaylistActionButtons(
+                                        onPlayClick = {
+                                            uiState.playlist?.songs?.firstOrNull()?.let { firstSong ->
+                                                viewModel.onEvent(PlaylistDetailEvent.PlaySong(firstSong))
+                                            }
+                                        },
+                                        onShuffleClick = {
+                                            if (uiState.playlist?.songs?.isNotEmpty() == true) {
+                                                viewModel.onEvent(PlaylistDetailEvent.ShufflePlay)
+                                            }
+                                        },
+                                        isCompact = true
+                                    )
+
+                                    Spacer(modifier = Modifier.height(24.dp))
+
+                                    PlaylistSongsHeader(
+                                        songCount = uiState.playlist?.songs?.size ?: 0,
+                                        currentSortOrder = currentSortOrder,
+                                        onSortOrderChange = { currentSortOrder = it },
+                                        sortMenuExpanded = sortMenuExpanded,
+                                        onSortMenuExpandedChange = { sortMenuExpanded = it }
+                                    )
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                }
                             }
                         }
                     }
-                }
 
-                if (!uiState.isLoading && uiState.error == null && uiState.playlist != null && uiState.playlist?.songs.isNullOrEmpty()) {
-                    item {
-                        PlaylistEmptyState(modifier = Modifier.fillMaxWidth().height(200.dp))
-                    }
-                } else if (!uiState.isLoading && uiState.error == null && uiState.playlist != null && !uiState.playlist?.songs.isNullOrEmpty()) {
-                    itemsIndexed(
-                        items = sortedSongs,
-                        key = { _, audioFile -> audioFile.id }
-                    ) { _, audioFile ->
-                        AudioFileItem(
-                            audioFile = audioFile,
-                            isCurrentPlayingAudio = (audioFile.id == uiState.currentPlayingAudioFile?.id),
-                            onClick = { clickedAudioFile -> viewModel.onEvent(PlaylistDetailEvent.PlaySong(clickedAudioFile)) },
-                            onRemoveOrDelete = { song -> viewModel.onEvent(PlaylistDetailEvent.ShowRemoveSongConfirmation(song)) },
-                            modifier = Modifier.animateItem(),
-                            isAudioPlaying = uiState.isPlaying,
-                            onAddToPlaylist = {
-                                viewModel.onEvent(PlaylistDetailEvent.ShowPlaylistsDialog(it))
-                            },
-                            onPlayNext = {
-                                viewModel.onEvent(PlaylistDetailEvent.SetPlayNext(it))
-                            },
-                            isFromAutomaticPlaylist = uiState.playlist?.isAutomatic ?: false
-                        )
-                        Spacer(Modifier.height(8.dp))
+                    if (!uiState.isLoading && uiState.error == null && uiState.playlist != null && uiState.playlist?.songs.isNullOrEmpty()) {
+                        item {
+                            PlaylistEmptyState(modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp))
+                        }
+                    } else if (!uiState.isLoading && uiState.error == null && uiState.playlist != null && !uiState.playlist?.songs.isNullOrEmpty()) {
+                        itemsIndexed(
+                            items = sortedSongs,
+                            key = { _, audioFile -> audioFile.id }
+                        ) { _, audioFile ->
+                            AudioFileItem(
+                                audioFile = audioFile,
+                                isCurrentPlayingAudio = (audioFile.id == uiState.currentPlayingAudioFile?.id),
+                                onClick = { clickedAudioFile -> viewModel.onEvent(PlaylistDetailEvent.PlaySong(clickedAudioFile)) },
+                                onRemoveOrDelete = { song -> viewModel.onEvent(PlaylistDetailEvent.ShowRemoveSongConfirmation(song)) },
+                                modifier = Modifier.animateItem(),
+                                isAudioPlaying = uiState.isPlaying,
+                                onAddToPlaylist = {
+                                    viewModel.onEvent(PlaylistDetailEvent.ShowPlaylistsDialog(it))
+                                },
+                                onPlayNext = {
+                                    viewModel.onEvent(PlaylistDetailEvent.SetPlayNext(it))
+                                },
+                                isFromAutomaticPlaylist = uiState.playlist?.isAutomatic ?: false
+                            )
+                            Spacer(Modifier.height(8.dp))
+                        }
                     }
                 }
             }
@@ -257,16 +300,10 @@ fun PlaylistDetailScreen(
                 ) {
                     PlaylistDetailHeaderSection(
                         playlist = uiState.playlist,
-                        onNavigateBack = onNavigateBack,
-                        onAddSongsClick = { showAddSongsBottomSheet = true },
-                        onRenamePlaylistClick = { viewModel.onEvent(PlaylistDetailEvent.ShowRenameDialog) },
-                        moreMenuExpanded = moreMenuExpanded,
-                        onMoreMenuExpandedChange = { moreMenuExpanded = it },
                         isCompact = false,
-                        isAutomaticPlaylist = uiState.playlist?.isAutomatic ?: false
                     )
 
-                    Spacer(modifier = Modifier.height(40.dp))
+//Spacer(modifier = Modifier.height(10.dp))
 
                     PlaylistActionButtons(
                         onPlayClick = {

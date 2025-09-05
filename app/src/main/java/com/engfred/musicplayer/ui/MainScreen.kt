@@ -52,6 +52,7 @@ fun MainScreen(
     onNavigateToNowPlaying: () -> Unit,
     onPlaylistClick: (Long) -> Unit,
     onSettingsClick: () -> Unit,
+    onAboutClick: () -> Unit,
     onPlayPause: () -> Unit,
     onPlayNext: () -> Unit,
     onPlayPrev: () -> Unit,
@@ -152,6 +153,13 @@ fun MainScreen(
                             onClick = {
                                 showDropdownMenu = false
                                 onSettingsClick()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("About Developer") },
+                            onClick = {
+                                showDropdownMenu = false
+                                onAboutClick()
                             }
                         )
                         DropdownMenuItem(

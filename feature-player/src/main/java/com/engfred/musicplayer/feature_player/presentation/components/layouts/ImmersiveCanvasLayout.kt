@@ -61,6 +61,7 @@ import com.engfred.musicplayer.feature_player.presentation.components.layouts.co
 import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerEvent
 import kotlinx.coroutines.launch
 import android.widget.Toast
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.rememberCoroutineScope
 import com.engfred.musicplayer.feature_player.utils.loadBitmapFromUri
 import com.engfred.musicplayer.feature_player.utils.saveBitmapToPictures
@@ -221,8 +222,7 @@ fun ImmersiveCanvasLayout(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
-                            .background(backgroundColor)
-                            .padding(horizontal = sectionHorizontalPadding),
+                            .background(backgroundColor),
                         horizontalAlignment = Alignment.Start,
                         verticalArrangement = Arrangement.SpaceAround
                     ) {
@@ -236,7 +236,7 @@ fun ImmersiveCanvasLayout(
                                 title = uiState.currentAudioFile?.title,
                                 artist = uiState.currentAudioFile?.artist,
                                 playerLayout = PlayerLayout.IMMERSIVE_CANVAS,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f).padding(horizontal = 4.dp)
                             )
                             FavoriteButton(
                                 isFavorite = uiState.isFavorite,
@@ -252,6 +252,7 @@ fun ImmersiveCanvasLayout(
                                 },
                                 playerLayout = PlayerLayout.IMMERSIVE_CANVAS
                             )
+                            Spacer(Modifier.size(8.dp))
                         }
                         Spacer(modifier = Modifier.height(spacingInfoToButtons))
                         Row(
@@ -315,6 +316,7 @@ fun ImmersiveCanvasLayout(
                         }
                         Spacer(modifier = Modifier.height(spacingButtonsToSeekBar))
                         SeekBarSection(
+                            modifier = Modifier.padding(horizontal = 16.dp),
                             sliderValue = uiState.playbackPositionMs.toFloat(),
                             totalDurationMs = uiState.totalDurationMs,
                             playbackPositionMs = uiState.playbackPositionMs,
@@ -528,10 +530,11 @@ fun ImmersiveCanvasLayout(
                             verticalArrangement = Arrangement.Top
                         ) {
                             PlayingQueueSection(
-                                queue = playingQueue,
-                                currentPlayingIndex = currentSongIndex,
+                                playingQueue = playingQueue,
+                                playingAudio = playingAudio,
                                 onPlayItem = onPlayQueueItem,
-                                onRemoveItem = onRemoveQueueItem
+                                onRemoveItem = onRemoveQueueItem,
+                                isCompact = false
                             )
                         }
                     }

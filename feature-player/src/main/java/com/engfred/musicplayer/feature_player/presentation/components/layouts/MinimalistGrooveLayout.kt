@@ -8,24 +8,12 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.sizeIn
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -34,14 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.windowsizeclass.WindowHeightSizeClass
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -101,13 +82,11 @@ fun MinimalistGrooveLayout(
         )
     }
 
-    // Responsive spacing for control bar, aligned with ImmersiveCanvasLayout
     val spacingSeekBarToControlBar: Dp = when {
         windowHeightSizeClass == WindowHeightSizeClass.Expanded -> 28.dp
         else -> 24.dp
     }
 
-    // Rotation animation for album art
     val rotationSpeedMillis = 8000L
     var targetRotationAngle by remember { mutableFloatStateOf(0f) }
     val animatedRotation by animateFloatAsState(
@@ -130,15 +109,22 @@ fun MinimalistGrooveLayout(
         }
     }
 
-    // Determine if we should use a two-pane layout
     val useTwoPane = windowWidthSizeClass == WindowWidthSizeClass.Expanded
-
     val topAppBarPadding = if (useTwoPane) 24.dp else 36.dp
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+            .background(MaterialTheme.colorScheme.background)
+            .pointerInput(Unit) {
+                detectVerticalDragGestures { _, dragAmount ->
+                    if (dragAmount < -20f) { // Swipe up threshold
+                        coroutineScope.launch { sheetState.show() }
+                        showQueueBottomSheet = true
+                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                    }
+                }
+            },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
@@ -146,7 +132,7 @@ fun MinimalistGrooveLayout(
             onNavigateUp = onNavigateUp,
             currentSongIndex = currentSongIndex + 1,
             totalQueueSize = totalSongsInQueue,
-            onOpenQueue = { /* Not applicable */ },
+            onOpenQueue = { },
             windowWidthSizeClass = windowWidthSizeClass,
             selectedLayout = selectedLayout,
             onLayoutSelected = onLayoutSelected,
@@ -166,6 +152,7 @@ fun MinimalistGrooveLayout(
                 .wrapContentHeight()
                 .padding(start = 8.dp, end = 8.dp, top = topAppBarPadding, bottom = 8.dp)
         )
+
         if (useTwoPane) {
             Row(
                 modifier = Modifier
@@ -299,10 +286,10 @@ fun MinimalistGrooveLayout(
                 )
             }
         }
-        Text(
-            text = "${currentSongIndex + 1}/${totalSongsInQueue}",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+
+        // Bottom Sheet Trigger Row
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .padding(bottom = 25.dp)
                 .align(Alignment.CenterHorizontally)
@@ -312,13 +299,22 @@ fun MinimalistGrooveLayout(
                             coroutineScope.launch { sheetState.show() }
                             showQueueBottomSheet = true
                             view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-//                            if (windowWidthSizeClass != WindowWidthSizeClass.Expanded) {
-//
-//                            }
                         }
                     )
                 }
-        )
+        ) {
+            Text(
+                text = "${currentSongIndex + 1}/${totalSongsInQueue}",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Icon(
+                imageVector = Icons.Rounded.KeyboardArrowUp,
+                contentDescription = "Open Queue",
+                tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+            )
+        }
     }
 }
 

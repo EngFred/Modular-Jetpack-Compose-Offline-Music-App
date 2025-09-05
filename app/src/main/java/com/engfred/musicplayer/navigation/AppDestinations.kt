@@ -17,6 +17,8 @@ sealed class AppDestinations(val route: String) {
 
     data object NowPlaying : AppDestinations("now_playing")
 
+    data object About : AppDestinations("about")
+
     data object PlaylistDetail : AppDestinations("playlist_detail/{playlistId}") {
         fun createRoute(playlistId: Long): String {
             return "playlist_detail/$playlistId"

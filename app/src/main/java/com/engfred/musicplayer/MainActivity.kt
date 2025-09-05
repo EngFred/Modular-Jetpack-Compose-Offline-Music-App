@@ -29,6 +29,7 @@ import com.engfred.musicplayer.core.ui.theme.MusicPlayerAppTheme
 import com.engfred.musicplayer.core.domain.model.AppSettings
 import com.engfred.musicplayer.feature_settings.domain.usecases.GetAppSettingsUseCase
 import com.engfred.musicplayer.navigation.AppNavHost
+import com.engfred.musicplayer.ui.about.screen.CustomSplashScreen
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -45,19 +46,17 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     @RequiresApi(Build.VERSION_CODES.S)
     override fun onCreate(savedInstanceState: Bundle?) {
-
-        var appSettingsLoaded by mutableStateOf(false)
-        var initialAppSettings: AppSettings? by mutableStateOf(null)
-
         val splashScreen = installSplashScreen()
+        super.onCreate(savedInstanceState)
 
         enableEdgeToEdge()
 
-        splashScreen.setKeepOnScreenCondition {
-            !appSettingsLoaded
-        }
+        var appSettingsLoaded by mutableStateOf(false)
+        var initialAppSettings: AppSettings? by mutableStateOf(null)
+        var playbackState by mutableStateOf(PlaybackState())
 
-        super.onCreate(savedInstanceState)
+        // Control custom splash duration
+        var showCustomSplash by mutableStateOf(true)
 
         lifecycleScope.launch {
             getAppSettingsUseCase().collect { settings ->
@@ -66,10 +65,8 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        var playbackState by mutableStateOf(PlaybackState())
-
         lifecycleScope.launch {
-            playbackController.getPlaybackState().collect{
+            playbackController.getPlaybackState().collect {
                 playbackState = it
             }
         }
@@ -77,49 +74,31 @@ class MainActivity : ComponentActivity() {
         setContent {
             val selectedTheme = initialAppSettings?.selectedTheme ?: AppThemeType.DEEP_BLUE
 
-            // --- GLOBAL PLAYBACK ERROR TOAST LOGIC ---
-            LaunchedEffect(playbackState.error) {
-                playbackState.error?.let { errorMessage ->
-                    Toast.makeText(applicationContext, errorMessage, Toast.LENGTH_LONG).show()
-                    // Clear the error in PlayerController after showing the toast
-                    playbackController.clearPlaybackError()
-                }
-            }
-            // --- END GLOBAL PLAYBACK ERROR TOAST LOGIC ---
-
-            MusicPlayerAppTheme(
-                selectedTheme = selectedTheme
-            ) {
+            MusicPlayerAppTheme(selectedTheme = selectedTheme) {
                 val windowSizeClass = calculateWindowSizeClass(this)
-                Surface(
-                    modifier = Modifier.fillMaxSize().background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.background,
-                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                            )
-                        )
-                    )
-                ) {
+
+                // Delay 3 seconds for splash
+                LaunchedEffect(Unit) {
+                    kotlinx.coroutines.delay(3000)
+                    showCustomSplash = false
+                }
+
+                if (showCustomSplash) {
+                    CustomSplashScreen()
+                } else {
                     val navController = rememberNavController()
                     AppNavHost(
                         rootNavController = navController,
-                        windowWidthSizeClass =  windowSizeClass.widthSizeClass,
+                        windowWidthSizeClass = windowSizeClass.widthSizeClass,
                         windowHeightSizeClass = windowSizeClass.heightSizeClass,
                         onPlayPause = {
-                            lifecycleScope.launch {
-                                playbackController.playPause()
-                            }
+                            lifecycleScope.launch { playbackController.playPause() }
                         },
                         onPlayNext = {
-                            lifecycleScope.launch {
-                                playbackController.skipToNext()
-                            }
+                            lifecycleScope.launch { playbackController.skipToNext() }
                         },
                         onPlayPrev = {
-                            lifecycleScope.launch {
-                                playbackController.skipToPrevious()
-                            }
+                            lifecycleScope.launch { playbackController.skipToPrevious() }
                         },
                         isPlaying = playbackState.isPlaying,
                         playingAudioFile = playbackState.currentAudioFile

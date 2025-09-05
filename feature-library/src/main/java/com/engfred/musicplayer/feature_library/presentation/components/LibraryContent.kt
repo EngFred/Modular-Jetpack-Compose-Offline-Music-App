@@ -1,9 +1,10 @@
 package com.engfred.musicplayer.feature_library.presentation.components
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FolderOff
 import androidx.compose.material.icons.outlined.SearchOff
@@ -14,21 +15,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.dp
 import com.engfred.musicplayer.core.domain.model.AudioFile
+import com.engfred.musicplayer.core.ui.AudioFileDivider
 import com.engfred.musicplayer.core.ui.AudioFileItem
 import com.engfred.musicplayer.core.ui.ErrorIndicator
 import com.engfred.musicplayer.core.ui.InfoIndicator
 import com.engfred.musicplayer.core.ui.LoadingIndicator
 import com.engfred.musicplayer.feature_library.presentation.viewmodel.LibraryScreenState
 
-/**
- * Composable to display the content of the Library screen, including a list of audio files or appropriate indicators.
- *
- * @param uiState The current UI state of the Library screen.
- * @param onAudioClick Callback when an audio file is clicked.
- * @param onSwipeLeft Callback when an audio file is swiped to navigate to the now-playing screen.
- * @param onRetry Callback when the retry button is clicked on error.
- * @param modifier Modifier for the composable.
- */
 @Composable
 fun LibraryContent(
     uiState: LibraryScreenState,
@@ -38,10 +31,9 @@ fun LibraryContent(
     onAddToPlaylist: (AudioFile) -> Unit,
     onRetry: () -> Unit,
     isAudioPlaying: Boolean,
+    lazyListState: LazyListState,
     modifier: Modifier = Modifier
 ) {
-    val lazyListState = rememberLazyListState()
-
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -83,22 +75,24 @@ fun LibraryContent(
                 LazyColumn(
                     state = lazyListState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    contentPadding = PaddingValues(vertical = 6.dp),
                 ) {
                     val audios = uiState.filteredAudioFiles.ifEmpty { uiState.audioFiles }
                     items(audios, key = { it.id }) { audioFile ->
-                        AudioFileItem(
-                            audioFile = audioFile,
-                            isCurrentPlayingAudio = uiState.currentPlayingId == audioFile.id,
-                            isAudioPlaying = isAudioPlaying,
-                            onClick = onAudioClick,
-                            onPlayNext = onPlayNext,
-                            onAddToPlaylist = onAddToPlaylist,
-                            onRemoveOrDelete = onRemoveOrDelete,
-                            modifier = Modifier.fillMaxWidth(),
-                            isFromLibrary = true
-                        )
+                        Column {
+                            AudioFileItem(
+                                audioFile = audioFile,
+                                isCurrentPlayingAudio = uiState.currentPlayingId == audioFile.id,
+                                isAudioPlaying = isAudioPlaying,
+                                onClick = onAudioClick,
+                                onPlayNext = onPlayNext,
+                                onAddToPlaylist = onAddToPlaylist,
+                                onRemoveOrDelete = onRemoveOrDelete,
+                                modifier = Modifier.fillMaxWidth(),
+                                isFromLibrary = true
+                            )
+                            AudioFileDivider()
+                        }
                     }
                 }
             }

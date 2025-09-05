@@ -24,26 +24,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.engfred.musicplayer.core.util.formatDuration
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
 
-/**
- * Composable for displaying the seek bar and playback timings.
- * It provides custom thumb and track visuals and adapts its layout based on the [PlayerLayout].
- *
- * @param sliderValue The current value of the slider.
- * @param totalDurationMs The total duration of the current song in milliseconds.
- * @param playbackPositionMs The current playback position in milliseconds.
- * @param isSeeking Boolean indicating if the user is currently dragging the slider.
- * @param onSliderValueChange Callback invoked when the slider's value changes.
- * @param onSliderValueChangeFinished Callback invoked when the user stops dragging the slider.
- * @param playerLayout The currently active player layout, used for styling adjustments.
- * @param modifier The modifier to be applied to the seek bar section.
- * @param horizontalPadding Optional horizontal padding for the content within the seek bar.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SeekBarSection(
@@ -70,7 +55,6 @@ fun SeekBarSection(
         val activeTrackColor = MaterialTheme.colorScheme.primary
         val inactiveTrackColor = LocalContentColor.current.copy(alpha = 0.15f)
 
-        // Calculate progress directly from SliderState's value and valueRange
         val totalRange = sliderState.valueRange.endInclusive - sliderState.valueRange.start
         val currentProgressFraction = if (totalRange > 0) {
             (sliderState.value - sliderState.valueRange.start) / totalRange
@@ -140,41 +124,49 @@ fun SeekBarSection(
             )
         }
     } else {
-        // EtherealFlowLayout or MinimalistGrooveLayout styles: Times below slider
+        // EtherealFlowLayout or MinimalistGrooveLayout: times below slider, reduced gap
         Column(
             modifier = modifier
                 .fillMaxWidth()
                 .padding(horizontal = horizontalPadding)
         ) {
-            Slider(
-                value = sliderValue,
-                onValueChange = onSliderValueChange,
-                onValueChangeFinished = onSliderValueChangeFinished,
-                valueRange = sliderValueRange,
-                colors = SliderDefaults.colors(
-                    thumbColor = MaterialTheme.colorScheme.primary,
-                    activeTrackColor = MaterialTheme.colorScheme.primary,
-                    inactiveTrackColor = LocalContentColor.current.copy(alpha = 0.2f)
-                ),
-                thumb = customThumb,
-                track = customTrack,
-                enabled = true,
-                interactionSource = interactionSource,
-                steps = 0,
-                modifier = Modifier.fillMaxWidth()
-            )
+            // Wrap Slider in Box with constrained height to reduce gap
+            Box(
+                modifier = Modifier.height(18.dp)
+            ) {
+                Slider(
+                    value = sliderValue,
+                    onValueChange = onSliderValueChange,
+                    onValueChangeFinished = onSliderValueChangeFinished,
+                    valueRange = sliderValueRange,
+                    colors = SliderDefaults.colors(
+                        thumbColor = MaterialTheme.colorScheme.primary,
+                        activeTrackColor = MaterialTheme.colorScheme.primary,
+                        inactiveTrackColor = LocalContentColor.current.copy(alpha = 0.2f)
+                    ),
+                    thumb = customThumb,
+                    track = customTrack,
+                    enabled = true,
+                    interactionSource = interactionSource,
+                    steps = 0,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
                     text = formatDuration(playbackPositionMs),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.labelLarge,
                     color = LocalContentColor.current.copy(alpha = 0.7f)
                 )
                 Text(
                     text = formatDuration(totalDurationMs),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.labelLarge,
                     color = LocalContentColor.current.copy(alpha = 0.7f)
                 )
             }

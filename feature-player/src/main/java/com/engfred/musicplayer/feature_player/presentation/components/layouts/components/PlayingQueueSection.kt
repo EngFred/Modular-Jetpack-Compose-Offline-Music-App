@@ -25,6 +25,7 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,32 +34,42 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.engfred.musicplayer.core.ui.AudioFileDivider
 import com.skydoves.landscapist.ImageOptions
 import com.skydoves.landscapist.coil.CoilImage
 
 @Composable
 fun PlayingQueueSection(
-    queue: List<AudioFile>,
-    currentPlayingIndex: Int,
+    playingQueue: List<AudioFile>,
+    playingAudio: AudioFile?,
     onPlayItem: (AudioFile) -> Unit,
-    onRemoveItem: (AudioFile) -> Unit
+    onRemoveItem: (AudioFile) -> Unit,
+    isCompact: Boolean
 ) {
+
+    val currentSongIndex = remember(playingAudio, playingQueue) {
+        if (playingAudio == null || playingQueue.isEmpty()) {
+            -1
+        } else {
+            playingQueue.indexOfFirst { it.id == playingAudio.id }
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .clip(RoundedCornerShape(16.dp))
-            .background(LocalContentColor.current.copy(alpha = 0.05f))
-            .padding(16.dp),
+            .background(LocalContentColor.current.copy(alpha = 0.05f)),
         horizontalAlignment = Alignment.Start
     ) {
         Text(
             text = "Playing Queue",
-            style = MaterialTheme.typography.headlineSmall,
+            style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = LocalContentColor.current,
-            modifier = Modifier.padding(bottom = 16.dp)
+            modifier = Modifier.padding(bottom = 10.dp, top = 10.dp , start = 10.dp, end= 10.dp)
         )
-        if (queue.isEmpty()) {
+        if (playingQueue.isEmpty()) {
             Text(
                 text = "Queue is empty.",
                 style = MaterialTheme.typography.bodyLarge,
@@ -67,12 +78,13 @@ fun PlayingQueueSection(
             )
         } else {
             LazyColumn {
-                itemsIndexed(queue) { index, audioFile ->
+                itemsIndexed(playingQueue) { index, audioFile ->
                     QueueItem(
                         audioFile = audioFile,
-                        isCurrentlyPlaying = index == currentPlayingIndex,
+                        isCurrentlyPlaying = index == currentSongIndex,
                         onPlayClick = { onPlayItem(audioFile) },
-                        onRemoveClick = { onRemoveItem(audioFile) }
+                        onRemoveClick = { onRemoveItem(audioFile) },
+                        showAlbumArt = isCompact
                     )
                 }
             }
@@ -86,7 +98,8 @@ fun QueueItem(
     audioFile: AudioFile,
     isCurrentlyPlaying: Boolean,
     onPlayClick: () -> Unit,
-    onRemoveClick: () -> Unit
+    onRemoveClick: () -> Unit,
+    showAlbumArt: Boolean = true,
 ) {
     val backgroundColor = if (isCurrentlyPlaying) {
         MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
@@ -104,64 +117,76 @@ fun QueueItem(
         LocalContentColor.current.copy(alpha = 0.7f)
     }
 
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
             .background(backgroundColor)
+            .clip(RoundedCornerShape(8.dp))
             .clickable(onClick = onPlayClick)
-            .padding(vertical = 8.dp, horizontal = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+            .padding(start = 15.dp),
     ) {
-        CoilImage(
-            imageModel = { audioFile.albumArtUri },
-            imageOptions = ImageOptions(
-                contentDescription = "Album Art",
-                contentScale = ContentScale.Crop
-            ),
-            modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(8.dp)),
-            failure = {
-                Icon(
-                    imageVector = Icons.Rounded.Album,
-                    contentDescription = "No Album Art",
+
+        if (showAlbumArt) Spacer(Modifier.size(6.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+           if (showAlbumArt)  {
+
+               CoilImage(
+                   imageModel = { audioFile.albumArtUri },
+                   imageOptions = ImageOptions(
+                       contentDescription = "Album Art",
+                       contentScale = ContentScale.Crop
+                   ),
+                   modifier = Modifier
+                       .size(48.dp)
+                       .clip(RoundedCornerShape(8.dp)),
+                   failure = {
+                       Icon(
+                           imageVector = Icons.Rounded.Album,
+                           contentDescription = "No Album Art",
+                       )
+                   },
+                   loading = {
+                       Icon(
+                           imageVector = Icons.Rounded.Album,
+                           contentDescription = "No Album Art",
+                       )
+                   }
+               )
+               Spacer(modifier = Modifier.width(12.dp))
+           }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = audioFile.title ?: "Unknown Title",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = if (isCurrentlyPlaying) FontWeight.Bold else FontWeight.Normal,
+                    color = contentColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-            },
-            loading = {
-                Icon(
-                    imageVector = Icons.Rounded.Album,
-                    contentDescription = "No Album Art",
+                Text(
+                    text = audioFile.artist ?: "Unknown Artist",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = artistColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = audioFile.title ?: "Unknown Title",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = if (isCurrentlyPlaying) FontWeight.Bold else FontWeight.Normal,
-                color = contentColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = audioFile.artist ?: "Unknown Artist",
-                style = MaterialTheme.typography.bodyMedium,
-                color = artistColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Spacer(modifier = Modifier.width(8.dp))
+            // Option to remove item from queue
+            IconButton(onClick = onRemoveClick) {
+                Icon(
+                    Icons.Rounded.Close,
+                    contentDescription = "Remove from queue",
+                    tint = LocalContentColor.current.copy(alpha = 0.6f)
+                )
+            }
         }
-        Spacer(modifier = Modifier.width(8.dp))
-        // Option to remove item from queue
-        IconButton(onClick = onRemoveClick) {
-            Icon(
-                Icons.Rounded.Close,
-                contentDescription = "Remove from queue",
-                tint = LocalContentColor.current.copy(alpha = 0.6f)
-            )
-        }
+        if (showAlbumArt) Spacer(Modifier.size(6.dp))
+        AudioFileDivider()
+
     }
+
 }

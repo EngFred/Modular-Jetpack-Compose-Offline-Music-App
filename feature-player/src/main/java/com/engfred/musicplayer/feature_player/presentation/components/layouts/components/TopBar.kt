@@ -115,7 +115,7 @@ fun TopBar(
                 Spacer(modifier = Modifier.size(8.dp))
                 Text(
                     text = "Now Playing",
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleLarge,
                     color = LocalContentColor.current.copy(alpha = 0.8f),
                     fontWeight = FontWeight.SemiBold
                 )

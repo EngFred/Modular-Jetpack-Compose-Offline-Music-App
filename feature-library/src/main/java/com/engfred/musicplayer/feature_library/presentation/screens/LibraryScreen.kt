@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -42,6 +43,7 @@ fun LibraryScreen(
     val permissionState = rememberPermissionState(permission)
     var hasRequestedPermission by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val lazyListState = rememberLazyListState()
 
     val deleteMediaLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartIntentSenderForResult()
@@ -50,7 +52,7 @@ fun LibraryScreen(
 
         if (result.resultCode == Activity.RESULT_OK) {
             deletedAudioFile?.let {
-                viewModel.onEvent(LibraryEvent.DeletionResult(it, true, null)) // Signal success
+                viewModel.onEvent(LibraryEvent.DeletionResult(it, true, null))
             }
         } else {
             deletedAudioFile?.let {
@@ -61,6 +63,7 @@ fun LibraryScreen(
         }
     }
 
+    // Handle permissions
     LaunchedEffect(permissionState.status, hasRequestedPermission, uiState.hasStoragePermission) {
         if (!permissionState.status.isGranted && !hasRequestedPermission) {
             permissionState.launchPermissionRequest()
@@ -74,16 +77,23 @@ fun LibraryScreen(
         }
     }
 
+    // Collect UI messages
     LaunchedEffect(viewModel.uiEvent) {
         viewModel.uiEvent.collect { message ->
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
     }
 
+    // Collect delete requests
     LaunchedEffect(viewModel.deleteRequest) {
         viewModel.deleteRequest.collect { intentSenderRequest ->
             deleteMediaLauncher.launch(intentSenderRequest)
         }
+    }
+
+    // 👇 Reset scroll to top instantly when filter changes
+    LaunchedEffect(uiState.currentFilterOption) {
+        lazyListState.scrollToItem(0)
     }
 
     Scaffold(
@@ -116,6 +126,7 @@ fun LibraryScreen(
                         viewModel.onEvent(LibraryEvent.SearchQueryChanged(query))
                     },
                     placeholder = "Search songs",
+                    currentFilter = uiState.currentFilterOption,
                     onFilterSelected = { filterOption ->
                         viewModel.onEvent(LibraryEvent.FilterSelected(filterOption))
                     }
@@ -135,7 +146,8 @@ fun LibraryScreen(
                     },
                     onPlayNext = {
                         viewModel.onEvent(LibraryEvent.PlayedNext(it))
-                    }
+                    },
+                    lazyListState = lazyListState
                 )
             }
         }
@@ -153,10 +165,9 @@ fun LibraryScreen(
 
     if (uiState.showDeleteConfirmationDialog) {
         uiState.audioFileToDelete?.let { audioFile ->
-            // Use the generic ConfirmationDialog from core.ui
             ConfirmationDialog(
                 title = "Delete '${audioFile.title}'?",
-                message = "Are you sure you want to permanently delete '${audioFile.title}' from your device? This action cannot be undone.", // Clear message
+                message = "Are you sure you want to permanently delete '${audioFile.title}' from your device? This action cannot be undone.",
                 confirmButtonText = "Delete",
                 dismissButtonText = "Cancel",
                 onConfirm = {
@@ -167,7 +178,6 @@ fun LibraryScreen(
                 }
             )
         } ?: run {
-            // If dialog is somehow shown without an audioFileToDelete, dismiss it.
             viewModel.onEvent(LibraryEvent.DismissDeleteConfirmationDialog)
         }
     }

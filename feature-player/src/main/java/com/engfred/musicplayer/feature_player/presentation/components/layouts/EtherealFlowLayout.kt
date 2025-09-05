@@ -569,10 +569,11 @@ fun EtherealFlowLayout(
                             verticalArrangement = Arrangement.Top
                         ) {
                             PlayingQueueSection(
-                                queue = playingQueue,
-                                currentPlayingIndex = currentSongIndex,
+                                playingQueue = playingQueue,
+                                playingAudio = uiState.currentAudioFile,
                                 onPlayItem = onPlayQueueItem,
-                                onRemoveItem = onRemoveQueueItem
+                                onRemoveItem = onRemoveQueueItem,
+                                isCompact = false
                             )
                         }
                     }

@@ -236,7 +236,7 @@ fun ControlBar(
                     icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                     contentDescription = if (isPlaying) "Pause Playback" else "Play Playback",
                     onClick = onPlayPauseClick,
-                    tint = MaterialTheme.colorScheme.onPrimary,
+                    tint = LocalContentColor.current,
                     size = controlSizes.playIconSize,
                     buttonSize = controlSizes.playButtonSize,
                     backgroundColor = MaterialTheme.colorScheme.primary,

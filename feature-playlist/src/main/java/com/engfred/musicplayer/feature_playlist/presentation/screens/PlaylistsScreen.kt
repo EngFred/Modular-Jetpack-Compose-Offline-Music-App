@@ -165,7 +165,6 @@ fun PlaylistsScreen(
                         LazyColumn(
                             contentPadding = PaddingValues(
                                 horizontal = contentHorizontalPadding,
-                                vertical = 8.dp
                             ),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxSize()
@@ -179,7 +178,6 @@ fun PlaylistsScreen(
                                     },
                                     isDeletable = false // Automatic playlists are not deletable
                                 )
-                                Spacer(Modifier.height(16.dp)) // Space between sections
                             }
 
                             if (uiState.userPlaylists.isNotEmpty()) {

@@ -13,12 +13,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.engfred.musicplayer.core.domain.model.AudioFile
-import com.engfred.musicplayer.core.domain.model.PlayerLayout
 import com.engfred.musicplayer.feature_player.presentation.screens.PlayerScreen
 import com.engfred.musicplayer.feature_playlist.presentation.screens.PlaylistDetailScreen
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.detail.PlaylistDetailArgs
 import com.engfred.musicplayer.feature_settings.presentation.screens.SettingsScreen
 import com.engfred.musicplayer.ui.MainScreen
+import com.engfred.musicplayer.ui.about.screen.AboutScreen
 
 /**
  * Defines the main navigation graph for the application.
@@ -51,6 +51,9 @@ fun AppNavHost(
                 },
                 onSettingsClick = {
                     rootNavController.navigate(AppDestinations.Settings.route)
+                },
+                onAboutClick = {
+                    rootNavController.navigate(AppDestinations.About.route)
                 },
                 onPlayPause = onPlayPause,
                 onPlayNext = onPlayNext,
@@ -98,5 +101,13 @@ fun AppNavHost(
                 onNavigateBack = { rootNavController.popBackStack() }
             )
         }
+
+        // about
+        composable(AppDestinations.About.route) {
+            AboutScreen(
+                onNavigateBack = { rootNavController.popBackStack() }
+            )
+        }
+
     }
 }

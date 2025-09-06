@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.feature_library.presentation.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -87,7 +88,8 @@ fun SearchBar(
                     DropdownMenu(
                         expanded = showFilterMenu,
                         onDismissRequest = { showFilterMenu = false },
-                        properties = PopupProperties(focusable = true)
+                        properties = PopupProperties(focusable = true),
+                        containerColor = MaterialTheme.colorScheme.surface
                     ) {
                         DropdownMenuItem(
                             text = { Text("Date Added (Newest First)") },

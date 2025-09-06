@@ -25,7 +25,6 @@ import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
@@ -89,54 +88,22 @@ fun PlaylistsScreen(
         }
     }
 
-    Scaffold(
-        floatingActionButton = {
-            val bottomPadding = if(uiState.isPlaying) 142.dp else 75.dp
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                horizontalAlignment = Alignment.End,
-                modifier = Modifier
-                    .padding(bottom = bottomPadding)
-                    .padding(end = 16.dp)
-            ) {
-                FloatingActionButton(
-                    onClick = { viewModel.onEvent(PlaylistEvent.ShowCreatePlaylistDialog) },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onSurface
-                ) {
-                    Icon(
-                        modifier = Modifier.size(36.dp),
-                        imageVector = Icons.Rounded.Add,
-                        contentDescription = "Create new playlist"
-                    )
-                }
-                FloatingActionButton(
-                    onClick = { viewModel.onEvent(PlaylistEvent.ToggleLayout) },
-                    containerColor = MaterialTheme.colorScheme.secondary,
-                    contentColor = MaterialTheme.colorScheme.onTertiary
-                ) {
-                    Icon(
-                        modifier = Modifier.size(30.dp),
-                        imageVector = if (uiState.currentLayout == PlaylistLayoutType.LIST) Icons.Rounded.GridView else Icons.AutoMirrored.Rounded.List,
-                        contentDescription = "Toggle layout"
-                    )
-                }
-            }
-        },
-        containerColor = Color.Transparent
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.background,
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        )
+    // Replace Scaffold with a Box layout
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.background,
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                     )
                 )
+            )
+    ) {
+        // Main content column
+        Column(
+            modifier = Modifier.fillMaxSize()
         ) {
             when {
                 uiState.isLoading -> {
@@ -206,8 +173,6 @@ fun PlaylistsScreen(
                         LazyVerticalGrid(
                             columns = gridCells,
                             contentPadding = PaddingValues(contentHorizontalPadding),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxSize()
                         ) {
                             items(uiState.automaticPlaylists, key = { it.id }) { playlist ->
@@ -252,6 +217,37 @@ fun PlaylistsScreen(
             }
         }
 
+        // Floating Action Buttons (FABs)
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalAlignment = Alignment.End,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp)
+        ) {
+            FloatingActionButton(
+                onClick = { viewModel.onEvent(PlaylistEvent.ShowCreatePlaylistDialog) },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onSurface
+            ) {
+                Icon(
+                    modifier = Modifier.size(36.dp),
+                    imageVector = Icons.Rounded.Add,
+                    contentDescription = "Create new playlist"
+                )
+            }
+            FloatingActionButton(
+                onClick = { viewModel.onEvent(PlaylistEvent.ToggleLayout) }
+            ) {
+                Icon(
+                    modifier = Modifier.size(if (uiState.currentLayout == PlaylistLayoutType.LIST) 24.dp else 30.dp),
+                    imageVector = if (uiState.currentLayout == PlaylistLayoutType.LIST) Icons.Rounded.GridView else Icons.AutoMirrored.Rounded.List,
+                    contentDescription = "Toggle layout"
+                )
+            }
+        }
+
+        // Create Playlist Dialog
         if (uiState.showCreatePlaylistDialog) {
             CreatePlaylistDialog(
                 onConfirm = { playlistName ->

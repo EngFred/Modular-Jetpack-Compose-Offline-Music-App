@@ -14,7 +14,9 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -137,7 +139,7 @@ fun PlaylistDetailScreen(
                     onClick = onNavigateToNowPlaying,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .zIndex(1f),
+                        .navigationBarsPadding(),
                     onPlayPause = {
                         viewModel.onEvent(PlaylistDetailEvent.PlayPause)
                     },
@@ -153,7 +155,6 @@ fun PlaylistDetailScreen(
                 )
             }
         },
-        containerColor = Color.Transparent
     ) { paddingValues ->
         val mainContentModifier = Modifier
             .fillMaxSize()
@@ -164,7 +165,7 @@ fun PlaylistDetailScreen(
                         MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                     )
                 )
-            )
+            ).padding(paddingValues)
 
         if (isCompactWidth) {
             // --- Compact Layout (Phones - Portrait) ---
@@ -185,6 +186,7 @@ fun PlaylistDetailScreen(
                     moreMenuExpanded = moreMenuExpanded,
                     modifier = Modifier
                         .fillMaxWidth()
+                        .statusBarsPadding()
                         .zIndex(2f) // Ensures it's always on top of the list
                 )
 
@@ -199,7 +201,7 @@ fun PlaylistDetailScreen(
                         // We put the original header content here, but without the top bar.
                         // We also add padding to account for the new sticky top bar.
                         // 3. New: `topBarPadding` is added to push the content down.
-                        val topBarPadding = 64.dp
+                        val topBarPadding = 38.dp
                         PlaylistDetailHeaderSection(
                             playlist = uiState.playlist,
                             isCompact = true,

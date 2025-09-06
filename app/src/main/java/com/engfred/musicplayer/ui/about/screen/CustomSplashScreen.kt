@@ -20,10 +20,13 @@ import com.engfred.musicplayer.R
 
 @Composable
 fun CustomSplashScreen() {
+    val splashBackgroundColor = Color(0xFF23052B)
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF23052B)) // Background #FF23052B
+            .background(splashBackgroundColor)
+            .systemBarsPadding()
     ) {
         // Centered logo
         Image(
@@ -32,7 +35,7 @@ fun CustomSplashScreen() {
             modifier = Modifier
                 .size(180.dp)
                 .align(Alignment.Center)
-                .clip(RoundedCornerShape(68.dp)), // Rounded corners like splash icon
+                .clip(RoundedCornerShape(68.dp)),
             contentScale = ContentScale.Inside
         )
 
@@ -40,7 +43,7 @@ fun CustomSplashScreen() {
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 32.dp),
+                .padding(bottom = 18.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             CircularProgressIndicator(
@@ -52,7 +55,7 @@ fun CustomSplashScreen() {
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                text = "Made with Kotlin",
+                text = "Keep it safe, keep it Kotlin.",
                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
                 color = Color.White.copy(alpha = 0.8f)
             )

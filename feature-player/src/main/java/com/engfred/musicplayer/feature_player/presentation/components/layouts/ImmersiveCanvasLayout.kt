@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.feature_player.presentation.components.layouts
 
+import android.app.Activity
 import android.os.Build
 import android.view.HapticFeedbackConstants
 import androidx.annotation.RequiresApi
@@ -33,6 +34,7 @@ import androidx.compose.material3.windowsizeclass.WindowHeightSizeClass
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,12 +61,20 @@ import com.engfred.musicplayer.feature_player.presentation.components.layouts.co
 import com.engfred.musicplayer.feature_player.presentation.components.layouts.components.TopBar
 import com.engfred.musicplayer.feature_player.presentation.components.layouts.components.TrackInfo
 import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerEvent
-import kotlinx.coroutines.launch
-import android.widget.Toast
-import androidx.compose.foundation.layout.size
-import androidx.compose.runtime.rememberCoroutineScope
+import com.engfred.musicplayer.feature_player.utils.getContentColorForAlbumArt
 import com.engfred.musicplayer.feature_player.utils.loadBitmapFromUri
 import com.engfred.musicplayer.feature_player.utils.saveBitmapToPictures
+import kotlinx.coroutines.launch
+import android.widget.Toast
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
+import com.engfred.musicplayer.core.domain.repository.RepeatMode
+import com.engfred.musicplayer.core.domain.repository.ShuffleMode
 
 @RequiresApi(Build.VERSION_CODES.M)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -81,14 +91,46 @@ fun ImmersiveCanvasLayout(
     windowHeightSizeClass: WindowHeightSizeClass,
     selectedLayout: PlayerLayout,
     onLayoutSelected: (PlayerLayout) -> Unit,
-    playingAudio: AudioFile?
+    playingAudio: AudioFile?,
+    repeatMode: RepeatMode,
+    shuffleMode: ShuffleMode
 ) {
     val view = LocalView.current
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
     val backgroundColor = MaterialTheme.colorScheme.background
-    val contentColor = MaterialTheme.colorScheme.onBackground
+    val defaultContentColor = MaterialTheme.colorScheme.onBackground
+    val colorScheme = MaterialTheme.colorScheme
+
+    val dynamicContentColor = if (windowWidthSizeClass == WindowWidthSizeClass.Compact) {
+        getContentColorForAlbumArt(context, uiState.currentAudioFile?.albumArtUri?.toString())
+    } else {
+        defaultContentColor
+    }
+
+    // Handle status bar color and icon appearance
+    DisposableEffect(windowWidthSizeClass, dynamicContentColor, selectedLayout) {
+        val window = (context as? Activity)?.window
+        val insetsController = window?.let { WindowInsetsControllerCompat(it, view) }
+
+        // Set status bar for compact mode in ImmersiveCanvasLayout
+        if (selectedLayout == PlayerLayout.IMMERSIVE_CANVAS && windowWidthSizeClass == WindowWidthSizeClass.Compact) {
+//            window?.statusBarColor = dynamicContentColor.toArgb()
+            // Adjust status bar icon appearance based on luminance
+            insetsController?.isAppearanceLightStatusBars = (dynamicContentColor.luminance() > 0.5f).not()
+        } else {
+            // Set to default theme status bar color
+//            window?.statusBarColor = colorScheme.background.toArgb()
+            insetsController?.isAppearanceLightStatusBars = colorScheme.background.luminance() > 0.5f
+        }
+
+        // Cleanup: Revert to default theme status bar settings on dispose
+        onDispose {
+//            window?.statusBarColor = colorScheme.background.toArgb()
+            insetsController?.isAppearanceLightStatusBars = colorScheme.background.luminance() > 0.5f
+        }
+    }
 
     var showQueueBottomSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -104,7 +146,7 @@ fun ImmersiveCanvasLayout(
         )
     }
 
-    CompositionLocalProvider(LocalContentColor provides contentColor) {
+    CompositionLocalProvider(LocalContentColor provides defaultContentColor) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -212,10 +254,11 @@ fun ImmersiveCanvasLayout(
                             windowWidthSizeClass = windowWidthSizeClass,
                             selectedLayout = selectedLayout,
                             onLayoutSelected = onLayoutSelected,
+                            dynamicContentColor = dynamicContentColor,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .statusBarsPadding()
                                 .align(Alignment.TopCenter)
+                                .statusBarsPadding()
                         )
                     }
                     Column(
@@ -332,9 +375,10 @@ fun ImmersiveCanvasLayout(
                         )
                         Spacer(modifier = Modifier.height(spacingSeekBarToControlBar))
                         ControlBar(
-                            shuffleMode = uiState.shuffleMode,
+                            modifier = Modifier.navigationBarsPadding(),
+                            shuffleMode = shuffleMode,
                             isPlaying = uiState.isPlaying,
-                            repeatMode = uiState.repeatMode,
+                            repeatMode = repeatMode,
                             onPlayPauseClick = {
                                 onEvent(PlayerEvent.PlayPause)
                                 view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
@@ -353,7 +397,7 @@ fun ImmersiveCanvasLayout(
                             windowWidthSizeClass = windowWidthSizeClass,
                             windowHeightSizeClass = windowHeightSizeClass
                         )
-                        Spacer(modifier = Modifier.height(contentVerticalPadding))
+//                        Spacer(modifier = Modifier.height(contentVerticalPadding))
                     }
                 }
             } else {
@@ -362,8 +406,7 @@ fun ImmersiveCanvasLayout(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-
-                    //Album art section
+                    // Album art section
                     Column(
                         modifier = Modifier
                             .weight(1f)
@@ -383,7 +426,7 @@ fun ImmersiveCanvasLayout(
                         )
                     }
                     Spacer(modifier = Modifier.width(32.dp))
-                    //info section
+                    // Info section
                     Column(
                         modifier = Modifier
                             .weight(1.5f)
@@ -399,7 +442,8 @@ fun ImmersiveCanvasLayout(
                             onOpenQueue = { /* No-op for Expanded, queue is visible */ },
                             windowWidthSizeClass = windowWidthSizeClass,
                             selectedLayout = selectedLayout,
-                            onLayoutSelected = onLayoutSelected
+                            onLayoutSelected = onLayoutSelected,
+                            dynamicContentColor = defaultContentColor // Use default for non-compact
                         )
                         Spacer(modifier = Modifier.height(spacingInfoToButtons))
                         Row(
@@ -478,7 +522,6 @@ fun ImmersiveCanvasLayout(
                                 )
                             }
                         }
-//                        Spacer(modifier = Modifier.height(16.dp))
                         SeekBarSection(
                             sliderValue = uiState.playbackPositionMs.toFloat(),
                             totalDurationMs = uiState.totalDurationMs,
@@ -493,11 +536,10 @@ fun ImmersiveCanvasLayout(
                             },
                             playerLayout = PlayerLayout.IMMERSIVE_CANVAS
                         )
-//                        Spacer(modifier = Modifier.height(16.dp))
                         ControlBar(
-                            shuffleMode = uiState.shuffleMode,
+                            shuffleMode = shuffleMode,
                             isPlaying = uiState.isPlaying,
-                            repeatMode = uiState.repeatMode,
+                            repeatMode = repeatMode,
                             onPlayPauseClick = {
                                 onEvent(PlayerEvent.PlayPause)
                                 view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
@@ -524,8 +566,8 @@ fun ImmersiveCanvasLayout(
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight()
-                                .statusBarsPadding()
-                                .padding(end = sectionHorizontalPadding, top = sectionHorizontalPadding, bottom = sectionHorizontalPadding),
+                                .navigationBarsPadding()
+                                .padding(end = 13.dp, top = sectionHorizontalPadding, bottom = sectionHorizontalPadding),
                             horizontalAlignment = Alignment.Start,
                             verticalArrangement = Arrangement.Top
                         ) {

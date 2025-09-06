@@ -1,17 +1,54 @@
 package com.engfred.musicplayer.ui
 
 import MiniPlayer
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.systemGesturesPadding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -19,32 +56,16 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.engfred.musicplayer.core.domain.model.AudioFile
+import com.engfred.musicplayer.core.ui.CustomTopBar
+import com.engfred.musicplayer.core.util.restartApp
 import com.engfred.musicplayer.feature_favorites.presentation.screen.FavoritesScreen
 import com.engfred.musicplayer.feature_library.presentation.screens.LibraryScreen
 import com.engfred.musicplayer.feature_playlist.presentation.screens.PlaylistsScreen
 import com.engfred.musicplayer.navigation.AppDestinations
-import androidx.compose.material.icons.Icons
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import com.engfred.musicplayer.core.ui.CustomTopBar
-import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.material.icons.rounded.MoreVert
-import com.engfred.musicplayer.core.domain.model.AudioFile
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
-import com.engfred.musicplayer.core.ui.theme.FrostPrimary
-import com.engfred.musicplayer.core.util.restartApp
 
 /**
- * Main screen of the application, hosting the bottom navigation bar and
+ * Main screen of the application, hosting the custom bottom navigation bar and
  * managing the primary feature screens.
  */
 @Composable
@@ -66,25 +87,68 @@ fun MainScreen(
         AppDestinations.BottomNavItem.Playlists,
         AppDestinations.BottomNavItem.Favorites,
     )
-
     var showDropdownMenu by remember { mutableStateOf(false) }
     var showRestartDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
-    // Get the current color scheme from the MaterialTheme to determine if it's a light theme
-    // We assume FROSTBYTE is the only light theme. You can pass the selectedTheme down if you
-    // have access to it here, or use compositionLocalOf for the theme.
-    // For simplicity, we'll check based on a characteristic of LightColorScheme.
-    val isFrostbyteTheme = MaterialTheme.colorScheme.primary == FrostPrimary
-
     Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        topBar = {
+            // Ensure the top bar respects the status bar inset so content is NOT drawn under the system status bar.
+            Box(modifier = Modifier.statusBarsPadding()) {
+                CustomTopBar(
+                    title = "Music Player",
+                    showNavigationIcon = false,
+                    onNavigateBack = null,
+                    actions = {
+                        IconButton(onClick = { showDropdownMenu = true }) {
+                            Icon(Icons.Rounded.MoreVert, contentDescription = "more icon")
+                        }
+                        DropdownMenu(
+                            expanded = showDropdownMenu,
+                            onDismissRequest = { showDropdownMenu = false },
+                            offset = DpOffset(x = (-16).dp, y = 0.dp),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surface)
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Settings", color = MaterialTheme.colorScheme.onSurface) },
+                                onClick = {
+                                    showDropdownMenu = false
+                                    onSettingsClick()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("About Developer", color = MaterialTheme.colorScheme.onSurface) },
+                                onClick = {
+                                    showDropdownMenu = false
+                                    onAboutClick()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Restart Player", color = MaterialTheme.colorScheme.onSurface) },
+                                onClick = {
+                                    showDropdownMenu = false
+                                    showRestartDialog = true
+                                }
+                            )
+                        }
+                    }
+                )
+            }
+        },
         bottomBar = {
-            Column {
+            // Use navigationBarsPadding() not systemBarsPadding() — we only need the bottom inset here.
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .background(MaterialTheme.colorScheme.surface)
+            ) {
                 MiniPlayer(
                     onClick = onNavigateToNowPlaying,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .zIndex(1f),
+                    modifier = Modifier.fillMaxWidth(),
                     onPlayPause = onPlayPause,
                     onPlayNext = onPlayNext,
                     onPlayPrev = onPlayPrev,
@@ -92,20 +156,25 @@ fun MainScreen(
                     playingAudioFile = playingAudioFile,
                     windowWidthSizeClass = windowWidthSizeClass
                 )
-                NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    contentColor = MaterialTheme.colorScheme.onSurface
+
+                // NOTE: removed bottom = 8.dp from the Row padding — navigationBarsPadding() already reserves safe area.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(60.dp)
+                        .padding(start = 16.dp, end = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceAround,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     val navBackStackEntry by bottomNavController.currentBackStackEntryAsState()
                     val currentDestination = navBackStackEntry?.destination
-
                     bottomNavItems.forEach { item ->
                         val selected = currentDestination?.hierarchy?.any {
                             it.route == item.baseRoute
                         } == true
-
-                        NavigationBarItem(
-                            selected = selected,
+                        CustomBottomNavItem(
+                            item = item,
+                            isSelected = selected,
                             onClick = {
                                 bottomNavController.navigate(item.baseRoute) {
                                     popUpTo(bottomNavController.graph.findStartDestination().id) {
@@ -114,79 +183,29 @@ fun MainScreen(
                                     launchSingleTop = true
                                     restoreState = true
                                 }
-                            },
-                            icon = { Icon(item.icon, contentDescription = item.label) },
-                            label = { Text(item.label) },
-                            colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
-                                // If Frostbyte, use onSurface for selected text/icon, otherwise use onPrimaryContainer (white usually)
-                                selectedIconColor = if (isFrostbyteTheme) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimaryContainer,
-                                selectedTextColor = if (isFrostbyteTheme) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimaryContainer,
-                                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            }
                         )
                     }
                 }
             }
         }
-    ) { paddingValues ->
-        Column(
+    ) { innerPadding ->
+        // Apply the scaffold inner padding to the NavHost so each destination sits below the topBar and above the bottomBar.
+        NavHost(
+            navController = bottomNavController,
+            startDestination = AppDestinations.BottomNavItem.Library.baseRoute,
             modifier = Modifier
                 .fillMaxSize()
-                .systemBarsPadding()
+                .padding(innerPadding)
         ) {
-            CustomTopBar(
-                title = "Music Player",
-                showNavigationIcon = false,
-                onNavigateBack = null,
-                actions = {
-                    IconButton(onClick = { showDropdownMenu = true }) {
-                        Icon(Icons.Rounded.MoreVert, contentDescription = "more icon")
-                    }
-                    DropdownMenu(
-                        expanded = showDropdownMenu,
-                        onDismissRequest = { showDropdownMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Settings") },
-                            onClick = {
-                                showDropdownMenu = false
-                                onSettingsClick()
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("About Developer") },
-                            onClick = {
-                                showDropdownMenu = false
-                                onAboutClick()
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Restart Player") },
-                            onClick = {
-                                showDropdownMenu = false
-                                showRestartDialog = true
-                            }
-                        )
-                    }
-                }
-            )
-            NavHost(
-                navController = bottomNavController,
-                startDestination = AppDestinations.BottomNavItem.Library.baseRoute,
-                modifier = Modifier
-                    .fillMaxSize()
-            ) {
-                composable(AppDestinations.BottomNavItem.Library.baseRoute) {
-                    LibraryScreen()
-                }
-                composable(AppDestinations.BottomNavItem.Playlists.baseRoute) {
-                    PlaylistsScreen(onPlaylistClick = onPlaylistClick, windowWidthSizeClass = windowWidthSizeClass)
-                }
-                composable(AppDestinations.BottomNavItem.Favorites.baseRoute) {
-                    FavoritesScreen()
-                }
+            composable(AppDestinations.BottomNavItem.Library.baseRoute) {
+                LibraryScreen() // LibraryScreen will be laid out inside NavHost's padded area
+            }
+            composable(AppDestinations.BottomNavItem.Playlists.baseRoute) {
+                PlaylistsScreen(onPlaylistClick = onPlaylistClick, windowWidthSizeClass = windowWidthSizeClass)
+            }
+            composable(AppDestinations.BottomNavItem.Favorites.baseRoute) {
+                FavoritesScreen()
             }
         }
     }
@@ -210,7 +229,51 @@ fun MainScreen(
                 TextButton(onClick = { showRestartDialog = false }) {
                     Text("Cancel")
                 }
-            }
+            },
+            containerColor = MaterialTheme.colorScheme.surface
         )
+    }
+}
+
+@Composable
+private fun CustomBottomNavItem(
+    item: AppDestinations.BottomNavItem,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val animatedBackgroundColor by animateColorAsState(
+        targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+        animationSpec = tween(durationMillis = 300), label = "background_color_animation"
+    )
+
+    val animatedContentColor by animateColorAsState(
+        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = tween(durationMillis = 300), label = "content_color_animation"
+    )
+
+    Row(
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(animatedBackgroundColor)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .animateContentSize(animationSpec = tween(durationMillis = 300)),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = item.icon,
+            contentDescription = item.label,
+            tint = animatedContentColor,
+            modifier = Modifier.size(24.dp)
+        )
+        if (isSelected) {
+            Text(
+                text = item.label,
+                color = animatedContentColor,
+                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
     }
 }

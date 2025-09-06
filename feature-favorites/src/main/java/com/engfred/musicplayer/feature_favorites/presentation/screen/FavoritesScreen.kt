@@ -12,14 +12,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.engfred.musicplayer.core.ui.AudioFileItem
 import com.engfred.musicplayer.core.ui.AddSongToPlaylistDialog
-import com.engfred.musicplayer.core.ui.AudioFileDivider
 import com.engfred.musicplayer.core.ui.ConfirmationDialog
 import com.engfred.musicplayer.feature_favorites.presentation.viewmodel.FavoritesEvent
 import com.engfred.musicplayer.feature_favorites.presentation.viewmodel.FavoritesViewModel
@@ -37,22 +35,22 @@ fun FavoritesScreen(
         }
     }
 
-    Scaffold(
-        containerColor = Color.Transparent
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.background,
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        )
+    // Replace Scaffold with a Box to act as the root container
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.background,
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                     )
                 )
-                .padding(horizontal = 8.dp)
+            )
+            .padding(horizontal = 8.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize()
         ) {
             when {
                 uiState.isLoading -> {
@@ -119,7 +117,9 @@ fun FavoritesScreen(
                                     },
                                     modifier = Modifier.fillMaxWidth()
                                 )
-                                AudioFileDivider()
+                                if (index < uiState.favoriteAudioFiles.size - 1) {
+                                    HorizontalDivider()
+                                }
                             }
                         }
                     }

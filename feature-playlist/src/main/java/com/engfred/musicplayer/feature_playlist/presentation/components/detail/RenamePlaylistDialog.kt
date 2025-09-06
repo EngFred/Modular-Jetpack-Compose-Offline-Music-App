@@ -59,6 +59,7 @@ fun RenamePlaylistDialog(
             Button(onClick = onDismiss) {
                 Text("Cancel")
             }
-        }
+        },
+        containerColor = MaterialTheme.colorScheme.surface
     )
 }

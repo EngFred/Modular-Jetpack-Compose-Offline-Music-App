@@ -46,23 +46,11 @@ class FavoritesViewModel @Inject constructor(
     private fun startObservingPlaybackState() {
         playbackController.getPlaybackState().onEach { state ->
             _uiState.update { currentState ->
-                if (state.currentAudioFile != null && state.isPlaying) {
-                    currentState.copy(
-                        currentPlayingId = state.currentAudioFile!!.id,
-                        isPlaying = true
-                    )
-                } else if (!state.isPlaying) {
-                    if (currentState.currentPlayingId == state.currentAudioFile?.id) {
-                        currentState.copy(
-                            currentPlayingId = null,
-                            isPlaying = false
-                        )
-                    } else {
-                        currentState
-                    }
-                } else {
-                    currentState
-                }
+                currentState.copy(
+                    currentPlaybackAudioFile = state.currentAudioFile,
+                    currentPlayingId = state.currentAudioFile?.id,
+                    isPlaying = state.isPlaying
+                )
             }
         }.launchIn(viewModelScope)
     }

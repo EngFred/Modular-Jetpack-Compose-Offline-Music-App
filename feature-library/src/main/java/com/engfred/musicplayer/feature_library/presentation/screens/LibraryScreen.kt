@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.feature_library.presentation.screens
 
+import LibraryEvent
 import android.app.Activity
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -7,10 +8,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -36,6 +35,7 @@ import com.google.accompanist.permissions.shouldShowRationale
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun LibraryScreen(
+    modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = hiltViewModel()
 ) {
     val uiState = viewModel.uiState.collectAsState().value
@@ -91,13 +91,13 @@ fun LibraryScreen(
         }
     }
 
-    // 👇 Reset scroll to top instantly when filter changes
-    LaunchedEffect(uiState.currentFilterOption) {
-        lazyListState.scrollToItem(0)
-    }
+//    LaunchedEffect(uiState.currentFilterOption) {
+//        lazyListState.scrollToItem(0)
+//    }
 
-    Scaffold(
-        modifier = Modifier
+    // Use the provided modifier so NavHost padding (innerPadding) can be applied by the parent.
+    Column(
+        modifier = modifier
             .fillMaxSize()
             .background(
                 brush = Brush.verticalGradient(
@@ -107,49 +107,44 @@ fun LibraryScreen(
                     )
                 )
             )
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            if (!uiState.hasStoragePermission) {
-                PermissionRequestContent(
-                    permissionState = permissionState,
-                    shouldShowRationale = permissionState.status.shouldShowRationale,
-                    isPermanentlyDenied = !permissionState.status.isGranted && !permissionState.status.shouldShowRationale
-                )
-            } else {
-                SearchBar(
-                    query = uiState.searchQuery,
-                    onQueryChange = { query ->
-                        viewModel.onEvent(LibraryEvent.SearchQueryChanged(query))
-                    },
-                    placeholder = "Search songs",
-                    currentFilter = uiState.currentFilterOption,
-                    onFilterSelected = { filterOption ->
-                        viewModel.onEvent(LibraryEvent.FilterSelected(filterOption))
-                    }
-                )
-                LibraryContent(
-                    uiState = uiState,
-                    onAudioClick = { audioFile ->
-                        viewModel.onEvent(LibraryEvent.PlayAudio(audioFile))
-                    },
-                    isAudioPlaying = uiState.isPlaying,
-                    onRetry = { viewModel.onEvent(LibraryEvent.Retry) },
-                    onRemoveOrDelete = { audioFileToDelete ->
-                        viewModel.onEvent(LibraryEvent.ShowDeleteConfirmation(audioFileToDelete))
-                    },
-                    onAddToPlaylist = {
-                        viewModel.onEvent(LibraryEvent.AddedToPlaylist(it))
-                    },
-                    onPlayNext = {
-                        viewModel.onEvent(LibraryEvent.PlayedNext(it))
-                    },
-                    lazyListState = lazyListState
-                )
-            }
+    ) {
+        // The content column that was previously inside the Scaffold
+        if (!uiState.hasStoragePermission) {
+            PermissionRequestContent(
+                permissionState = permissionState,
+                shouldShowRationale = permissionState.status.shouldShowRationale,
+                isPermanentlyDenied = !permissionState.status.isGranted && !permissionState.status.shouldShowRationale
+            )
+        } else {
+            SearchBar(
+                query = uiState.searchQuery,
+                onQueryChange = { query ->
+                    viewModel.onEvent(LibraryEvent.SearchQueryChanged(query))
+                },
+                placeholder = "Search songs",
+                currentFilter = uiState.currentFilterOption,
+                onFilterSelected = { filterOption ->
+                    viewModel.onEvent(LibraryEvent.FilterSelected(filterOption))
+                }
+            )
+            LibraryContent(
+                uiState = uiState,
+                onAudioClick = { audioFile ->
+                    viewModel.onEvent(LibraryEvent.PlayAudio(audioFile))
+                },
+                isAudioPlaying = uiState.isPlaying,
+                onRetry = { viewModel.onEvent(LibraryEvent.Retry) },
+                onRemoveOrDelete = { audioFileToDelete ->
+                    viewModel.onEvent(LibraryEvent.ShowDeleteConfirmation(audioFileToDelete))
+                },
+                onAddToPlaylist = {
+                    viewModel.onEvent(LibraryEvent.AddedToPlaylist(it))
+                },
+                onPlayNext = {
+                    viewModel.onEvent(LibraryEvent.PlayedNext(it))
+                },
+                lazyListState = lazyListState,
+            )
         }
     }
 
@@ -182,3 +177,4 @@ fun LibraryScreen(
         }
     }
 }
+

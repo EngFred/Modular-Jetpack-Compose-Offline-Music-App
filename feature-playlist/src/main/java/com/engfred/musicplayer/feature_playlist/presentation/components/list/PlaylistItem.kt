@@ -138,7 +138,10 @@ fun PlaylistItem(
                     }
                     DropdownMenu(
                         expanded = showMenu,
-                        onDismissRequest = { showMenu = false }
+                        onDismissRequest = { showMenu = false },
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(16.dp))
                     ) {
                         DropdownMenuItem(
                             text = { Text("Delete Playlist") },

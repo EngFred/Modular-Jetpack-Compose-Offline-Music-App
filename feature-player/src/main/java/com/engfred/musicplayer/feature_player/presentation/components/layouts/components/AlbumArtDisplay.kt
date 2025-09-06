@@ -169,7 +169,7 @@ fun AlbumArtDisplay(
                         ambientColor = Color.Black.copy(alpha = 0.4f),
                         spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
                     )
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f)),
+                    .background(color = Color.Black.copy(alpha = 0.2f)),
                 contentAlignment = Alignment.Center
             ) {
                 CoilImage(

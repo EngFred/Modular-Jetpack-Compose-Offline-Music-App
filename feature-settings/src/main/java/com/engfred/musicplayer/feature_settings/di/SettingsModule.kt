@@ -15,8 +15,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import com.engfred.musicplayer.core.domain.repository.SettingsRepository
 
-// Define the DataStore instance as an extension property for internal use by Hilt
-// This is now used only within the provideSettingsDataStore function
+// Define the DataStore instance as an extension property
 private val Context.appSettingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "app_settings")
 
 @Module

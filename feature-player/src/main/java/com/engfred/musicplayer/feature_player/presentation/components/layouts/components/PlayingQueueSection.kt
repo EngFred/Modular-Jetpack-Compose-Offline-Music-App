@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
@@ -34,7 +35,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.engfred.musicplayer.core.ui.AudioFileDivider
 import com.skydoves.landscapist.ImageOptions
 import com.skydoves.landscapist.coil.CoilImage
 
@@ -84,7 +84,8 @@ fun PlayingQueueSection(
                         isCurrentlyPlaying = index == currentSongIndex,
                         onPlayClick = { onPlayItem(audioFile) },
                         onRemoveClick = { onRemoveItem(audioFile) },
-                        showAlbumArt = isCompact
+                        showAlbumArt = isCompact,
+                        isLastItem = index == playingQueue.lastIndex
                     )
                 }
             }
@@ -100,6 +101,7 @@ fun QueueItem(
     onPlayClick: () -> Unit,
     onRemoveClick: () -> Unit,
     showAlbumArt: Boolean = true,
+    isLastItem: Boolean = false
 ) {
     val backgroundColor = if (isCurrentlyPlaying) {
         MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
@@ -131,32 +133,32 @@ fun QueueItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-           if (showAlbumArt)  {
+            if (showAlbumArt)  {
 
-               CoilImage(
-                   imageModel = { audioFile.albumArtUri },
-                   imageOptions = ImageOptions(
-                       contentDescription = "Album Art",
-                       contentScale = ContentScale.Crop
-                   ),
-                   modifier = Modifier
-                       .size(48.dp)
-                       .clip(RoundedCornerShape(8.dp)),
-                   failure = {
-                       Icon(
-                           imageVector = Icons.Rounded.Album,
-                           contentDescription = "No Album Art",
-                       )
-                   },
-                   loading = {
-                       Icon(
-                           imageVector = Icons.Rounded.Album,
-                           contentDescription = "No Album Art",
-                       )
-                   }
-               )
-               Spacer(modifier = Modifier.width(12.dp))
-           }
+                CoilImage(
+                    imageModel = { audioFile.albumArtUri },
+                    imageOptions = ImageOptions(
+                        contentDescription = "Album Art",
+                        contentScale = ContentScale.Crop
+                    ),
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                    failure = {
+                        Icon(
+                            imageVector = Icons.Rounded.Album,
+                            contentDescription = "No Album Art",
+                        )
+                    },
+                    loading = {
+                        Icon(
+                            imageVector = Icons.Rounded.Album,
+                            contentDescription = "No Album Art",
+                        )
+                    }
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+            }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = audioFile.title ?: "Unknown Title",
@@ -185,8 +187,8 @@ fun QueueItem(
             }
         }
         if (showAlbumArt) Spacer(Modifier.size(6.dp))
-        AudioFileDivider()
-
+        if (!isLastItem) {
+            HorizontalDivider()
+        }
     }
-
 }

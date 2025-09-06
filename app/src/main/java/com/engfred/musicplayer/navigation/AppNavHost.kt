@@ -1,11 +1,10 @@
 package com.engfred.musicplayer.navigation
 
 import android.os.Build
-import androidx.annotation.OptIn
 import androidx.annotation.RequiresApi
-import androidx.compose.material3.windowsizeclass.WindowHeightSizeClass
-import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -18,13 +17,18 @@ import com.engfred.musicplayer.feature_playlist.presentation.screens.PlaylistDet
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.detail.PlaylistDetailArgs
 import com.engfred.musicplayer.feature_settings.presentation.screens.SettingsScreen
 import com.engfred.musicplayer.ui.MainScreen
+import com.engfred.musicplayer.ui.about.screen.CustomSplashScreen
+import androidx.compose.material3.windowsizeclass.WindowHeightSizeClass
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
+import androidx.compose.ui.Modifier
 import com.engfred.musicplayer.ui.about.screen.AboutScreen
+import kotlinx.coroutines.delay
 
 /**
  * Defines the main navigation graph for the application.
  */
-@OptIn(UnstableApi::class)
 @RequiresApi(Build.VERSION_CODES.M)
+@UnstableApi
 @Composable
 fun AppNavHost(
     rootNavController: NavHostController,
@@ -38,11 +42,23 @@ fun AppNavHost(
 ) {
     NavHost(
         navController = rootNavController,
-        startDestination = AppDestinations.MainGraph.route
+        startDestination = AppDestinations.Splash.route
     ) {
+        // Splash screen
+        composable(AppDestinations.Splash.route) {
+            CustomSplashScreen()
+            LaunchedEffect(Unit) {
+                delay(3000) // 3-second delay
+                rootNavController.navigate(AppDestinations.MainGraph.route) {
+                    popUpTo(AppDestinations.Splash.route) { inclusive = true } // Remove splash from back stack
+                }
+            }
+        }
+
         // Main Graph (with bottom nav)
         composable(AppDestinations.MainGraph.route) {
             MainScreen(
+
                 onNavigateToNowPlaying = {
                     rootNavController.navigate(AppDestinations.NowPlaying.route)
                 },
@@ -65,9 +81,7 @@ fun AppNavHost(
         }
 
         // Player screen
-        composable(
-            route = AppDestinations.NowPlaying.route
-        ) {
+        composable(AppDestinations.NowPlaying.route) {
             PlayerScreen(
                 windowWidthSizeClass = windowWidthSizeClass,
                 windowHeightSizeClass = windowHeightSizeClass,
@@ -102,12 +116,11 @@ fun AppNavHost(
             )
         }
 
-        // about
+        // About
         composable(AppDestinations.About.route) {
             AboutScreen(
                 onNavigateBack = { rootNavController.popBackStack() }
             )
         }
-
     }
 }

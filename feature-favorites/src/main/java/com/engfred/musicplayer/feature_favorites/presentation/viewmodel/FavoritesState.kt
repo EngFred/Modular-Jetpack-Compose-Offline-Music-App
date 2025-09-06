@@ -9,6 +9,7 @@ data class FavoritesScreenState(
     val error: String? = null,
     val currentPlayingId: Long? = null,
     val isPlaying: Boolean = false,
+    val currentPlaybackAudioFile: AudioFile? = null,
     val audioToAddToPlaylist: AudioFile? = null,
     val playlists: List<Playlist> = emptyList(),
     val showAddToPlaylistDialog: Boolean = false,

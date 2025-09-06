@@ -56,11 +56,11 @@ fun ProfileHeader() {
             )
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = "Fred Omongole",
+                text = "Engineer Fred",
                 style = MaterialTheme.typography.headlineSmall
             )
             Text(
-                text = "Mobile & Web Developer",
+                text = "Mobile & Web Apps Developer",
                 style = MaterialTheme.typography.bodyMedium
             )
         }

@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FolderOff
 import androidx.compose.material.icons.outlined.SearchOff
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -15,7 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.dp
 import com.engfred.musicplayer.core.domain.model.AudioFile
-import com.engfred.musicplayer.core.ui.AudioFileDivider
 import com.engfred.musicplayer.core.ui.AudioFileItem
 import com.engfred.musicplayer.core.ui.ErrorIndicator
 import com.engfred.musicplayer.core.ui.InfoIndicator
@@ -91,7 +91,11 @@ fun LibraryContent(
                                 modifier = Modifier.fillMaxWidth(),
                                 isFromLibrary = true
                             )
-                            AudioFileDivider()
+                            if (audioFile != audios.lastOrNull()) {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(start = 80.dp)
+                                )
+                            }
                         }
                     }
                 }

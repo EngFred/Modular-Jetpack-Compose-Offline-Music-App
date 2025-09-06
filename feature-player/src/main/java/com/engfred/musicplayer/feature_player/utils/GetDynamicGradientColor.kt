@@ -12,14 +12,6 @@ import coil.request.ImageRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/**
- * Generates a dynamic two-color vertical gradient from an album art URI using Palette API.
- * Prioritizes dark, vibrant colors for a rich, immersive background.
- *
- * @param context The Android [Context] for image loading.
- * @param uri The URI of the album art.
- * @return A list of two [Color]s for the gradient, or a default dark gradient on failure.
- */
 suspend fun getDynamicGradientColors(context: Context, uri: String?): List<Color> {
     // Default dark gradient colors
     val defaultColors = listOf(Color(0xFF1E1E1E), Color(0xFF333333))

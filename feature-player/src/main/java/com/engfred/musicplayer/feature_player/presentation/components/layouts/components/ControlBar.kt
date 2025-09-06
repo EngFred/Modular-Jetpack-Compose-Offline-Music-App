@@ -52,24 +52,6 @@ private data class ControlSizes(
     val horizontalSpacing: Dp
 )
 
-/**
- * A reusable Composable for the music player's control bar.
- * It provides buttons for shuffle, skip previous, play/pause, skip next, and repeat.
- * The appearance adapts based on the selected [PlayerLayout], [WindowWidthSizeClass], and [WindowHeightSizeClass].
- *
- * @param shuffleMode The current shuffle mode state.
- * @param isPlaying Boolean indicating if music is currently playing.
- * @param repeatMode The current repeat mode state.
- * @param onPlayPauseClick Callback for play/pause button clicks.
- * @param onSkipPreviousClick Callback for skip previous button clicks.
- * @param onSkipNextClick Callback for skip next button clicks.
- * @param onSetShuffleMode Callback to set the new shuffle mode.
- * @param onSetRepeatMode Callback to set the new repeat mode.
- * @param playerLayout The currently active player layout, used for styling adjustments.
- * @param windowWidthSizeClass The current window width size class.
- * @param windowHeightSizeClass The current window height size class.
- * @param modifier The modifier to be applied to the control bar.
- */
 @Composable
 fun ControlBar(
     shuffleMode: ShuffleMode,

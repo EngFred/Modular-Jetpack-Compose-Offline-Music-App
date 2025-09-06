@@ -159,6 +159,7 @@ fun MusicPlayerAppTheme(
         }
     }
 
+
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,

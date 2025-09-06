@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.feature_playlist.presentation.components
 
+import androidx.compose.foundation.background
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -36,6 +37,6 @@ fun DeleteConfirmationDialog(
                 Text("Cancel")
             }
         },
-        modifier = modifier
+        containerColor = MaterialTheme.colorScheme.surface,
     )
 }

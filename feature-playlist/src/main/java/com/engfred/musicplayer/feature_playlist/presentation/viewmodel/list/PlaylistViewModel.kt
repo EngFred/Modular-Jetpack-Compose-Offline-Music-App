@@ -43,7 +43,7 @@ class PlaylistViewModel @Inject constructor(
         loadPlaylists()
         playbackController.getPlaybackState().onEach { state ->
             _uiState.update { currentState ->
-                currentState.copy(isPlaying = state.currentAudioFile != null && state.isPlaying)
+                currentState.copy(currentPlaybackAudioFile = state.currentAudioFile)
             }
         }.launchIn(viewModelScope)
 

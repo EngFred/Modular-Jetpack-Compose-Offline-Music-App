@@ -18,6 +18,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.windowsizeclass.WindowHeightSizeClass
@@ -48,6 +49,8 @@ import com.skydoves.landscapist.coil.CoilImage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import com.engfred.musicplayer.core.domain.repository.RepeatMode
+import com.engfred.musicplayer.core.domain.repository.ShuffleMode
 
 @RequiresApi(Build.VERSION_CODES.M)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -64,7 +67,9 @@ fun MinimalistGrooveLayout(
     windowHeightSizeClass: WindowHeightSizeClass,
     playingQueue: List<AudioFile>,
     onPlayQueueItem: (AudioFile) -> Unit,
-    onRemoveQueueItem: (AudioFile) -> Unit = {}
+    onRemoveQueueItem: (AudioFile) -> Unit = {},
+    repeatMode: RepeatMode,
+    shuffleMode: ShuffleMode
 ) {
     val view = LocalView.current
     val coroutineScope = rememberCoroutineScope()
@@ -110,76 +115,141 @@ fun MinimalistGrooveLayout(
     }
 
     val useTwoPane = windowWidthSizeClass == WindowWidthSizeClass.Expanded
-    val topAppBarPadding = if (useTwoPane) 24.dp else 36.dp
+    val topAppBarPadding = 0.dp
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .pointerInput(Unit) {
-                detectVerticalDragGestures { _, dragAmount ->
-                    if (dragAmount < -20f) { // Swipe up threshold
-                        coroutineScope.launch { sheetState.show() }
-                        showQueueBottomSheet = true
-                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                    }
-                }
-            },
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween
+    Surface(
+        color = MaterialTheme.colorScheme.background,
+        contentColor = MaterialTheme.colorScheme.onBackground,
+        modifier = Modifier.fillMaxSize().systemBarsPadding()
     ) {
-        TopBar(
-            onNavigateUp = onNavigateUp,
-            currentSongIndex = currentSongIndex + 1,
-            totalQueueSize = totalSongsInQueue,
-            onOpenQueue = { },
-            windowWidthSizeClass = windowWidthSizeClass,
-            selectedLayout = selectedLayout,
-            onLayoutSelected = onLayoutSelected,
-            isFavorite = uiState.isFavorite,
-            onToggleFavorite = {
-                uiState.currentAudioFile?.let {
-                    if (uiState.isFavorite) {
-                        onEvent(PlayerEvent.RemoveFromFavorites(it.id))
-                    } else {
-                        onEvent(PlayerEvent.AddToFavorites(it))
-                    }
-                }
-                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-            },
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .wrapContentHeight()
-                .padding(start = 8.dp, end = 8.dp, top = topAppBarPadding, bottom = 8.dp)
-        )
-
-        if (useTwoPane) {
-            Row(
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures { _, dragAmount ->
+                        if (dragAmount < -20f) { // Swipe up threshold
+                            coroutineScope.launch { sheetState.show() }
+                            showQueueBottomSheet = true
+                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                        }
+                    }
+                },
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            TopBar(
+                onNavigateUp = onNavigateUp,
+                currentSongIndex = currentSongIndex + 1,
+                totalQueueSize = totalSongsInQueue,
+                onOpenQueue = { },
+                windowWidthSizeClass = windowWidthSizeClass,
+                selectedLayout = selectedLayout,
+                onLayoutSelected = onLayoutSelected,
+                isFavorite = uiState.isFavorite,
+                onToggleFavorite = {
+                    uiState.currentAudioFile?.let {
+                        if (uiState.isFavorite) {
+                            onEvent(PlayerEvent.RemoveFromFavorites(it.id))
+                        } else {
+                            onEvent(PlayerEvent.AddToFavorites(it))
+                        }
+                    }
+                    view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .weight(1f),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                AlbumArtSection(
-                    albumArtUri = uiState.currentAudioFile?.albumArtUri,
-                    animatedRotation = animatedRotation,
+            )
+
+            if (useTwoPane) {
+                Row(
                     modifier = Modifier
-                        .aspectRatio(1f)
-                        .size(400.dp)
-                )
-                Spacer(modifier = Modifier.width(76.dp))
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .weight(1f),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AlbumArtSection(
+                        albumArtUri = uiState.currentAudioFile?.albumArtUri,
+                        animatedRotation = animatedRotation,
+                        modifier = Modifier
+                            .aspectRatio(1f)
+                            .size(400.dp)
+                    )
+                    Spacer(modifier = Modifier.width(76.dp))
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        SongInfoSection(
+                            title = uiState.currentAudioFile?.title,
+                            artist = uiState.currentAudioFile?.artist
+                        )
+                        Spacer(modifier = Modifier.height(32.dp))
+                        SeekBarSection(
+                            sliderValue = uiState.playbackPositionMs.toFloat(),
+                            totalDurationMs = uiState.totalDurationMs,
+                            playbackPositionMs = uiState.playbackPositionMs,
+                            onSliderValueChange = { newValue ->
+                                onEvent(PlayerEvent.SetSeeking(true))
+                                onEvent(PlayerEvent.SeekTo(newValue.toLong()))
+                            },
+                            onSliderValueChangeFinished = {
+                                onEvent(PlayerEvent.SetSeeking(false))
+                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                            },
+                            playerLayout = PlayerLayout.MINIMALIST_GROOVE,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        ControlBar(
+                            shuffleMode = shuffleMode,
+                            isPlaying = uiState.isPlaying,
+                            repeatMode = repeatMode,
+                            onPlayPauseClick = {
+                                onEvent(PlayerEvent.PlayPause)
+                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                            },
+                            onSkipPreviousClick = {
+                                onEvent(PlayerEvent.SkipToPrevious)
+                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                            },
+                            onSkipNextClick = {
+                                onEvent(PlayerEvent.SkipToNext)
+                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                            },
+                            onSetShuffleMode = { newMode -> onEvent(PlayerEvent.SetShuffleMode(newMode)) },
+                            onSetRepeatMode = { newMode -> onEvent(PlayerEvent.SetRepeatMode(newMode)) },
+                            playerLayout = PlayerLayout.MINIMALIST_GROOVE,
+                            windowWidthSizeClass = windowWidthSizeClass,
+                            windowHeightSizeClass = windowHeightSizeClass,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            } else {
                 Column(
                     modifier = Modifier
+                        .fillMaxWidth()
                         .weight(1f)
-                        .fillMaxHeight(),
+                        .wrapContentHeight()
+                        .padding(horizontal = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    verticalArrangement = Arrangement.SpaceAround
                 ) {
+                    AlbumArtSection(
+                        albumArtUri = uiState.currentAudioFile?.albumArtUri,
+                        animatedRotation = animatedRotation,
+                        modifier = Modifier.size(200.dp)
+                    )
+                    Spacer(modifier = Modifier.height(32.dp))
                     SongInfoSection(
                         title = uiState.currentAudioFile?.title,
-                        artist = uiState.currentAudioFile?.artist
+                        artist = uiState.currentAudioFile?.artist,
+                        modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(32.dp))
                     SeekBarSection(
@@ -197,11 +267,11 @@ fun MinimalistGrooveLayout(
                         playerLayout = PlayerLayout.MINIMALIST_GROOVE,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(spacingSeekBarToControlBar))
                     ControlBar(
-                        shuffleMode = uiState.shuffleMode,
+                        shuffleMode = shuffleMode,
                         isPlaying = uiState.isPlaying,
-                        repeatMode = uiState.repeatMode,
+                        repeatMode = repeatMode,
                         onPlayPauseClick = {
                             onEvent(PlayerEvent.PlayPause)
                             view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
@@ -223,97 +293,35 @@ fun MinimalistGrooveLayout(
                     )
                 }
             }
-        } else {
-            Column(
+
+            // Bottom Sheet Trigger Row
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .wrapContentHeight()
-                    .padding(horizontal = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceAround
+                    .padding(bottom = 13.dp)
+                    .align(Alignment.CenterHorizontally)
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onTap = {
+                                coroutineScope.launch { sheetState.show() }
+                                showQueueBottomSheet = true
+                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                            }
+                        )
+                    }
             ) {
-                AlbumArtSection(
-                    albumArtUri = uiState.currentAudioFile?.albumArtUri,
-                    animatedRotation = animatedRotation,
-                    modifier = Modifier.size(200.dp)
+                Text(
+                    text = "${currentSongIndex + 1}/${totalSongsInQueue}",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                 )
-                Spacer(modifier = Modifier.height(32.dp))
-                SongInfoSection(
-                    title = uiState.currentAudioFile?.title,
-                    artist = uiState.currentAudioFile?.artist,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(32.dp))
-                SeekBarSection(
-                    sliderValue = uiState.playbackPositionMs.toFloat(),
-                    totalDurationMs = uiState.totalDurationMs,
-                    playbackPositionMs = uiState.playbackPositionMs,
-                    onSliderValueChange = { newValue ->
-                        onEvent(PlayerEvent.SetSeeking(true))
-                        onEvent(PlayerEvent.SeekTo(newValue.toLong()))
-                    },
-                    onSliderValueChangeFinished = {
-                        onEvent(PlayerEvent.SetSeeking(false))
-                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                    },
-                    playerLayout = PlayerLayout.MINIMALIST_GROOVE,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(spacingSeekBarToControlBar))
-                ControlBar(
-                    shuffleMode = uiState.shuffleMode,
-                    isPlaying = uiState.isPlaying,
-                    repeatMode = uiState.repeatMode,
-                    onPlayPauseClick = {
-                        onEvent(PlayerEvent.PlayPause)
-                        view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                    },
-                    onSkipPreviousClick = {
-                        onEvent(PlayerEvent.SkipToPrevious)
-                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                    },
-                    onSkipNextClick = {
-                        onEvent(PlayerEvent.SkipToNext)
-                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                    },
-                    onSetShuffleMode = { newMode -> onEvent(PlayerEvent.SetShuffleMode(newMode)) },
-                    onSetRepeatMode = { newMode -> onEvent(PlayerEvent.SetRepeatMode(newMode)) },
-                    playerLayout = PlayerLayout.MINIMALIST_GROOVE,
-                    windowWidthSizeClass = windowWidthSizeClass,
-                    windowHeightSizeClass = windowHeightSizeClass,
-                    modifier = Modifier.fillMaxWidth()
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = Icons.Rounded.KeyboardArrowUp,
+                    contentDescription = "Open Queue",
+                    tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                 )
             }
-        }
-
-        // Bottom Sheet Trigger Row
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .padding(bottom = 25.dp)
-                .align(Alignment.CenterHorizontally)
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onTap = {
-                            coroutineScope.launch { sheetState.show() }
-                            showQueueBottomSheet = true
-                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                        }
-                    )
-                }
-        ) {
-            Text(
-                text = "${currentSongIndex + 1}/${totalSongsInQueue}",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Icon(
-                imageVector = Icons.Rounded.KeyboardArrowUp,
-                contentDescription = "Open Queue",
-                tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-            )
         }
     }
 }

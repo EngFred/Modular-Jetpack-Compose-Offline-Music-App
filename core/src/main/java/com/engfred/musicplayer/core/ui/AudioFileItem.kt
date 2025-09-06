@@ -178,8 +178,8 @@ fun AudioFileItem(
                 expanded = showMenu,
                 onDismissRequest = { showMenu = false },
                 modifier = Modifier
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                     .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surface)
             ) {
                 DropdownMenuItem(
                     text = { Text("Play Next") },

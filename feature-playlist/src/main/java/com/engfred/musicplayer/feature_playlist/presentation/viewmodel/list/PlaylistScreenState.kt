@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.feature_playlist.presentation.viewmodel.list
 
+import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.domain.model.PlaylistLayoutType
 import com.engfred.musicplayer.core.domain.model.Playlist
 
@@ -13,6 +14,6 @@ data class PlaylistScreenState(
     val error: String? = null,
     val showCreatePlaylistDialog: Boolean = false,
     val dialogInputError: String? = null,
-    val isPlaying: Boolean = false,
+    val currentPlaybackAudioFile: AudioFile? = null,
     val currentLayout: PlaylistLayoutType = PlaylistLayoutType.LIST
 )

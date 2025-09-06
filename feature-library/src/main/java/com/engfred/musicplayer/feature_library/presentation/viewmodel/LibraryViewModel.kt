@@ -58,7 +58,8 @@ class LibraryViewModel @Inject constructor(
             _uiState.update { currentState ->
                 currentState.copy(
                     currentPlayingId = state.currentAudioFile?.id,
-                    isPlaying = state.isPlaying
+                    isPlaying = state.isPlaying,
+                    currentPlaybackAudioFile = state.currentAudioFile
                 )
             }
         }.launchIn(viewModelScope)

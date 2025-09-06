@@ -18,12 +18,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.compose.material.icons.rounded.ArrowBackIosNew
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.ScreenRotation
-import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -54,7 +52,7 @@ import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import android.view.HapticFeedbackConstants
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.semantics.customActions
 
 @Composable
@@ -68,13 +66,20 @@ fun TopBar(
     selectedLayout: PlayerLayout,
     onLayoutSelected: (PlayerLayout) -> Unit,
     isFavorite: Boolean = false,
-    onToggleFavorite: () -> Unit = {}
+    onToggleFavorite: () -> Unit = {},
+    dynamicContentColor: Color? = null // Optional dynamic content color for IMMERSIVE_CANVAS
 ) {
     var showLayoutMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val view = LocalView.current
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+
+    // Use dynamicContentColor only for IMMERSIVE_CANVAS; otherwise, use LocalContentColor
+    val contentColor = when (selectedLayout) {
+        PlayerLayout.IMMERSIVE_CANVAS -> dynamicContentColor ?: MaterialTheme.colorScheme.onBackground
+        else -> LocalContentColor.current // Use LocalContentColor for ETHEREAL_FLOW and MINIMALIST_GROOVE
+    }
 
     // Function to toggle device orientation
     fun toggleOrientation() {
@@ -108,7 +113,7 @@ fun TopBar(
                     Icon(
                         Icons.AutoMirrored.Rounded.ArrowBack,
                         contentDescription = "Navigate up",
-                        tint = LocalContentColor.current
+                        tint = contentColor
                     )
                 }
 
@@ -116,7 +121,7 @@ fun TopBar(
                 Text(
                     text = "Now Playing",
                     style = MaterialTheme.typography.titleLarge,
-                    color = LocalContentColor.current.copy(alpha = 0.8f),
+                    color = contentColor.copy(alpha = 0.8f),
                     fontWeight = FontWeight.SemiBold
                 )
                 Spacer(modifier = Modifier.weight(1f))
@@ -128,7 +133,7 @@ fun TopBar(
                         Icon(
                             imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                             contentDescription = if (isFavorite) "Remove from Favorites" else "Add to Favorites",
-                            tint = if (isFavorite) Color(0xFFFF5252) else LocalContentColor.current.copy(alpha = 0.7f),
+                            tint = if (isFavorite) Color(0xFFFF5252) else contentColor.copy(alpha = 0.7f),
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -150,7 +155,7 @@ fun TopBar(
                         Icon(
                             Icons.Rounded.ScreenRotation,
                             contentDescription = if (isLandscape) "Switch to portrait" else "Switch to landscape",
-                            tint = LocalContentColor.current,
+                            tint = contentColor,
                             modifier = Modifier.rotate(if (isLandscape) 90f else 0f)
                         )
                     }
@@ -158,7 +163,7 @@ fun TopBar(
                         Icon(
                             Icons.Rounded.MoreVert,
                             contentDescription = "Change Player Layout",
-                            tint = LocalContentColor.current
+                            tint = contentColor
                         )
                     }
                     LayoutDropdownMenu(
@@ -184,7 +189,7 @@ fun TopBar(
                     Icon(
                         Icons.AutoMirrored.Rounded.ArrowBack,
                         contentDescription = "Navigate up",
-                        tint = LocalContentColor.current
+                        tint = contentColor
                     )
                 }
 
@@ -192,7 +197,7 @@ fun TopBar(
                 Text(
                     text = "${currentSongIndex + 1}/$totalQueueSize",
                     style = MaterialTheme.typography.titleMedium,
-                    color = LocalContentColor.current.copy(alpha = 0.8f),
+                    color = contentColor.copy(alpha = 0.8f),
                     fontWeight = FontWeight.SemiBold
                 )
                 Spacer(modifier = Modifier.weight(1f))
@@ -219,7 +224,7 @@ fun TopBar(
                         Icon(
                             Icons.Rounded.ScreenRotation,
                             contentDescription = if (isLandscape) "Switch to portrait" else "Switch to landscape",
-                            tint = LocalContentColor.current,
+                            tint = contentColor,
                             modifier = Modifier.rotate(if (isLandscape) 90f else 0f)
                         )
                     }
@@ -227,7 +232,7 @@ fun TopBar(
                         Icon(
                             Icons.Rounded.MoreVert,
                             contentDescription = "Change Player Layout",
-                            tint = LocalContentColor.current
+                            tint = contentColor
                         )
                     }
                     LayoutDropdownMenu(
@@ -252,7 +257,7 @@ fun TopBar(
                     Icon(
                         Icons.AutoMirrored.Rounded.ArrowBack,
                         contentDescription = "Navigate up",
-                        tint = LocalContentColor.current
+                        tint = contentColor
                     )
                 }
 
@@ -260,7 +265,7 @@ fun TopBar(
                 Text(
                     text = "${currentSongIndex + 1}/$totalQueueSize",
                     style = MaterialTheme.typography.titleMedium,
-                    color = LocalContentColor.current.copy(alpha = 0.8f),
+                    color = contentColor.copy(alpha = 0.8f),
                     fontWeight = FontWeight.SemiBold
                 )
 
@@ -275,7 +280,7 @@ fun TopBar(
                             Icon(
                                 Icons.AutoMirrored.Rounded.QueueMusic,
                                 contentDescription = "Open Queue",
-                                tint = LocalContentColor.current
+                                tint = contentColor
                             )
                         }
                     } else {
@@ -299,7 +304,7 @@ fun TopBar(
                         Icon(
                             Icons.Rounded.ScreenRotation,
                             contentDescription = if (isLandscape) "Switch to portrait" else "Switch to landscape",
-                            tint = LocalContentColor.current,
+                            tint = contentColor,
                             modifier = Modifier.rotate(if (isLandscape) 90f else 0f)
                         )
                     }
@@ -307,7 +312,7 @@ fun TopBar(
                         Icon(
                             Icons.Rounded.MoreVert,
                             contentDescription = "Change Player Layout",
-                            tint = LocalContentColor.current
+                            tint = contentColor
                         )
                     }
                     LayoutDropdownMenu(
@@ -322,14 +327,6 @@ fun TopBar(
     }
 }
 
-/**
- * Reusable Composable for the player layout selection dropdown menu, styled like WhatsApp.
- *
- * @param expanded Whether the dropdown menu is currently expanded.
- * @param onDismissRequest Callback to dismiss the dropdown menu.
- * @param selectedLayout The currently selected player layout.
- * @param onLayoutSelected Callback to change the active player layout.
- */
 @Composable
 private fun LayoutDropdownMenu(
     expanded: Boolean,
@@ -353,10 +350,9 @@ private fun LayoutDropdownMenu(
                     label = "dropdownFade"
                 ).value
             ),
-        offset = DpOffset(x = (-8).dp, y = 8.dp) // Aligns menu to the right of MoreVert icon
+        offset = DpOffset(x = (-8).dp, y = 8.dp)
     ) {
         PlayerLayout.entries.forEachIndexed { index, layout ->
-            // Menu item with ripple effect and highlight for selected item
             Box(
                 modifier = Modifier
                     .background(
@@ -367,7 +363,7 @@ private fun LayoutDropdownMenu(
                     )
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
-                        indication = null // Ripple is handled by MaterialTheme
+                        indication = null
                     ) {
                         onLayoutSelected(layout)
                         onDismissRequest()
@@ -386,12 +382,11 @@ private fun LayoutDropdownMenu(
                     fontWeight = if (selectedLayout == layout) FontWeight.Medium else FontWeight.Normal
                 )
             }
-            // Add divider between items, except for the last one
             if (index < PlayerLayout.entries.size - 1) {
-                Divider(
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp),
                     thickness = 0.5.dp,
-                    modifier = Modifier.padding(horizontal = 16.dp)
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
                 )
             }
         }

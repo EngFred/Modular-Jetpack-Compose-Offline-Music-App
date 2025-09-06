@@ -9,11 +9,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.MoreVert
@@ -28,30 +27,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.skydoves.landscapist.ImageOptions
 import com.skydoves.landscapist.coil.CoilImage
 
-/**
- * NEW: Composable for the sticky top bar in compact mode.
- * This bar displays the back arrow, and conditionally shows the playlist art and name
- * when the user has scrolled past the main header section.
- *
- * @param playlistName The name of the playlist.
- * @param playlistArtUri The URI of the playlist's album art.
- * @param scrolledPastHeader Boolean indicating if the user has scrolled past the header.
- * @param onNavigateBack Callback to navigate back.
- * @param moreMenuExpanded State for the expanded/collapsed more options menu.
- * @param onMoreMenuExpandedChange Callback to change the expanded state of the more options menu.
- * @param isAutomaticPlaylist Boolean indicating if the current playlist is an automatic one.
- * @param onAddSongsClick Callback to trigger adding songs.
- * @param onRenamePlaylistClick Callback to trigger renaming the playlist.
- * @param modifier Modifier for the composable.
- */
 @Composable
 fun PlaylistDetailTopBar(
     playlistName: String?,
@@ -68,9 +51,8 @@ fun PlaylistDetailTopBar(
     Row(
         modifier = modifier
             .background(
-                color = if (scrolledPastHeader) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.background
-            )
-            .statusBarsPadding(),
+                color = MaterialTheme.colorScheme.background
+            ),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -131,7 +113,11 @@ fun PlaylistDetailTopBar(
                 }
                 DropdownMenu(
                     expanded = moreMenuExpanded,
-                    onDismissRequest = { onMoreMenuExpandedChange(false) }
+                    onDismissRequest = { onMoreMenuExpandedChange(false) },
+                    offset = DpOffset(x = (-16).dp, y = 0.dp), // pushes it away from screen edge
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surface) // modern background
                 ) {
                     if (!isAutomaticPlaylist) {
                         DropdownMenuItem(

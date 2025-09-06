@@ -4,13 +4,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.engfred.musicplayer.feature_settings.domain.usecases.GetAppSettingsUseCase
 import com.engfred.musicplayer.feature_settings.domain.usecases.UpdateThemeUseCase
+import com.engfred.musicplayer.feature_settings.domain.usecases.UpdatePlayerLayoutUseCase
+import com.engfred.musicplayer.feature_settings.domain.usecases.UpdatePlaylistLayoutUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow // Import
-import kotlinx.coroutines.flow.StateFlow // Import
-import kotlinx.coroutines.flow.asStateFlow // Import
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.update // Import
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -21,7 +23,12 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     getAppSettingsUseCase: GetAppSettingsUseCase,
-    private val updateThemeUseCase: UpdateThemeUseCase
+    private val updateThemeUseCase: UpdateThemeUseCase,
+    // ---------------------------------------------
+    // NEW: Inject use cases for updating additional settings
+    // ---------------------------------------------
+    private val updatePlayerLayoutUseCase: UpdatePlayerLayoutUseCase,
+    private val updatePlaylistLayoutUseCase: UpdatePlaylistLayoutUseCase
 ) : ViewModel() {
 
     // Change from 'var uiState by mutableStateOf' to MutableStateFlow
@@ -34,6 +41,11 @@ class SettingsViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     selectedTheme = appSettings.selectedTheme,
+                    // ---------------------------------------------
+                    // NEW: Map additional settings to UI state, excluding repeatMode and shuffleMode
+                    // ---------------------------------------------
+                    selectedPlayerLayout = appSettings.selectedPlayerLayout,
+                    playlistLayoutType = appSettings.playlistLayoutType,
                     isLoading = false, // Settings loaded, so not loading
                     error = null // Clear any previous error
                 )
@@ -56,6 +68,38 @@ class SettingsViewModel @Inject constructor(
                         _uiState.update {
                             it.copy(
                                 error = "Failed to update theme: ${e.localizedMessage}",
+                                isLoading = false
+                            )
+                        }
+                    }
+                }
+                // ---------------------------------------------
+                // NEW: Handle events for updating player layout
+                // ---------------------------------------------
+                is SettingsEvent.UpdatePlayerLayout -> {
+                    _uiState.update { it.copy(isLoading = true, error = null) }
+                    try {
+                        updatePlayerLayoutUseCase(event.layout)
+                    } catch (e: Exception) {
+                        _uiState.update {
+                            it.copy(
+                                error = "Failed to update player layout: ${e.localizedMessage}",
+                                isLoading = false
+                            )
+                        }
+                    }
+                }
+                // ---------------------------------------------
+                // NEW: Handle events for updating playlist layout
+                // ---------------------------------------------
+                is SettingsEvent.UpdatePlaylistLayout -> {
+                    _uiState.update { it.copy(isLoading = true, error = null) }
+                    try {
+                        updatePlaylistLayoutUseCase(event.layout)
+                    } catch (e: Exception) {
+                        _uiState.update {
+                            it.copy(
+                                error = "Failed to update playlist layout: ${e.localizedMessage}",
                                 isLoading = false
                             )
                         }

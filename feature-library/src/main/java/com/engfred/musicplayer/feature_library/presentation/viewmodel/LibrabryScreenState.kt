@@ -20,5 +20,6 @@ data class LibraryScreenState(
     val playlists: List<Playlist> = emptyList(),
     val audioToAddToPlaylist: AudioFile? = null,
     val showDeleteConfirmationDialog: Boolean = false,
-    val audioFileToDelete: AudioFile? = null
+    val audioFileToDelete: AudioFile? = null,
+    val currentPlaybackAudioFile: AudioFile? = null
 )

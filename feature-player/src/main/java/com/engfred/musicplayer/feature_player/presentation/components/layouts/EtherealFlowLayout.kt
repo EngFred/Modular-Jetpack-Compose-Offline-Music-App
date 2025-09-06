@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.feature_player.presentation.components.layouts
 
+import android.app.Activity
 import android.os.Build
 import android.view.HapticFeedbackConstants
 import androidx.annotation.RequiresApi
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -57,6 +59,10 @@ import com.engfred.musicplayer.feature_player.presentation.components.layouts.co
 import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerEvent
 import com.engfred.musicplayer.feature_player.utils.getDynamicGradientColors
 import kotlinx.coroutines.launch
+import com.engfred.musicplayer.core.domain.repository.RepeatMode
+import com.engfred.musicplayer.core.domain.repository.ShuffleMode
+import androidx.compose.material3.MaterialTheme
+
 
 @RequiresApi(Build.VERSION_CODES.M)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -73,11 +79,14 @@ fun EtherealFlowLayout(
     windowHeightSizeClass: WindowHeightSizeClass,
     selectedLayout: PlayerLayout,
     onLayoutSelected: (PlayerLayout) -> Unit,
-    playingAudio: AudioFile?
+    playingAudio: AudioFile?,
+    repeatMode: RepeatMode,
+    shuffleMode: ShuffleMode
 ) {
     val view = LocalView.current
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val colorScheme = MaterialTheme.colorScheme
 
     val gradientColors by produceState(
         initialValue = listOf(Color(0xFF1E1E1E), Color(0xFF333333)),
@@ -253,9 +262,9 @@ fun EtherealFlowLayout(
                         )
                         Spacer(modifier = Modifier.height(spacing))
                         ControlBar(
-                            shuffleMode = uiState.shuffleMode,
+                            shuffleMode = shuffleMode,
                             isPlaying = uiState.isPlaying,
-                            repeatMode = uiState.repeatMode,
+                            repeatMode = repeatMode,
                             onPlayPauseClick = {
                                 onEvent(PlayerEvent.PlayPause)
                                 view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
@@ -273,7 +282,7 @@ fun EtherealFlowLayout(
                             playerLayout = PlayerLayout.ETHEREAL_FLOW,
                             windowWidthSizeClass = windowWidthSizeClass,
                             windowHeightSizeClass = windowHeightSizeClass,
-                            modifier = Modifier.padding(horizontal = 24.dp)
+                            modifier = Modifier.padding(horizontal = 24.dp).navigationBarsPadding()
                         )
                     }
                 }
@@ -397,9 +406,9 @@ fun EtherealFlowLayout(
                             )
                             Spacer(modifier = Modifier.height(spacing))
                             ControlBar(
-                                shuffleMode = uiState.shuffleMode,
+                                shuffleMode = shuffleMode,
                                 isPlaying = uiState.isPlaying,
-                                repeatMode = uiState.repeatMode,
+                                repeatMode = repeatMode,
                                 onPlayPauseClick = {
                                     onEvent(PlayerEvent.PlayPause)
                                     view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
@@ -538,9 +547,9 @@ fun EtherealFlowLayout(
                             )
                             Spacer(modifier = Modifier.height(spacing))
                             ControlBar(
-                                shuffleMode = uiState.shuffleMode,
+                                shuffleMode = shuffleMode,
                                 isPlaying = uiState.isPlaying,
-                                repeatMode = uiState.repeatMode,
+                                repeatMode = repeatMode,
                                 onPlayPauseClick = {
                                     onEvent(PlayerEvent.PlayPause)
                                     view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
@@ -564,7 +573,8 @@ fun EtherealFlowLayout(
                         Column(
                             modifier = Modifier
                                 .weight(1f)
-                                .fillMaxHeight(),
+                                .fillMaxHeight()
+                                .navigationBarsPadding(),
                             horizontalAlignment = Alignment.Start,
                             verticalArrangement = Arrangement.Top
                         ) {

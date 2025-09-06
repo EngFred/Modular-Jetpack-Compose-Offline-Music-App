@@ -88,6 +88,13 @@ class PlaybackControllerImpl @Inject constructor(
      */
     private var attachedController: MediaController? = null
 
+    // ---------------------------------------------
+    // NEW: Store intended repeat and shuffle modes to apply them when MediaController connects
+    // or when playback starts, ensuring early calls from MainActivity aren't lost.
+    // ---------------------------------------------
+    private var intendedRepeatMode: RepeatMode = RepeatMode.OFF
+    private var intendedShuffleMode: ShuffleMode = ShuffleMode.OFF
+
     init {
         Log.d(TAG, "Initializing PlayerControllerImpl")
 
@@ -112,6 +119,12 @@ class PlaybackControllerImpl @Inject constructor(
                         newController.addListener(controllerCallback)
                         attachedController = newController
                         Log.d(TAG, "PlayerControllerImpl received and attached to shared MediaController.")
+                        // ---------------------------------------------
+                        // NEW: Apply stored repeat and shuffle modes when MediaController connects
+                        // to ensure modes set by MainActivity are applied as soon as possible.
+                        // ---------------------------------------------
+                        setRepeatMode(intendedRepeatMode)
+                        setShuffleMode(intendedShuffleMode)
                         updatePlaybackState() // Initial state update for UI
                         // Initial update of playback progress for the first song
                         updateCurrentAudioFilePlaybackProgress(newController)
@@ -285,6 +298,12 @@ class PlaybackControllerImpl @Inject constructor(
             try {
                 val mediaItems = playingQueue.map { audioFileMapper.mapAudioFileToMediaItem(it) }
                 controller.setMediaItems(mediaItems, startIndex, C.TIME_UNSET)
+                // ---------------------------------------------
+                // NEW: Re-apply stored repeat and shuffle modes to ensure they're set for new playback
+                // sessions, especially when the playlist changes.
+                // ---------------------------------------------
+                setRepeatMode(intendedRepeatMode)
+                setShuffleMode(intendedShuffleMode)
                 controller.prepare()
                 controller.play()
                 Log.d(TAG, "Initiated playback for: $initialAudioFileUri by setting new media items from shared source.")
@@ -347,13 +366,19 @@ class PlaybackControllerImpl @Inject constructor(
      */
     override suspend fun setRepeatMode(mode: RepeatMode) {
         withContext(Dispatchers.Main) {
+            // ---------------------------------------------
+            // NEW: Store the intended repeat mode to apply it later if MediaController isn't ready
+            // and log when it's stored vs. applied for debugging.
+            // ---------------------------------------------
+            intendedRepeatMode = mode
             mediaController.value?.let { controller ->
                 controller.repeatMode = when (mode) {
                     RepeatMode.OFF -> Player.REPEAT_MODE_OFF
                     RepeatMode.ONE -> Player.REPEAT_MODE_ONE
                     RepeatMode.ALL -> Player.REPEAT_MODE_ALL
                 }
-            } ?: Log.w(TAG, "MediaController not set when trying to set repeat mode.")
+                Log.d(TAG, "Set repeat mode to $mode")
+            } ?: Log.w(TAG, "MediaController not set when trying to set repeat mode. Stored $mode for later.")
         }
     }
 
@@ -364,9 +389,15 @@ class PlaybackControllerImpl @Inject constructor(
      */
     override suspend fun setShuffleMode(mode: ShuffleMode) {
         withContext(Dispatchers.Main) {
+            // ---------------------------------------------
+            // NEW: Store the intended shuffle mode to apply it later if MediaController isn't ready
+            // and log when it's stored vs. applied for debugging.
+            // ---------------------------------------------
+            intendedShuffleMode = mode
             mediaController.value?.let { controller ->
                 controller.shuffleModeEnabled = (mode == ShuffleMode.ON)
-            } ?: Log.w(TAG, "MediaController not set when trying to set shuffle mode.")
+                Log.d(TAG, "Set shuffle mode to $mode")
+            } ?: Log.w(TAG, "MediaController not set when trying to set shuffle mode. Stored $mode for later.")
         }
     }
 

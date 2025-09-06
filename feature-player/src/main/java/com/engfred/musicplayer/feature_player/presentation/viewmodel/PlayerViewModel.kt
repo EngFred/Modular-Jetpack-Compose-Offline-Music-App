@@ -52,6 +52,10 @@ class PlayerViewModel @Inject constructor(
                         },
                         isFavorite = isFavorite,
                         isSeeking = currentState.isSeeking
+                        // ---------------------------------------------
+                        // NEW: Remove reliance on local _repeatMode and _shuffleMode, using PlaybackState directly
+                        // since PlaybackControllerImpl now reliably sets these from MainActivity.
+                        // ---------------------------------------------
                     )
                 }
             }.launchIn(this)
@@ -60,11 +64,15 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 // Use .first() to get the current value and then immediately cancel collection
-                val savedLayout = settingsRepository.getAppSettings().first().selectedPlayerLayout
-                _playerLayoutState.value = savedLayout
-                Log.d("PlayerViewModel", "Player Layout initialized from settings: $savedLayout")
+                val appSettings = settingsRepository.getAppSettings().first()
+                _playerLayoutState.value = appSettings.selectedPlayerLayout
+                Log.d("PlayerViewModel", "Player Layout initialized from settings: ${appSettings.selectedPlayerLayout}")
+                // ---------------------------------------------
+                // NEW: Remove initialization of _repeatMode and _shuffleMode from settingsRepository
+                // since PlaybackControllerImpl already handles this via MainActivity calls.
+                // ---------------------------------------------
             } catch (e: Exception) {
-                Log.e("PlayerViewModel", "Failed to load player layout from settings: ${e.message}", e)
+                Log.e("PlayerViewModel", "Failed to load player settings from settings: ${e.message}", e)
                 // Fallback to default if loading fails
                 _playerLayoutState.value = PlayerLayout.ETHEREAL_FLOW
             }
@@ -89,9 +97,21 @@ class PlayerViewModel @Inject constructor(
                     }
                     is PlayerEvent.SetRepeatMode -> {
                         playbackController.setRepeatMode(event.mode)
+                        settingsRepository.updateRepeatMode(event.mode)
+                        // ---------------------------------------------
+                        // NEW: Remove update to _repeatMode since it's no longer used; PlaybackState.repeatMode
+                        // is updated by PlaybackControllerImpl and reflected in uiState.
+                        // ---------------------------------------------
+                        Log.d("PlayerViewModel", "Repeat mode set to ${event.mode}")
                     }
                     is PlayerEvent.SetShuffleMode -> {
                         playbackController.setShuffleMode(event.mode)
+                        settingsRepository.updateShuffleMode(event.mode)
+                        // ---------------------------------------------
+                        // NEW: Remove update to _shuffleMode since it's no longer used; PlaybackState.shuffleMode
+                        // is updated by PlaybackControllerImpl and reflected in uiState.
+                        // ---------------------------------------------
+                        Log.d("PlayerViewModel", "Shuffle mode set to ${event.mode}")
                     }
                     PlayerEvent.ReleasePlayer -> {
                         playbackController.releasePlayer()

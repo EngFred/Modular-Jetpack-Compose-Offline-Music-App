@@ -2,7 +2,6 @@ package com.engfred.musicplayer.navigation
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.List
-import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -12,6 +11,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
  * This centralizes route definitions and allows for type-safe navigation.
  */
 sealed class AppDestinations(val route: String) {
+
+    data object Splash : AppDestinations("splash")
 
     data object MainGraph : AppDestinations("main_graph")
 

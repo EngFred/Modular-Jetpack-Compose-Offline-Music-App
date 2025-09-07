@@ -96,8 +96,8 @@ class PlaylistRepositoryImpl @Inject constructor(
                 playlistWithSongsList.map { it.toDomain() }
             },
             getRecentlyAddedSongs(limit = 20), // Limit to 20 recently added songs
-            getTopPlayedSongs(sinceTimestamp = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000L), limit = 20) // Top 20 songs from last 7 days
-        ) { userPlaylists, recentlyAddedSongs, topSongs ->
+            getTopPlayedSongs(sinceTimestamp = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000L), limit = 20) // Top 20 songs from last 7 days (requires >= 3 plays)
+        ) { userPlaylists, recentlyAddedSongs, topPlayedPairs ->
             val automaticPlaylists = mutableListOf<Playlist>()
 
             // Add Recently Added playlist if there are songs
@@ -114,14 +114,15 @@ class PlaylistRepositoryImpl @Inject constructor(
             }
 
             // Add Top Songs playlist if there are songs
-            if (topSongs.isNotEmpty()) {
+            if (topPlayedPairs.isNotEmpty()) {
                 automaticPlaylists.add(
                     Playlist(
                         id = -2, // Use another negative ID
                         name = "Top Songs (Last 7 Days)",
-                        songs = topSongs,
+                        songs = topPlayedPairs.map { it.first },
                         isAutomatic = true,
-                        type = AutomaticPlaylistType.TOP_SONGS
+                        type = AutomaticPlaylistType.TOP_SONGS,
+                        playCounts = topPlayedPairs.associate { it.first.id to it.second }
                     )
                 )
             }
@@ -133,7 +134,7 @@ class PlaylistRepositoryImpl @Inject constructor(
     override fun getPlaylistById(playlistId: Long): Flow<Playlist?> {
         // Handle automatic playlist IDs
         return when (playlistId) {
-            -1L -> getRecentlyAddedSongs(limit = 50).map { songs ->
+            -1L -> getRecentlyAddedSongs(limit = 20).map { songs ->
                 if (songs.isNotEmpty()) Playlist(
                     id = -1,
                     name = "Recently Added",
@@ -142,13 +143,15 @@ class PlaylistRepositoryImpl @Inject constructor(
                     type = AutomaticPlaylistType.RECENTLY_ADDED
                 ) else null
             }
-            -2L -> getTopPlayedSongs(sinceTimestamp = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000L), limit = 50).map { songs ->
-                if (songs.isNotEmpty()) Playlist(
+            -2L -> getTopPlayedSongs(sinceTimestamp = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000L), limit = 50).map { pairs ->
+                // The flow returned by getTopPlayedSongs already filters out playCounts < 3
+                if (pairs.isNotEmpty()) Playlist(
                     id = -2,
                     name = "Top Songs (Last 7 Days)",
-                    songs = songs,
+                    songs = pairs.map { it.first },
                     isAutomatic = true,
-                    type = AutomaticPlaylistType.TOP_SONGS
+                    type = AutomaticPlaylistType.TOP_SONGS,
+                    playCounts = pairs.associate { it.first.id to it.second }
                 ) else null
             }
             else -> playlistDao.getPlaylistWithSongsById(playlistId).map { playlistWithSongs ->
@@ -178,6 +181,15 @@ class PlaylistRepositoryImpl @Inject constructor(
         playlistDao.deletePlaylistSong(playlistId, audioFileId)
     }
 
+    // NEW: Removes the song from all playlists by querying playlist IDs containing the song and removing from each.
+    override suspend fun removeSongFromAllPlaylists(audioFileId: Long) {
+        val playlistIds = playlistDao.getPlaylistIdsContainingSong(audioFileId)
+        playlistIds.forEach { playlistId ->
+            removeSongFromPlaylist(playlistId, audioFileId)
+        }
+        Log.d(TAG, "Removed song ID: $audioFileId from all playlists (${playlistIds.size} playlists affected).")
+    }
+
     /**
      * Retrieves a flow of recently added songs from the shared audio data source,
      * sorted by date added (descending).
@@ -195,23 +207,32 @@ class PlaylistRepositoryImpl @Inject constructor(
      * Retrieves a flow of top played songs by querying play events in the database.
      * It then maps these top played audio file IDs to actual AudioFile objects
      * from the shared audio data source.
+     *
+     * NOTE: This function enforces that only songs with at least 3 plays are included.
+     *
      * @param sinceTimestamp The timestamp (milliseconds) from which to count play events.
      * @param limit The maximum number of songs to retrieve.
      */
-    override fun getTopPlayedSongs(sinceTimestamp: Long, limit: Int): Flow<List<AudioFile>> {
+    override fun getTopPlayedSongs(sinceTimestamp: Long, limit: Int): Flow<List<Pair<AudioFile, Int>>> {
         return combine(
             playlistDao.getTopPlayedAudioFileIds(sinceTimestamp, limit),
             sharedAudioDataSource.deviceAudioFiles
         ) { topPlayedIds, allAudioFiles ->
-            val topSongs = mutableListOf<AudioFile>()
             val audioFileMap = allAudioFiles.associateBy { it.id } // Create a map for efficient lookup
 
-            for (topId in topPlayedIds) {
+            // Filter to require at least 3 plays, preserve order returned by DAO (assumed descending by play count),
+            // and then limit the number of results.
+            val filtered = topPlayedIds
+                .asSequence()
+                .filter { it.playCount >= 3 } // enforce minimum plays
+                .take(limit)
+                .toList()
+
+            filtered.mapNotNull { topId ->
                 audioFileMap[topId.audioFileId]?.let { audioFile ->
-                    topSongs.add(audioFile)
+                    audioFile to topId.playCount
                 }
             }
-            topSongs
         }
     }
 

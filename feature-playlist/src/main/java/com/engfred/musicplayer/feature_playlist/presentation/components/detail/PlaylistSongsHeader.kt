@@ -17,7 +17,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,6 +33,7 @@ fun PlaylistSongsHeader(
     onSortOrderChange: (PlaylistSortOrder) -> Unit,
     sortMenuExpanded: Boolean,
     onSortMenuExpandedChange: (Boolean) -> Unit,
+    isTopSongs: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -66,6 +66,7 @@ fun PlaylistSongsHeader(
                     text = when(currentSortOrder) {
                         PlaylistSortOrder.DATE_ADDED -> "Date Added"
                         PlaylistSortOrder.ALPHABETICAL -> "Alphabetical"
+                        PlaylistSortOrder.PLAY_COUNT -> "Play Count"
                     },
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelLarge
@@ -104,6 +105,22 @@ fun PlaylistSongsHeader(
                         }
                     }
                 )
+                if (isTopSongs) {
+                    DropdownMenuItem(
+                        text = { Text("Play Count (High to Low)") },
+                        onClick = {
+                            onSortOrderChange(PlaylistSortOrder.PLAY_COUNT)
+                            onSortMenuExpandedChange(false)
+                        },
+                        leadingIcon = {
+                            if (currentSortOrder == PlaylistSortOrder.PLAY_COUNT) {
+                                Icon(Icons.Rounded.Check, contentDescription = "Selected", tint = MaterialTheme.colorScheme.primary)
+                            } else {
+                                Spacer(modifier = Modifier.size(Icons.Rounded.Check.defaultWidth, Icons.Rounded.Check.defaultHeight)) // Placeholder for alignment
+                            }
+                        }
+                    )
+                }
             }
         }
     }

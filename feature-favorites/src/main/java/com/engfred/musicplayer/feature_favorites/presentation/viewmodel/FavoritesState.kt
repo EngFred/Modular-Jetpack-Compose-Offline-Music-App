@@ -14,5 +14,6 @@ data class FavoritesScreenState(
     val playlists: List<Playlist> = emptyList(),
     val showAddToPlaylistDialog: Boolean = false,
     val showRemoveFavoriteConfirmationDialog: Boolean = false,
-    val audioFileToRemove: AudioFile? = null
+    val audioFileToRemove: AudioFile? = null,
+    val isCleaningMissingFavorites: Boolean = false
 )

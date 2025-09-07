@@ -61,4 +61,8 @@ interface PlaylistDao {
      */
     @Query("DELETE FROM song_play_events WHERE timestamp < :olderThanTimestamp")
     suspend fun deleteOldPlayEvents(olderThanTimestamp: Long)
+
+    // NEW: Query to get all playlist IDs that contain a specific audio file.
+    @Query("SELECT playlistId FROM playlist_songs WHERE audioFileId = :audioFileId")
+    suspend fun getPlaylistIdsContainingSong(audioFileId: Long): List<Long>
 }

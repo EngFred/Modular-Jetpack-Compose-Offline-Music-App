@@ -58,7 +58,6 @@ class FavoritesViewModel @Inject constructor(
     fun onEvent(event: FavoritesEvent) {
         viewModelScope.launch {
             when (event) {
-                // Handle new confirmation events first
                 is FavoritesEvent.ShowRemoveFavoriteConfirmation -> {
                     _uiState.update {
                         it.copy(
@@ -67,6 +66,7 @@ class FavoritesViewModel @Inject constructor(
                         )
                     }
                 }
+
                 FavoritesEvent.DismissRemoveFavoriteConfirmation -> {
                     _uiState.update {
                         it.copy(
@@ -75,6 +75,7 @@ class FavoritesViewModel @Inject constructor(
                         )
                     }
                 }
+
                 FavoritesEvent.ConfirmRemoveFavorite -> {
                     _uiState.value.audioFileToRemove?.let { audioFile ->
                         try {
@@ -87,7 +88,6 @@ class FavoritesViewModel @Inject constructor(
                             _uiEvent.emit("Failed to remove favorite: ${e.message}")
                             Log.e("FavoritesViewModel", "Error removing favorite: ${e.message}", e)
                         } finally {
-                            // Always dismiss the dialog after attempting removal
                             _uiState.update {
                                 it.copy(
                                     showRemoveFavoriteConfirmationDialog = false,
@@ -115,7 +115,6 @@ class FavoritesViewModel @Inject constructor(
                     val audioFile = _uiState.value.audioToAddToPlaylist
                     if (audioFile != null) {
                         val songAlreadyInPlaylist = event.playlist.songs.any { it.id == audioFile.id }
-
                         if (songAlreadyInPlaylist) {
                             _uiEvent.emit("Song already in playlist")
                         } else {
@@ -144,22 +143,52 @@ class FavoritesViewModel @Inject constructor(
     }
 
     private suspend fun startAudioPlayback(audioFile: AudioFile) {
-        val audioFiles =  uiState.value.favoriteAudioFiles
+        val audioFiles = uiState.value.favoriteAudioFiles
         sharedAudioDataSource.setPlayingQueue(audioFiles)
         playbackController.initiatePlayback(audioFile.uri)
     }
 
     private fun loadFavoriteAudioFiles() {
         _uiState.update { it.copy(isLoading = true, error = null) }
-        favoritesRepository.getFavoriteAudioFiles().onEach { favoriteAudioFiles ->
+
+        kotlinx.coroutines.flow.combine(
+            favoritesRepository.getFavoriteAudioFiles(),
+            sharedAudioDataSource.deviceAudioFiles
+        ) { favorites, deviceFiles ->
+            favorites to deviceFiles
+        }.onEach { (favorites, deviceFiles) ->
+
+            if (_uiState.value.isCleaningMissingFavorites) return@onEach
+
+            val deviceIds = deviceFiles.map { it.id }.toSet()
+            val missingFavorites = favorites.filter { it.id !in deviceIds }
+
+            if (missingFavorites.isNotEmpty()) {
+                _uiState.update { it.copy(isCleaningMissingFavorites = true) }
+                viewModelScope.launch {
+                    try {
+                        missingFavorites.forEach { song ->
+                            try {
+                                favoritesRepository.removeFavoriteAudioFile(song.id)
+                                Log.d("FavoritesViewModel", "Removed missing favorite '${song.title}'")
+                            } catch (e: Exception) {
+                                Log.e("FavoritesViewModel", "Failed to remove missing favorite ${song.id}", e)
+                            }
+                        }
+                    } finally {
+                        _uiState.update { it.copy(isCleaningMissingFavorites = false) }
+                    }
+                }
+            }
+
             _uiState.update {
                 it.copy(
-                    favoriteAudioFiles = favoriteAudioFiles,
+                    favoriteAudioFiles = favorites.filter { it.id in deviceIds }, // only keep valid ones
                     isLoading = false,
                     error = null
                 )
             }
-            Log.d("FavoritesViewModel", "Loaded ${favoriteAudioFiles.size} favorite audio files.")
+
         }.launchIn(viewModelScope)
     }
 }

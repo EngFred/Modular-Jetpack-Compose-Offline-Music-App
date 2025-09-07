@@ -15,5 +15,6 @@ data class PlaylistDetailScreenState(
     val playlists: List<Playlist> = emptyList(),
     val audioToAddToPlaylist: AudioFile? = null,
     val showRemoveSongConfirmationDialog: Boolean = false,
-    val audioFileToRemove: AudioFile? = null
+    val audioFileToRemove: AudioFile? = null,
+    val isCleaningMissingSongs: Boolean = false
 )

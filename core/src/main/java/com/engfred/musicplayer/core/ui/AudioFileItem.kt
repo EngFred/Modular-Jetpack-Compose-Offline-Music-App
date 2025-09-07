@@ -7,6 +7,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -42,7 +44,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -51,12 +52,14 @@ import androidx.compose.ui.unit.dp
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.util.MediaUtils
 import com.skydoves.landscapist.coil.CoilImage
+import androidx.compose.ui.zIndex
 
 /**
  * A single audio file row styled like a chat list item (no card).
  *
  * - album art is circular
  * - rotates infinitely when current and playing
+ * - play count displayed as a small circular badge overlapping the top-left edge
  * - retains all original actions and visuals
  */
 @Composable
@@ -70,7 +73,8 @@ fun AudioFileItem(
     onAddToPlaylist: (AudioFile) -> Unit,
     onRemoveOrDelete: (AudioFile) -> Unit,
     isFromAutomaticPlaylist: Boolean = false,
-    isFromLibrary: Boolean = false
+    isFromLibrary: Boolean = false,
+    playCount: Int? = null
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -95,34 +99,70 @@ fun AudioFileItem(
             .padding(vertical = 8.dp, horizontal = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Album art with infinite rotation applied when playing
+        // Slightly larger outer box so the badge can overlap while remaining inside the row's hit area.
         Box(
-            modifier = Modifier
-                .size(56.dp)
-                .clip(CircleShape)
-                .graphicsLayer { rotationZ = rotationDegrees },
+            modifier = Modifier.size(64.dp),
             contentAlignment = Alignment.Center
         ) {
-            CoilImage(
-                imageModel = { audioFile.albumArtUri },
-                modifier = Modifier.fillMaxSize(),
-                loading = {
-                    Icon(
-                        imageVector = Icons.Rounded.MusicNote,
-                        contentDescription = "Loading icon",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        modifier = Modifier.size(28.dp)
-                    )
-                },
-                failure = {
-                    Icon(
-                        imageVector = Icons.Rounded.MusicNote,
-                        contentDescription = "No album art available",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        modifier = Modifier.size(28.dp)
+            // Inner clipped box: the album art which rotates when playing.
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .graphicsLayer { rotationZ = rotationDegrees }
+            ) {
+                CoilImage(
+                    imageModel = { audioFile.albumArtUri },
+                    modifier = Modifier.fillMaxSize(),
+                    loading = {
+                        Icon(
+                            imageVector = Icons.Rounded.MusicNote,
+                            contentDescription = "Loading icon",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.size(28.dp)
+                        )
+                    },
+                    failure = {
+                        Icon(
+                            imageVector = Icons.Rounded.MusicNote,
+                            contentDescription = "No album art available",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                )
+            }
+
+            // Play count badge: positioned slightly down-right relative to the album art's top-left,
+            // so it visually overlaps the edge (half-in / half-out). It's clickable and placed above the art.
+            if (playCount != null) {
+                val badgeSize = 20.dp
+                Box(
+                    modifier = Modifier
+                        // align near the top-start of the outer box
+                        .align(Alignment.TopStart)
+                        // move a little right and down so the badge sits half-over the album art edge
+                        .offset(x = 0.dp, y = 3.dp)
+                        .size(badgeSize)
+                        .zIndex(1f) // ensure above the album art
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary)
+                        .border(1.dp, MaterialTheme.colorScheme.surface, CircleShape)
+                        // make the badge itself clickable (delegates to row click for now)
+                        .clickable { onClick(audioFile) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = playCount.toString(),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
-            )
+            }
         }
 
         Spacer(modifier = Modifier.width(12.dp))
@@ -140,8 +180,9 @@ fun AudioFileItem(
                 overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(4.dp))
+            val artistText = audioFile.artist ?: "Unknown Artist"
             Text(
-                text = audioFile.artist ?: "Unknown Artist",
+                text = artistText,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.9f),
                 maxLines = 1,

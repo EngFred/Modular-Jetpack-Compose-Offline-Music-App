@@ -45,6 +45,9 @@ interface PlaylistRepository {
      */
     suspend fun removeSongFromPlaylist(playlistId: Long, audioFileId: Long)
 
+    // NEW: Removes a song from all playlists it belongs to.
+    suspend fun removeSongFromAllPlaylists(audioFileId: Long)
+
     /**
      * Retrieves a flow of recently added songs, sorted by date added (descending).
      * @param limit The maximum number of songs to retrieve.
@@ -56,7 +59,7 @@ interface PlaylistRepository {
      * @param sinceTimestamp The timestamp (milliseconds) from which to count play events.
      * @param limit The maximum number of songs to retrieve.
      */
-    fun getTopPlayedSongs(sinceTimestamp: Long, limit: Int): Flow<List<AudioFile>>
+    fun getTopPlayedSongs(sinceTimestamp: Long, limit: Int): Flow<List<Pair<AudioFile, Int>>>
 
     /**
      * Records a play event for a given audio file.

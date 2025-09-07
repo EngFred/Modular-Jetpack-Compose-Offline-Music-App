@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Shuffle
@@ -53,7 +52,6 @@ fun PlaylistActionButtons(
             contentAlignment = Alignment.Center
         ) {
             Row(
-//                horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
@@ -70,8 +68,6 @@ fun PlaylistActionButtons(
                 )
             }
         }
-
-//        Spacer(modifier = Modifier.width(if (isCompact) 16.dp else 24.dp))
 
         // Shuffle Tile
         Box(

@@ -5,7 +5,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
@@ -28,6 +27,7 @@ fun PlaylistSongs(
     onPlayNext: (AudioFile) -> Unit,
     listState: LazyListState,
     modifier: Modifier = Modifier,
+    playCountMap: Map<Long, Int>? = null
 ) {
     AnimatedVisibility(
         visible = songs.isNotEmpty(),
@@ -52,7 +52,8 @@ fun PlaylistSongs(
                     isAudioPlaying = isAudioPlaying,
                     onAddToPlaylist = onAddToPlaylist,
                     onPlayNext = onPlayNext,
-                    isFromAutomaticPlaylist = isFromAutomaticPlaylist
+                    isFromAutomaticPlaylist = isFromAutomaticPlaylist,
+                    playCount = playCountMap?.get(audioFile.id)
                 )
             }
         }

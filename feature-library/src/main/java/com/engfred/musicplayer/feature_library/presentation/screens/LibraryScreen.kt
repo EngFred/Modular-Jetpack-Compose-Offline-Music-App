@@ -91,10 +91,6 @@ fun LibraryScreen(
         }
     }
 
-//    LaunchedEffect(uiState.currentFilterOption) {
-//        lazyListState.scrollToItem(0)
-//    }
-
     // Use the provided modifier so NavHost padding (innerPadding) can be applied by the parent.
     Column(
         modifier = modifier

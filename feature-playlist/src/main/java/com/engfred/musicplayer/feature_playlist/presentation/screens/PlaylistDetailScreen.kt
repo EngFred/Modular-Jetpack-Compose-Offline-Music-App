@@ -65,6 +65,7 @@ import com.engfred.musicplayer.core.ui.ConfirmationDialog
 import com.engfred.musicplayer.feature_playlist.presentation.components.detail.PlaylistDetailTopBar
 import com.skydoves.landscapist.ImageOptions
 import com.skydoves.landscapist.coil.CoilImage
+import com.engfred.musicplayer.core.domain.model.AutomaticPlaylistType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,7 +81,7 @@ fun PlaylistDetailScreen(
 
     var moreMenuExpanded by remember { mutableStateOf(false) }
     var sortMenuExpanded by remember { mutableStateOf(false) }
-    var currentSortOrder by remember { mutableStateOf(PlaylistSortOrder.DATE_ADDED) }
+    var currentSortOrder by remember { mutableStateOf(if (uiState.playlist?.type == AutomaticPlaylistType.TOP_SONGS) PlaylistSortOrder.PLAY_COUNT else PlaylistSortOrder.DATE_ADDED) }
 
 
     LaunchedEffect(viewModel.uiEvent) {
@@ -89,11 +90,12 @@ fun PlaylistDetailScreen(
         }
     }
 
-    val sortedSongs = remember(uiState.playlist?.songs, currentSortOrder) {
+    val sortedSongs = remember(uiState.playlist?.songs, currentSortOrder, uiState.playlist?.playCounts) {
         uiState.playlist?.songs?.let { songs ->
             when (currentSortOrder) {
                 PlaylistSortOrder.DATE_ADDED -> songs
                 PlaylistSortOrder.ALPHABETICAL -> songs.sortedBy { it.title.lowercase() }
+                PlaylistSortOrder.PLAY_COUNT -> songs.sortedByDescending { uiState.playlist?.playCounts?.get(it.id) ?: 0 }
             }
         } ?: emptyList()
     }
@@ -248,7 +250,8 @@ fun PlaylistDetailScreen(
                                         currentSortOrder = currentSortOrder,
                                         onSortOrderChange = { currentSortOrder = it },
                                         sortMenuExpanded = sortMenuExpanded,
-                                        onSortMenuExpandedChange = { sortMenuExpanded = it }
+                                        onSortMenuExpandedChange = { sortMenuExpanded = it },
+                                        isTopSongs = uiState.playlist?.type == AutomaticPlaylistType.TOP_SONGS
                                     )
 
                                     Spacer(modifier = Modifier.height(16.dp))
@@ -281,7 +284,8 @@ fun PlaylistDetailScreen(
                                 onPlayNext = {
                                     viewModel.onEvent(PlaylistDetailEvent.SetPlayNext(it))
                                 },
-                                isFromAutomaticPlaylist = uiState.playlist?.isAutomatic ?: false
+                                isFromAutomaticPlaylist = uiState.playlist?.isAutomatic ?: false,
+                                playCount = uiState.playlist?.playCounts?.get(audioFile.id)
                             )
                             Spacer(Modifier.height(8.dp))
                         }
@@ -332,7 +336,7 @@ fun PlaylistDetailScreen(
                         .padding(start = 24.dp, end = 16.dp, top = 16.dp, bottom = 16.dp)
                 ) {
                     when {
-                        uiState.isLoading -> LoadingIndicator(modifier = Modifier.fillMaxSize())
+                        uiState.isLoading || uiState.isCleaningMissingSongs -> LoadingIndicator(modifier = Modifier.fillMaxSize())
                         uiState.error != null -> ErrorIndicator(modifier = Modifier.fillMaxSize(), message = uiState.error!!)
                         uiState.playlist == null -> InfoIndicator(modifier = Modifier.fillMaxSize(), message = "Playlist not found or could not be loaded.", icon = Icons.Outlined.LibraryMusic)
                         else -> {
@@ -341,7 +345,8 @@ fun PlaylistDetailScreen(
                                 currentSortOrder = currentSortOrder,
                                 onSortOrderChange = { currentSortOrder = it },
                                 sortMenuExpanded = sortMenuExpanded,
-                                onSortMenuExpandedChange = { sortMenuExpanded = it }
+                                onSortMenuExpandedChange = { sortMenuExpanded = it },
+                                isTopSongs = uiState.playlist?.type == AutomaticPlaylistType.TOP_SONGS
                             )
 
                             Spacer(modifier = Modifier.height(16.dp))
@@ -363,7 +368,8 @@ fun PlaylistDetailScreen(
                                     onPlayNext = {
                                         viewModel.onEvent(PlaylistDetailEvent.SetPlayNext(it))
                                     },
-                                    isFromAutomaticPlaylist = uiState.playlist?.isAutomatic ?: false
+                                    isFromAutomaticPlaylist = uiState.playlist?.isAutomatic ?: false,
+                                    playCountMap = uiState.playlist?.playCounts
                                 )
                             }
                         }

@@ -18,4 +18,5 @@ interface PlaybackController {
     fun clearPlaybackError()
     suspend fun onAudioFileRemoved(deletedAudioFile: AudioFile)
     suspend fun removeFromQueue(audioFile: AudioFile)
+    suspend fun initiateShufflePlayback(playingQueue: List<AudioFile>)
 }

@@ -53,7 +53,7 @@ fun FavoritesScreen(
             modifier = Modifier.fillMaxSize()
         ) {
             when {
-                uiState.isLoading -> {
+                uiState.isLoading || uiState.isCleaningMissingFavorites -> {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center

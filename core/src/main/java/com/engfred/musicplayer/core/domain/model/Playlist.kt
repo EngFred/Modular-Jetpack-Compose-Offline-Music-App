@@ -9,5 +9,6 @@ data class Playlist(
     val createdAt: Long = System.currentTimeMillis(),
     val songs: List<AudioFile> = emptyList(),
     val isAutomatic: Boolean,
-    val type: AutomaticPlaylistType?
+    val type: AutomaticPlaylistType?,
+    val playCounts: Map<Long, Int>? = null
 )

@@ -1,5 +1,4 @@
 package com.engfred.musicplayer.feature_player.data.repository.controller
-
 import android.net.Uri
 import android.util.Log
 import androidx.media3.common.C
@@ -16,9 +15,7 @@ import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.domain.repository.PlaybackState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
-// Grok: Added import for MediaItem
 import androidx.media3.common.MediaItem
-import com.engfred.musicplayer.feature_player.data.repository.PlaybackControllerImpl
 
 private const val TAG = "PlayerControllerImpl"
 
@@ -33,15 +30,12 @@ class ControllerCallback(
     private val pendingPlayNextMediaId: MutableStateFlow<String?>,
     //Added sharedAudioDataSource to remove inaccessible files from in-memory lists in onPlayerError.
     private val sharedAudioDataSource: SharedAudioDataSource,
-    private val playbackState: MutableStateFlow<PlaybackState>,
-    private val beatDetector: PlaybackControllerImpl.BeatDetector
+    private val playbackState: MutableStateFlow<PlaybackState>
 ) : Player.Listener {
-
     // Tracks the previous playback state to detect transitions (e.g., from playing to ended)
     private var lastPlaybackState = Player.STATE_IDLE
     // A timestamp to debounce rapid consecutive events (e.g., STATE_ENDED immediately followed by MEDIA_ITEM_TRANSITION)
     private var lastEventProcessedTimestamp: Long = 0L
-
     /**
      * Resets internal tracking variables. Called when player controller is released or disconnected.
      */
@@ -50,7 +44,6 @@ class ControllerCallback(
         lastEventProcessedTimestamp = 0L
         Log.d(TAG, "ControllerCallback event tracking variables reset.")
     }
-
     /**
      * Called when player events occur. This is where the "top tracks" logic resides.
      * @param player The [Player] instance.
@@ -61,7 +54,6 @@ class ControllerCallback(
         val isPlaybackEnded = events.contains(Player.EVENT_PLAYBACK_STATE_CHANGED) &&
                 player.playbackState == Player.STATE_ENDED &&
                 lastPlaybackState != Player.STATE_ENDED // Transition from non-ended to ended
-
         if (isSongTransition || isPlaybackEnded) {
             val now = System.currentTimeMillis()
             // Simple debounce: if an event just occurred very recently, skip processing
@@ -75,12 +67,10 @@ class ControllerCallback(
                 return
             }
             lastEventProcessedTimestamp = now
-
             // --- CRITICAL: Use the last known progress for the song that just ended/transitioned ---
             // This value comes from the _currentAudioFilePlaybackProgress flow, which is updated frequently
             // by startPlaybackPositionUpdates, giving us the most accurate "final" state of the previous song.
             val songToEvaluateProgress = progressFlow.value
-
             // If it's a transition and the mediaId in _currentAudioFilePlaybackProgress
             // matches the old mediaId before the transition (this is generally true due to timing),
             // then we proceed.
@@ -88,7 +78,6 @@ class ControllerCallback(
             // to confirm a transition actually occurred from THAT song.
             val currentMediaItemAfterEvent = player.currentMediaItem
             val isActuallyDifferentSong = currentMediaItemAfterEvent?.mediaId != songToEvaluateProgress.mediaId
-
             // Ensure we have valid data for the song we're about to evaluate
             if (songToEvaluateProgress.mediaId != null &&
                 songToEvaluateProgress.totalDurationMs > 0 &&
@@ -99,7 +88,6 @@ class ControllerCallback(
                         "MediaId: ${songToEvaluateProgress.mediaId}, Duration: ${songToEvaluateProgress.totalDurationMs}, " +
                         "Played: ${songToEvaluateProgress.playbackPositionMs}, IsTransition: $isSongTransition, IsEnded: $isPlaybackEnded")
             }
-
             // FIX: If this transition is to the pending play next item, re-enable shuffle if it was temporarily disabled.
             if (isSongTransition && currentMediaItemAfterEvent != null) {
                 if (pendingPlayNextMediaId.value == currentMediaItemAfterEvent.mediaId) {
@@ -111,14 +99,11 @@ class ControllerCallback(
         }
         // Always update the overall playback state exposed to the UI
         stateUpdater.updatePlaybackState()
-
         // Always update progress tracker for the new current song, for the next event cycle
         progressTracker.updateCurrentAudioFilePlaybackProgress(player as MediaController)
-
         // Always update lastPlaybackState for detecting future transitions
         lastPlaybackState = player.playbackState
     }
-
     override fun onPositionDiscontinuity(
         oldPosition: Player.PositionInfo,
         newPosition: Player.PositionInfo,
@@ -135,14 +120,11 @@ class ControllerCallback(
                 Log.d(TAG, "Skipping play event processing for discontinuity due to rapid events.")
                 return
             }
-
             val mediaController = progressTracker.mediaController.value ?: return // To get player
             if (mediaController.repeatMode != Player.REPEAT_MODE_ONE) return // Only for repeat one
-
             val playedDurationMs = oldPosition.positionMs
             val totalDurationMs = mediaController.duration.coerceAtLeast(0L)
             val mediaId = mediaController.currentMediaItem?.mediaId
-
             if (mediaId != null && totalDurationMs > 0 && playedDurationMs != C.TIME_UNSET) {
                 val progress = CurrentAudioFilePlaybackProgress(mediaId, playedDurationMs, totalDurationMs)
                 evaluateAndRecordPlayEvent(progress)
@@ -150,34 +132,22 @@ class ControllerCallback(
             }
         }
     }
-
-    // Grok: Reset beatDetector on media item transitions to ensure song-specific BPM and intensity adaptation
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-        if (mediaItem != null && reason != Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
-            beatDetector.reset()
-            Log.d(TAG, "Reset beat detector on media item transition for new song.")
-        }
     }
-
     // FIX: Added to handle playback errors (e.g., inaccessible files), remove the failing item,
     // and continue playback, ensuring all songs in shuffle mode are attempted.
     override fun onPlayerError(error: PlaybackException) {
         Log.e(TAG, "Playback error: ${error.message}", error)
-
         val controller = progressTracker.mediaController.value ?: return
         val currentIndex = controller.currentMediaItemIndex
-
         if (currentIndex != C.INDEX_UNSET) {
             val failedMediaItem = controller.getMediaItemAt(currentIndex)
             val failedMediaId = failedMediaItem.mediaId
-
             playbackState.update { it.copy(error = "Playback error on song: ${error.message}. Removed from queue.") }
-
             // Remove the failing media item from the player queue to prevent repeated errors and clean the queue.
             // This ensures the player continues with the next valid item and plays all accessible songs.
             controller.removeMediaItem(currentIndex)
             Log.d(TAG, "Removed failing media item (ID: $failedMediaId) from queue due to playback error.")
-
             // Also remove the inaccessible file from the shared data source to clean up the in-memory lists.
             val failedId = failedMediaId.toLongOrNull()
             if (failedId != null) {
@@ -204,18 +174,15 @@ class ControllerCallback(
         }
         stateUpdater.updatePlaybackState()
     }
-
-    // Grok: Extracted the play evaluation and recording logic into a separate function to avoid code duplication
+    //Extracted the play evaluation and recording logic into a separate function to avoid code duplication
     // between transition/end events and discontinuity events (for repeat-one loops). This makes the code easier to maintain
     // and remember the core algorithm for what constitutes a "significant play".
     private fun evaluateAndRecordPlayEvent(progress: CurrentAudioFilePlaybackProgress) {
         val playedDurationMs = progress.playbackPositionMs
         val totalDurationMs = progress.totalDurationMs
-
         if (playedDurationMs != C.TIME_UNSET) {
             val playedPercentage = playedDurationMs.toFloat() / totalDurationMs
             val minPlayDurationMs = 30 * 1000L // Minimum 30 seconds to count as a play
-
             // Robust condition for a "significant play":
             // Either 50% of the song was played OR at least 30 seconds were played.
             if (playedPercentage >= 0.5f || playedDurationMs >= minPlayDurationMs) {

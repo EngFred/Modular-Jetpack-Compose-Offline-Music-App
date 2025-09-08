@@ -40,7 +40,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -422,10 +421,10 @@ private fun LayoutDropdownMenu(
                     .fillMaxWidth()
             ) {
                 Text(
-                    text = if (albumArtMode == AlbumArtMode.OSCILLATING) "Use Rotating Art" else "Use Pulsing Art",
+                    text = if (albumArtMode == AlbumArtMode.WAVES) "Use Rotating Art" else "Use Pulsing Art",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = if (albumArtMode == AlbumArtMode.OSCILLATING) FontWeight.Medium else FontWeight.Normal
+                    fontWeight = if (albumArtMode == AlbumArtMode.WAVES) FontWeight.Medium else FontWeight.Normal
                 )
             }
         }

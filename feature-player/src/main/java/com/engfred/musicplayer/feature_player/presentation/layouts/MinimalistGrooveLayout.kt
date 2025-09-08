@@ -31,7 +31,7 @@ import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerEvent
 import kotlinx.coroutines.launch
 
 enum class AlbumArtMode {
-    OSCILLATING,
+    WAVES,
     ROTATING
 }
 
@@ -57,7 +57,7 @@ fun MinimalistGrooveLayout(
     val view = LocalView.current
     val coroutineScope = rememberCoroutineScope()
     var showQueueBottomSheet by remember { mutableStateOf(false) }
-    var albumArtMode by rememberSaveable { mutableStateOf(AlbumArtMode.OSCILLATING) }
+    var albumArtMode by rememberSaveable { mutableStateOf(AlbumArtMode.WAVES) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     if (showQueueBottomSheet) {
@@ -119,10 +119,10 @@ fun MinimalistGrooveLayout(
                 },
                 albumArtMode = albumArtMode,
                 onToggleAlbumArtMode = {
-                    albumArtMode = if (albumArtMode == AlbumArtMode.OSCILLATING) {
+                    albumArtMode = if (albumArtMode == AlbumArtMode.WAVES) {
                         AlbumArtMode.ROTATING
                     } else {
-                        AlbumArtMode.OSCILLATING
+                        AlbumArtMode.WAVES
                     }
                     view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                 },
@@ -139,14 +139,11 @@ fun MinimalistGrooveLayout(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     when (albumArtMode) {
-                        AlbumArtMode.OSCILLATING -> OscillatingAlbumArt(
+                        AlbumArtMode.WAVES -> WavingAlbumArt(
                             albumArtUri = uiState.currentAudioFile?.albumArtUri,
                             isPlaying = uiState.isPlaying,
-                            bassIntensity = uiState.bassIntensity,
-                            estimatedBpm = uiState.estimatedBpm, // Grok: Added for tempo-adaptive animation
                             modifier = Modifier
                                 .aspectRatio(1f)
-                                .padding(38.dp)
                         )
                         AlbumArtMode.ROTATING -> RotatingAlbumArt(
                             albumArtUri = uiState.currentAudioFile?.albumArtUri,
@@ -221,12 +218,10 @@ fun MinimalistGrooveLayout(
                     verticalArrangement = Arrangement.SpaceAround
                 ) {
                     when (albumArtMode) {
-                        AlbumArtMode.OSCILLATING -> OscillatingAlbumArt(
+                        AlbumArtMode.WAVES -> WavingAlbumArt(
                             albumArtUri = uiState.currentAudioFile?.albumArtUri,
                             isPlaying = uiState.isPlaying,
-                            bassIntensity = uiState.bassIntensity,
-                            estimatedBpm = uiState.estimatedBpm, // Grok: Added for tempo-adaptive animation
-                            modifier = Modifier.size(200.dp).padding(20.dp)
+                            modifier = Modifier.size(260.dp)
                         )
                         AlbumArtMode.ROTATING -> RotatingAlbumArt(
                             albumArtUri = uiState.currentAudioFile?.albumArtUri,

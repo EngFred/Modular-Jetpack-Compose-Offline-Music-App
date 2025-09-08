@@ -76,6 +76,9 @@ fun TopBar(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
+    val currentSongI = currentSongIndex + 1
+    val currentSongNumText = if(currentSongI > totalQueueSize) "" else currentSongI.toString()
+
     // Use dynamicContentColor only for IMMERSIVE_CANVAS; otherwise, use LocalContentColor
     val contentColor = when (selectedLayout) {
         PlayerLayout.IMMERSIVE_CANVAS -> dynamicContentColor ?: MaterialTheme.colorScheme.onBackground
@@ -196,7 +199,7 @@ fun TopBar(
 
                 Spacer(modifier = Modifier.size(8.dp))
                 Text(
-                    text = "${currentSongIndex + 1}/$totalQueueSize",
+                    text = "${currentSongNumText}/$totalQueueSize",
                     style = MaterialTheme.typography.titleMedium,
                     color = contentColor.copy(alpha = 0.8f),
                     fontWeight = FontWeight.SemiBold
@@ -263,7 +266,7 @@ fun TopBar(
 
                 Spacer(modifier = Modifier.size(8.dp))
                 Text(
-                    text = "${currentSongIndex + 1}/$totalQueueSize",
+                    text = "${currentSongNumText}/$totalQueueSize",
                     style = MaterialTheme.typography.titleMedium,
                     color = contentColor.copy(alpha = 0.8f),
                     fontWeight = FontWeight.SemiBold

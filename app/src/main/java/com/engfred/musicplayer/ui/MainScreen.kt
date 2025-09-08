@@ -73,7 +73,7 @@ fun MainScreen(
     onNavigateToNowPlaying: () -> Unit,
     onPlaylistClick: (Long) -> Unit,
     onSettingsClick: () -> Unit,
-    onAboutClick: () -> Unit,
+    onContactDeveloper: () -> Unit,
     onPlayPause: () -> Unit,
     onPlayNext: () -> Unit,
     onPlayPrev: () -> Unit,
@@ -97,7 +97,8 @@ fun MainScreen(
             // Ensure the top bar respects the status bar inset so content is NOT drawn under the system status bar.
             Box(modifier = Modifier.statusBarsPadding()) {
                 CustomTopBar(
-                    title = "Music Player",
+                    modifier = Modifier.padding(start = 10.dp),
+                    title = "Music",
                     showNavigationIcon = false,
                     onNavigateBack = null,
                     actions = {
@@ -119,13 +120,13 @@ fun MainScreen(
                                     onSettingsClick()
                                 }
                             )
-//                            DropdownMenuItem(
-//                                text = { Text("About Developer", color = MaterialTheme.colorScheme.onSurface) },
-//                                onClick = {
-//                                    showDropdownMenu = false
-//                                    onAboutClick()
-//                                }
-//                            )
+                            DropdownMenuItem(
+                                text = { Text("Contact Developer", color = MaterialTheme.colorScheme.onSurface) },
+                                onClick = {
+                                    showDropdownMenu = false
+                                    onContactDeveloper()
+                                }
+                            )
                             DropdownMenuItem(
                                 text = { Text("Restart Player", color = MaterialTheme.colorScheme.onSurface) },
                                 onClick = {
@@ -157,7 +158,7 @@ fun MainScreen(
                     windowWidthSizeClass = windowWidthSizeClass
                 )
 
-                // NOTE: removed bottom = 8.dp from the Row padding — navigationBarsPadding() already reserves safe area.
+                //removed bottom = 8.dp from the Row padding — navigationBarsPadding() already reserves safe area.
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()

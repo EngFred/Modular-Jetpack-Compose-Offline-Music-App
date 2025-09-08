@@ -2,6 +2,7 @@ package com.engfred.musicplayer.feature_player.data.service
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent  // Add this import
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -67,7 +68,15 @@ class PlaybackService : MediaSessionService() {
             exoPlayer.setAudioAttributes(audioAttributes, true)
             exoPlayer.setHandleAudioBecomingNoisy(true)
 
+            // Create PendingIntent to launch MainActivity when notification is clicked
+//            val intent = Intent(this, MainActivity::class.java)
+            val intent = Intent().setClassName(this, "${packageName}.MainActivity")
+            val flags = PendingIntent.FLAG_UPDATE_CURRENT or
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
+            val pendingIntent = PendingIntent.getActivity(this, 0, intent, flags)
+
             mediaSession = MediaSession.Builder(this, exoPlayer)
+                .setSessionActivity(pendingIntent)  // Add this line
                 .build()
             setMediaNotificationProvider(musicNotificationProvider)
 

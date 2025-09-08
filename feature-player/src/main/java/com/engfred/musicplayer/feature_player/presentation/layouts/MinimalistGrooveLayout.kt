@@ -268,8 +268,10 @@ fun MinimalistGrooveLayout(
                         )
                     }
             ) {
+                val currentSongI = currentSongIndex + 1
+                val currentSongNumText = if(currentSongI > totalSongsInQueue) "" else currentSongI.toString()
                 Text(
-                    text = "${currentSongIndex + 1}/${totalSongsInQueue}",
+                    text = "${currentSongNumText}/${totalSongsInQueue}",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                 )

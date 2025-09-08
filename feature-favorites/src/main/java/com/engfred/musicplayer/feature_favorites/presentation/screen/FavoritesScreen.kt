@@ -47,7 +47,7 @@ fun FavoritesScreen(
                     )
                 )
             )
-            .padding(horizontal = 8.dp)
+
     ) {
         Column(
             modifier = Modifier.fillMaxSize()

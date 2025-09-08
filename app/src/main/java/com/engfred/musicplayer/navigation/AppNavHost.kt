@@ -1,8 +1,17 @@
 package com.engfred.musicplayer.navigation
 
+import android.content.Context
+import android.content.Intent
 import android.os.Build
+import android.widget.Toast
 import androidx.annotation.RequiresApi
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.media3.common.util.UnstableApi
@@ -21,7 +30,8 @@ import com.engfred.musicplayer.ui.about.screen.CustomSplashScreen
 import androidx.compose.material3.windowsizeclass.WindowHeightSizeClass
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.ui.Modifier
-import com.engfred.musicplayer.ui.about.screen.AboutScreen
+import androidx.compose.ui.graphics.Brush
+import androidx.core.net.toUri
 import kotlinx.coroutines.delay
 
 /**
@@ -38,11 +48,30 @@ fun AppNavHost(
     onPlayNext: () -> Unit,
     onPlayPrev: () -> Unit,
     playingAudioFile: AudioFile?,
-    isPlaying: Boolean
+    isPlaying: Boolean,
+    context: Context,
+    onNavigateToNowPlaying: () -> Unit,
+    isPlayerActive: Boolean
 ) {
+
+    // Set the start destination based on the condition
+    val startDestination = if (isPlayerActive) {
+        AppDestinations.MainGraph.route
+    } else {
+        AppDestinations.Splash.route
+    }
+
     NavHost(
         navController = rootNavController,
-        startDestination = AppDestinations.Splash.route
+        startDestination = startDestination,
+        modifier = Modifier.background(
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    MaterialTheme.colorScheme.background,
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                )
+            )
+        )
     ) {
         // Splash screen
         composable(AppDestinations.Splash.route) {
@@ -59,17 +88,15 @@ fun AppNavHost(
         composable(AppDestinations.MainGraph.route) {
             MainScreen(
 
-                onNavigateToNowPlaying = {
-                    rootNavController.navigate(AppDestinations.NowPlaying.route)
-                },
+                onNavigateToNowPlaying = onNavigateToNowPlaying,
                 onPlaylistClick = { playlistId ->
                     rootNavController.navigate(AppDestinations.PlaylistDetail.createRoute(playlistId))
                 },
                 onSettingsClick = {
                     rootNavController.navigate(AppDestinations.Settings.route)
                 },
-                onAboutClick = {
-                    rootNavController.navigate(AppDestinations.About.route)
+                onContactDeveloper = {
+                    launchWhatsapp(context = context )
                 },
                 onPlayPause = onPlayPause,
                 onPlayNext = onPlayNext,
@@ -81,7 +108,33 @@ fun AppNavHost(
         }
 
         // Player screen
-        composable(AppDestinations.NowPlaying.route) {
+        composable(
+            route = AppDestinations.NowPlaying.route,
+            enterTransition = {
+                slideInVertically(
+                    initialOffsetY = { fullHeight -> fullHeight },
+                    animationSpec = tween(durationMillis = 400)
+                )
+            },
+            exitTransition = {
+                slideOutVertically(
+                    targetOffsetY = { fullHeight -> fullHeight },
+                    animationSpec = tween(durationMillis = 400)
+                )
+            },
+            popEnterTransition = {
+                slideInVertically(
+                    initialOffsetY = { fullHeight -> -fullHeight },
+                    animationSpec = tween(durationMillis = 400)
+                )
+            },
+            popExitTransition = {
+                slideOutVertically(
+                    targetOffsetY = { fullHeight -> fullHeight },
+                    animationSpec = tween(durationMillis = 400)
+                )
+            }
+        ) {
             PlayerScreen(
                 windowWidthSizeClass = windowWidthSizeClass,
                 windowHeightSizeClass = windowHeightSizeClass,
@@ -102,9 +155,7 @@ fun AppNavHost(
         ) {
             PlaylistDetailScreen(
                 onNavigateBack = { rootNavController.popBackStack() },
-                onNavigateToNowPlaying = {
-                    rootNavController.navigate(AppDestinations.NowPlaying.route)
-                },
+                onNavigateToNowPlaying = onNavigateToNowPlaying,
                 windowWidthSizeClass = windowWidthSizeClass
             )
         }
@@ -117,10 +168,24 @@ fun AppNavHost(
         }
 
         // About
-        composable(AppDestinations.About.route) {
-            AboutScreen(
-                onNavigateBack = { rootNavController.popBackStack() }
-            )
+//        composable(AppDestinations.About.route) {
+//            AboutScreen(
+//                onNavigateBack = { rootNavController.popBackStack() }
+//            )
+//        }
+    }
+}
+
+private fun launchWhatsapp(context: Context) {
+    try {
+        Toast.makeText(context, "Opening whatsapp...", Toast.LENGTH_SHORT).show()
+        val url = "https://wa.me/256754348118"
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            data = url.toUri()
         }
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        //show toast
+        Toast.makeText(context, "Error opening whatsapp: ${e.message}", Toast.LENGTH_SHORT).show()
     }
 }

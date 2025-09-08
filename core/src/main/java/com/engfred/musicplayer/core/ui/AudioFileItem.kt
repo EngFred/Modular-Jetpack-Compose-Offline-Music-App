@@ -96,7 +96,7 @@ fun AudioFileItem(
         modifier = modifier
             .fillMaxWidth()
             .clickable { onClick(audioFile) }
-            .padding(vertical = 8.dp, horizontal = 10.dp),
+            .padding(top = 4.dp, bottom = 4.dp, start = 15.dp, end = 5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Slightly larger outer box so the badge can overlap while remaining inside the row's hit area.

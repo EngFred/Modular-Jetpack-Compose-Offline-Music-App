@@ -3,6 +3,7 @@ package com.engfred.musicplayer
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -21,6 +22,7 @@ import com.engfred.musicplayer.core.domain.repository.PlaybackState
 import com.engfred.musicplayer.core.ui.theme.AppThemeType
 import com.engfred.musicplayer.core.ui.theme.MusicPlayerAppTheme
 import com.engfred.musicplayer.feature_settings.domain.usecases.GetAppSettingsUseCase
+import com.engfred.musicplayer.navigation.AppDestinations
 import com.engfred.musicplayer.navigation.AppNavHost
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -78,6 +80,7 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 AppNavHost(
                     rootNavController = navController,
+                    isPlayerActive = playbackState.currentAudioFile != null,
                     windowWidthSizeClass = windowSizeClass.widthSizeClass,
                     windowHeightSizeClass = windowSizeClass.heightSizeClass,
                     onPlayPause = {
@@ -90,7 +93,17 @@ class MainActivity : ComponentActivity() {
                         lifecycleScope.launch { playbackController.skipToPrevious() }
                     },
                     isPlaying = playbackState.isPlaying,
-                    playingAudioFile = playbackState.currentAudioFile
+                    playingAudioFile = playbackState.currentAudioFile,
+                    context = this,
+                    onNavigateToNowPlaying = {
+                        //only navigate to now playing if the currentAudio in the playback state is not null
+                        if (playbackState.currentAudioFile != null) {
+                            navController.navigate(AppDestinations.NowPlaying.route)
+                        } else {
+                            //show a toast "something went wrong!
+                            Toast.makeText(this, "Something is wrong!", Toast.LENGTH_SHORT).show()
+                        }
+                    }
                 )
             }
         }

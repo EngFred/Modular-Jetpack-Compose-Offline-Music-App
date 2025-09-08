@@ -73,7 +73,9 @@ fun PlayerScreen(
                     playingAudio = uiState.currentAudioFile,
                     selectedLayout = it,
                     onRemoveQueueItem = { audio ->
-                        viewModel.onEvent(PlayerEvent.RemovedFromQueue(audio))
+                        if(uiState.playingQueue.size > 1) {
+                            viewModel.onEvent(PlayerEvent.RemovedFromQueue(audio))
+                        }
                     },
                     repeatMode = uiState.repeatMode,
                     shuffleMode = uiState.shuffleMode
@@ -97,7 +99,9 @@ fun PlayerScreen(
                     playingAudio = uiState.currentAudioFile,
                     selectedLayout = it,
                     onRemoveQueueItem = { audio ->
-                        viewModel.onEvent(PlayerEvent.RemovedFromQueue(audio))
+                        if(uiState.playingQueue.size > 1) {
+                            viewModel.onEvent(PlayerEvent.RemovedFromQueue(audio))
+                        }
                     },
                     repeatMode = uiState.repeatMode,
                     shuffleMode = uiState.shuffleMode
@@ -123,7 +127,9 @@ fun PlayerScreen(
                     repeatMode = uiState.repeatMode,
                     shuffleMode = uiState.shuffleMode,
                     onRemoveQueueItem = { audio ->
-                        viewModel.onEvent(PlayerEvent.RemovedFromQueue(audio))
+                        if(uiState.playingQueue.size > 1) {
+                            viewModel.onEvent(PlayerEvent.RemovedFromQueue(audio))
+                        }
                     },
                 )
             }

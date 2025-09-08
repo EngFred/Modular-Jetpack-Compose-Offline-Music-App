@@ -194,7 +194,7 @@ fun PlaylistDetailScreen(
 
                 LazyColumn(
                     modifier = mainContentModifier
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = 8.dp),
                     state = mainLazyListState,
                     contentPadding = PaddingValues(top = 0.dp, bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(0.dp)

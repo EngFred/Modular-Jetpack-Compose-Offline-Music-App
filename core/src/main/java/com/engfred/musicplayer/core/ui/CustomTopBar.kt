@@ -25,6 +25,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 
 /**
@@ -72,6 +73,7 @@ fun CustomTopBar(
                 text = title,
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onBackground,
+                fontWeight = FontWeight.Bold,
                 modifier = Modifier
                     .weight(1f)
                     .padding(start = if (showNavigationIcon) 0.dp else 12.dp),

@@ -73,7 +73,7 @@ fun PlaylistDetailHeaderSection(
                 imageModel = { firstSongAlbumArt },
                 imageOptions = ImageOptions(
                     contentDescription = "Playlist Album Art",
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.FillBounds
                 ),
                 modifier = Modifier
                     .size(imageSize)

@@ -32,7 +32,7 @@ fun LibraryContent(
     onRetry: () -> Unit,
     isAudioPlaying: Boolean,
     lazyListState: LazyListState,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Box(
         modifier = modifier
@@ -93,7 +93,7 @@ fun LibraryContent(
                             )
                             if (audioFile != audios.lastOrNull()) {
                                 HorizontalDivider(
-                                    modifier = Modifier.padding(start = 80.dp)
+                                    modifier = Modifier.padding(start = 80.dp, end = 15.dp)
                                 )
                             }
                         }

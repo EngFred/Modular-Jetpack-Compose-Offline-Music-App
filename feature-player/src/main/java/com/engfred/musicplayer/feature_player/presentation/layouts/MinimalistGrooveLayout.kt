@@ -3,6 +3,7 @@ package com.engfred.musicplayer.feature_player.presentation.layouts
 import android.os.Build
 import android.view.HapticFeedbackConstants
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
@@ -16,24 +17,20 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
 import com.engfred.musicplayer.core.domain.repository.PlaybackState
 import com.engfred.musicplayer.core.domain.repository.RepeatMode
 import com.engfred.musicplayer.core.domain.repository.ShuffleMode
+import com.engfred.musicplayer.core.util.shareAudioFile
 import com.engfred.musicplayer.feature_player.presentation.components.*
 import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerEvent
 import kotlinx.coroutines.launch
-
-enum class AlbumArtMode {
-    WAVES,
-    ROTATING
-}
 
 @RequiresApi(Build.VERSION_CODES.M)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,14 +47,15 @@ fun MinimalistGrooveLayout(
     windowHeightSizeClass: WindowHeightSizeClass,
     playingQueue: List<AudioFile>,
     onPlayQueueItem: (AudioFile) -> Unit,
-    onRemoveQueueItem: (AudioFile) -> Unit = {},
+    onRemoveQueueItem: (AudioFile) -> Unit,
     repeatMode: RepeatMode,
     shuffleMode: ShuffleMode
 ) {
     val view = LocalView.current
+    //context
+    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var showQueueBottomSheet by remember { mutableStateOf(false) }
-    var albumArtMode by rememberSaveable { mutableStateOf(AlbumArtMode.WAVES) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     if (showQueueBottomSheet) {
@@ -67,14 +65,11 @@ fun MinimalistGrooveLayout(
             playingQueue = playingQueue,
             onPlayQueueItem = onPlayQueueItem,
             onRemoveQueueItem = onRemoveQueueItem,
-            playingAudio = uiState.currentAudioFile
+            playingAudio = uiState.currentAudioFile,
         )
     }
 
-    val spacingSeekBarToControlBar: Dp = when {
-        windowHeightSizeClass == WindowHeightSizeClass.Expanded -> 28.dp
-        else -> 24.dp
-    }
+
 
     val useTwoPane = windowWidthSizeClass == WindowWidthSizeClass.Expanded
 
@@ -117,16 +112,12 @@ fun MinimalistGrooveLayout(
                     }
                     view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                 },
-                albumArtMode = albumArtMode,
-                onToggleAlbumArtMode = {
-                    albumArtMode = if (albumArtMode == AlbumArtMode.WAVES) {
-                        AlbumArtMode.ROTATING
-                    } else {
-                        AlbumArtMode.WAVES
+                modifier = Modifier.fillMaxWidth(),
+                onShareAudio = {
+                    uiState.currentAudioFile?.let {
+                        shareAudioFile(context, it)
                     }
-                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                },
-                modifier = Modifier.fillMaxWidth()
+                }
             )
 
             if (useTwoPane) {
@@ -138,21 +129,12 @@ fun MinimalistGrooveLayout(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    when (albumArtMode) {
-                        AlbumArtMode.WAVES -> WavingAlbumArt(
-                            albumArtUri = uiState.currentAudioFile?.albumArtUri,
-                            isPlaying = uiState.isPlaying,
-                            modifier = Modifier
-                                .aspectRatio(1f)
-                        )
-                        AlbumArtMode.ROTATING -> RotatingAlbumArt(
-                            albumArtUri = uiState.currentAudioFile?.albumArtUri,
-                            isPlaying = uiState.isPlaying,
-                            modifier = Modifier
-                                .aspectRatio(1f)
-                                .size(400.dp)
-                        )
-                    }
+                    RotatingWaveAlbumArt(
+                        albumArtUri = uiState.currentAudioFile?.albumArtUri,
+                        isPlaying = uiState.isPlaying,
+                        modifier = Modifier
+                            .aspectRatio(1f)
+                    )
                     Spacer(modifier = Modifier.width(76.dp))
                     Column(
                         modifier = Modifier
@@ -217,18 +199,11 @@ fun MinimalistGrooveLayout(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceAround
                 ) {
-                    when (albumArtMode) {
-                        AlbumArtMode.WAVES -> WavingAlbumArt(
-                            albumArtUri = uiState.currentAudioFile?.albumArtUri,
-                            isPlaying = uiState.isPlaying,
-                            modifier = Modifier.size(260.dp)
-                        )
-                        AlbumArtMode.ROTATING -> RotatingAlbumArt(
-                            albumArtUri = uiState.currentAudioFile?.albumArtUri,
-                            isPlaying = uiState.isPlaying,
-                            modifier = Modifier.size(200.dp)
-                        )
-                    }
+                    RotatingWaveAlbumArt(
+                        albumArtUri = uiState.currentAudioFile?.albumArtUri,
+                        isPlaying = uiState.isPlaying,
+                        modifier = Modifier.size(260.dp)
+                    )
                     Spacer(modifier = Modifier.height(32.dp))
                     SongInfoSection(
                         title = uiState.currentAudioFile?.title,
@@ -251,7 +226,7 @@ fun MinimalistGrooveLayout(
                         playerLayout = PlayerLayout.MINIMALIST_GROOVE,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Spacer(modifier = Modifier.height(spacingSeekBarToControlBar))
+//                    Spacer(modifier = Modifier.height(32.dp))
                     ControlBar(
                         shuffleMode = shuffleMode,
                         isPlaying = uiState.isPlaying,
@@ -324,7 +299,8 @@ private fun SongInfoSection(
             style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
             color = MaterialTheme.colorScheme.onBackground,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.basicMarquee()
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(

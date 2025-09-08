@@ -62,6 +62,7 @@ import kotlinx.coroutines.launch
 import com.engfred.musicplayer.core.domain.repository.RepeatMode
 import com.engfred.musicplayer.core.domain.repository.ShuffleMode
 import androidx.compose.material3.MaterialTheme
+import com.engfred.musicplayer.core.util.shareAudioFile
 
 
 @RequiresApi(Build.VERSION_CODES.M)
@@ -215,7 +216,12 @@ fun EtherealFlowLayout(
                             onLayoutSelected = onLayoutSelected,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .statusBarsPadding()
+                                .statusBarsPadding(),
+                            onShareAudio = {
+                                uiState.currentAudioFile?.let {
+                                    shareAudioFile(context, it)
+                                }
+                            }
                         )
                         AlbumArtDisplay(
                             albumArtUri = uiState.currentAudioFile?.albumArtUri,
@@ -365,7 +371,12 @@ fun EtherealFlowLayout(
                                 },
                                 windowWidthSizeClass = windowWidthSizeClass,
                                 selectedLayout = selectedLayout,
-                                onLayoutSelected = onLayoutSelected
+                                onLayoutSelected = onLayoutSelected,
+                                onShareAudio = {
+                                    uiState.currentAudioFile?.let {
+                                        shareAudioFile(context, it)
+                                    }
+                                }
                             )
                             Spacer(modifier = Modifier.height(spacing))
                             TrackInfo(
@@ -506,7 +517,12 @@ fun EtherealFlowLayout(
                                 onOpenQueue = { /* No-op for expanded, queue is visible */ },
                                 windowWidthSizeClass = windowWidthSizeClass,
                                 selectedLayout = selectedLayout,
-                                onLayoutSelected = onLayoutSelected
+                                onLayoutSelected = onLayoutSelected,
+                                onShareAudio = {
+                                    uiState.currentAudioFile?.let {
+                                        shareAudioFile(context, it)
+                                    }
+                                }
                             )
                             Spacer(modifier = Modifier.height(spacing))
                             TrackInfo(

@@ -117,25 +117,11 @@ class QueueManager(
                 progressTracker.updateCurrentAudioFilePlaybackProgress(controller)
                 Log.d(TAG, "Repositioned playback within existing queue to index $startIndex.")
             } else {
-                // FIX: When setting a new queue, filter to only accessible files to prevent playback errors.
-                val accessibleQueue = playingQueue.filter {
-                    isAudioFileAccessible(context, it.uri, permissionHandlerUseCase)
-                }
+                // Set the queue without upfront filtering to avoid initial delay; inaccessible files will be handled on playback error.
+                val adjustedStartIndex = startIndex
 
-                if (accessibleQueue.isEmpty()) {
-                    playbackState.update { it.copy(error = "No accessible audio files in the playlist.") }
-                    return@withContext
-                }
-
-                var adjustedStartIndex = accessibleQueue.indexOf(audioFileToPlay)
-                if (adjustedStartIndex == -1) {
-                    // If the original starting file is inaccessible (though checked earlier), fall back to first.
-                    adjustedStartIndex = 0
-                }
-
-                // Set the filtered queue.
                 try {
-                    val mediaItems = accessibleQueue.map { audioFileMapper.mapAudioFileToMediaItem(it) }
+                    val mediaItems = playingQueue.map { audioFileMapper.mapAudioFileToMediaItem(it) }
                     controller.setMediaItems(mediaItems, adjustedStartIndex, C.TIME_UNSET)
 
                     // ---------------------------------------------

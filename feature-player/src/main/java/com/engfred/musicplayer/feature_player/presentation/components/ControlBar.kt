@@ -248,7 +248,7 @@ fun ControlBar(
                         }
                         onSetRepeatMode(newRepeatMode)
                     },
-                    tint = if (repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.secondary else LocalContentColor.current.copy(alpha = 0.6f),
+                    tint = if (repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.primary else LocalContentColor.current.copy(alpha = 0.7f),
                     size = controlSizes.shuffleRepeatIconSize,
                     buttonSize = controlSizes.shuffleRepeatButtonSize
                 )

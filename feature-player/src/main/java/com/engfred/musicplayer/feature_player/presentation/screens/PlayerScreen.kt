@@ -121,7 +121,10 @@ fun PlayerScreen(
                         viewModel.onEvent(PlayerEvent.PlayAudioFile(audio))
                     },
                     repeatMode = uiState.repeatMode,
-                    shuffleMode = uiState.shuffleMode
+                    shuffleMode = uiState.shuffleMode,
+                    onRemoveQueueItem = { audio ->
+                        viewModel.onEvent(PlayerEvent.RemovedFromQueue(audio))
+                    },
                 )
             }
             null -> {}

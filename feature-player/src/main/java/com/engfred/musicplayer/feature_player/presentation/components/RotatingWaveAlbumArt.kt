@@ -2,12 +2,7 @@ package com.engfred.musicplayer.feature_player.presentation.components
 
 import android.net.Uri
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -43,7 +38,7 @@ import kotlin.math.min
 import kotlin.math.sin
 
 @Composable
-fun WavingAlbumArt(
+fun RotatingWaveAlbumArt(
     albumArtUri: Uri?,
     isPlaying: Boolean,
     modifier: Modifier = Modifier
@@ -81,14 +76,14 @@ fun WavingAlbumArt(
         }
     }
 
-    // Smooth color shift between palette colors
+    // Smooth crossfade between palette colors (infinite loop)
     val animatedWaveColor by animateColorAsState(
         targetValue = extractedColors.getOrElse(currentColorIndex) { colorScheme.primary },
         animationSpec = tween(durationMillis = 2000, easing = LinearEasing),
         label = "waveColorShift"
     )
 
-    // Shift palette colors while playing
+    // Loop through colors forever
     LaunchedEffect(isPlaying, extractedColors) {
         if (isPlaying && extractedColors.size > 1) {
             while (true) {
@@ -98,17 +93,25 @@ fun WavingAlbumArt(
         }
     }
 
-    // --- Rotation Animation ---
-    val infiniteTransition = rememberInfiniteTransition(label = "albumRotation")
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(12000, easing = LinearEasing) // 12s per full rotation
+    // --- Infinite Rotation Animation ---
+    var rawRotation by remember { mutableFloatStateOf(0f) }
+    val animatedRotation by animateFloatAsState(
+        targetValue = rawRotation,
+        animationSpec = tween(
+            durationMillis = if (isPlaying) 50 else 2000, // fast updates while playing, smooth slowdown otherwise
+            easing = if (isPlaying) LinearEasing else FastOutSlowInEasing
         ),
-        label = "rotation"
+        label = "albumRotation"
     )
-    val displayedRotation = if (isPlaying) rotation else 0f
+
+    LaunchedEffect(isPlaying) {
+        if (isPlaying) {
+            while (true) {
+                rawRotation += 0.8f // ⬅️ removed `% 360f`, infinite smooth rotation
+                delay(16L) // ~60 FPS
+            }
+        }
+    }
 
     BoxWithConstraints(
         modifier = modifier,
@@ -180,7 +183,7 @@ fun WavingAlbumArt(
                 )
                 .clip(androidx.compose.foundation.shape.CircleShape)
                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                .rotate(displayedRotation), // Apply rotation
+                .rotate(animatedRotation), // Smooth infinite rotation
             contentAlignment = Alignment.Center
         ) {
             CoilImage(

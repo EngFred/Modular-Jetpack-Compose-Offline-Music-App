@@ -44,7 +44,6 @@ class PlaybackControllerImpl @Inject constructor(
     private val playlistRepository: PlaylistRepository,
     @ApplicationContext private val context: Context,
     private val sessionToken: SessionToken,
-    private val exoPlayer: ExoPlayer
 ) : PlaybackController {
     private val mediaController = MutableStateFlow<MediaController?>(null)
     private val _playbackState = MutableStateFlow(PlaybackState())

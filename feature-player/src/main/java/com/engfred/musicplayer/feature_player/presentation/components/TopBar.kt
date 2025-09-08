@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Favorite
@@ -53,7 +52,8 @@ import com.engfred.musicplayer.core.domain.model.PlayerLayout
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import android.view.HapticFeedbackConstants
 import androidx.compose.ui.semantics.customActions
-import com.engfred.musicplayer.feature_player.presentation.layouts.AlbumArtMode
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Share
 
 @Composable
 fun TopBar(
@@ -67,9 +67,8 @@ fun TopBar(
     onLayoutSelected: (PlayerLayout) -> Unit,
     isFavorite: Boolean = false,
     onToggleFavorite: () -> Unit = {},
-    albumArtMode: AlbumArtMode? = null,
-    onToggleAlbumArtMode: (() -> Unit)? = null,
-    dynamicContentColor: Color? = null // Optional dynamic content color for IMMERSIVE_CANVAS
+    dynamicContentColor: Color? = null, // Optional dynamic content color for IMMERSIVE_CANVAS
+    onShareAudio: (() -> Unit)? = null
 ) {
     var showLayoutMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -172,8 +171,7 @@ fun TopBar(
                         onDismissRequest = { showLayoutMenu = false },
                         selectedLayout = selectedLayout,
                         onLayoutSelected = onLayoutSelected,
-                        albumArtMode = albumArtMode,
-                        onToggleAlbumArtMode = onToggleAlbumArtMode
+                        onShareAudio = onShareAudio
                     )
                 }
             }
@@ -241,9 +239,7 @@ fun TopBar(
                         expanded = showLayoutMenu,
                         onDismissRequest = { showLayoutMenu = false },
                         selectedLayout = selectedLayout,
-                        onLayoutSelected = onLayoutSelected,
-                        albumArtMode = albumArtMode,
-                        onToggleAlbumArtMode = onToggleAlbumArtMode
+                        onLayoutSelected = onLayoutSelected
                     )
                 }
             }
@@ -323,8 +319,7 @@ fun TopBar(
                         onDismissRequest = { showLayoutMenu = false },
                         selectedLayout = selectedLayout,
                         onLayoutSelected = onLayoutSelected,
-                        albumArtMode = albumArtMode,
-                        onToggleAlbumArtMode = onToggleAlbumArtMode
+                        onShareAudio
                     )
                 }
             }
@@ -338,10 +333,8 @@ private fun LayoutDropdownMenu(
     onDismissRequest: () -> Unit,
     selectedLayout: PlayerLayout,
     onLayoutSelected: (PlayerLayout) -> Unit,
-    albumArtMode: AlbumArtMode? = null,
-    onToggleAlbumArtMode: (() -> Unit)? = null
+    onShareAudio: (() -> Unit)? = null
 ) {
-    val view = LocalView.current
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismissRequest,
@@ -390,6 +383,7 @@ private fun LayoutDropdownMenu(
                     fontWeight = if (selectedLayout == layout) FontWeight.Medium else FontWeight.Normal
                 )
             }
+
             if (index < PlayerLayout.entries.size - 1) {
                 HorizontalDivider(
                     modifier = Modifier.padding(horizontal = 16.dp),
@@ -398,35 +392,43 @@ private fun LayoutDropdownMenu(
                 )
             }
         }
-        if (selectedLayout == PlayerLayout.MINIMALIST_GROOVE && albumArtMode != null && onToggleAlbumArtMode != null) {
+
+        // --- Add Share Audio Menu Item for specific layouts ---
+        if (selectedLayout == PlayerLayout.MINIMALIST_GROOVE || selectedLayout == PlayerLayout.ETHEREAL_FLOW) {
             HorizontalDivider(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 thickness = 0.5.dp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
             )
-            Box(
+
+            Row(
                 modifier = Modifier
-                    .background(
-                        Color.Transparent
-                    )
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
                     ) {
-                        onToggleAlbumArtMode()
+                        onShareAudio?.invoke()
                         onDismissRequest()
-                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                     }
                     .padding(horizontal = 16.dp, vertical = 12.dp)
-                    .fillMaxWidth()
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                Icon(
+                    imageVector = Icons.Rounded.Share,
+                    contentDescription = "Share Audio",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.size(12.dp))
                 Text(
-                    text = if (albumArtMode == AlbumArtMode.WAVES) "Use Rotating Art" else "Use Pulsing Art",
+                    text = "Share Audio",
                     style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = if (albumArtMode == AlbumArtMode.WAVES) FontWeight.Medium else FontWeight.Normal
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Medium
                 )
             }
         }
     }
 }
+

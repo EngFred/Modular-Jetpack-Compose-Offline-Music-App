@@ -70,7 +70,6 @@ object PlayerModule {
         playlistRepository: PlaylistRepository,
         @ApplicationContext context: Context,
         sessionToken: SessionToken,
-        exoPlayer: ExoPlayer // Grok: Added to provide ExoPlayer to PlaybackControllerImpl
     ): PlaybackController {
         return PlaybackControllerImpl(
             sharedAudioDataSource,
@@ -79,7 +78,6 @@ object PlayerModule {
             playlistRepository,
             context,
             sessionToken,
-            exoPlayer
         )
     }
 }

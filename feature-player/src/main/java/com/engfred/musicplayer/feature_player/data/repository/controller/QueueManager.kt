@@ -83,16 +83,9 @@ class QueueManager(
                 return@withContext
             }
 
-            // FIX: Changed matching logic to use sets of media IDs instead of ordered comparison.
-            // This ensures correct matching even when shuffle mode is enabled and the timeline order differs.
-            val currentMediaIds = HashSet<String>().apply {
-                for (i in 0 until controller.mediaItemCount) {
-                    add(controller.getMediaItemAt(i).mediaId)
-                }
-            }
-            val sharedMediaIds = HashSet<String>().apply {
-                playingQueue.forEach { add(it.id.toString()) }
-            }
+            // Updated matching logic: Compare ordered lists of media IDs to account for order changes
+            val currentMediaIds = (0 until controller.mediaItemCount).map { controller.getMediaItemAt(it).mediaId }
+            val sharedMediaIds = playingQueue.map { it.id.toString() }
             val currentMediaItemsMatchSharedSource = controller.mediaItemCount == playingQueue.size &&
                     currentMediaIds == sharedMediaIds
 

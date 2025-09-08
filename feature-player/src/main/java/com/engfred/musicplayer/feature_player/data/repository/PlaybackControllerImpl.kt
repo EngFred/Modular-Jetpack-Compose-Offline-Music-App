@@ -1,10 +1,13 @@
 package com.engfred.musicplayer.feature_player.data.repository
 
 import android.content.Context
+import android.media.AudioManager
+import android.media.audiofx.Visualizer
 import android.util.Log
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
@@ -30,11 +33,16 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.sqrt
 
 private const val TAG = "PlayerControllerImpl"
 
@@ -47,6 +55,7 @@ class PlaybackControllerImpl @Inject constructor(
     private val playlistRepository: PlaylistRepository,
     @ApplicationContext private val context: Context,
     private val sessionToken: SessionToken,
+    private val exoPlayer: ExoPlayer
 ) : PlaybackController {
 
     private val mediaController = MutableStateFlow<MediaController?>(null)
@@ -55,15 +64,8 @@ class PlaybackControllerImpl @Inject constructor(
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var attachedController: MediaController? = null
-
-    // ---------------------------------------------
-    // NEW: Store intended repeat and shuffle modes to apply them when MediaController connects
-    // or when playback starts, ensuring early calls from MainActivity aren't lost.
-    // ---------------------------------------------
     private var intendedRepeatMode: RepeatMode = RepeatMode.OFF
     private var intendedShuffleMode: ShuffleMode = ShuffleMode.OFF
-
-    // FIX: Added to handle restoring shuffle mode after inserting play next items.
     private val pendingPlayNextMediaId = MutableStateFlow<String?>(null)
 
     // Helpers
@@ -82,61 +84,103 @@ class PlaybackControllerImpl @Inject constructor(
         progressTracker,
         setRepeatCallback = ::setRepeatMode,
         setShuffleCallback = ::setShuffleMode,
-        pendingPlayNextMediaId = pendingPlayNextMediaId // FIX: Pass the pending flow to QueueManager for use in addAudioToQueueNext.
+        pendingPlayNextMediaId = pendingPlayNextMediaId
     )
+
+    // Grok: Visualizer for real-time audio visualization
+    private var visualizer: Visualizer? = null
+    private val beatDetector = BeatDetector()
 
     init {
         Log.d(TAG, "Initializing PlayerControllerImpl")
-        // ---------------------------------------------
-        // CHANGE: Build/connect MediaController once this repo is created.
-        // This keeps ownership explicit in this layer. If you truly want a single "shared" controller
-        // app-wide, extract this into a dedicated Manager and inject its StateFlow here.
-        // ---------------------------------------------
         repositoryScope.launch {
             mediaControllerBuilder.buildAndConnectController()
         }
 
-        // Launch a coroutine to observe changes in the MediaController instance
         repositoryScope.launch {
             mediaController.collectLatest { newController ->
-                withContext(Dispatchers.Main) { // Ensure UI-related operations are on Main thread
-                    // Remove listener from the previously attached controller, if any
+                withContext(Dispatchers.Main) {
                     attachedController?.removeListener(controllerCallback)
 
                     if (newController != null) {
-                        // Attach listener to the new controller
                         newController.addListener(controllerCallback)
                         attachedController = newController
                         Log.d(TAG, "PlayerControllerImpl received and attached to shared MediaController.")
 
-                        // ---------------------------------------------
-                        // NEW: Apply stored repeat and shuffle modes when MediaController connects
-                        // to ensure modes set by MainActivity are applied as soon as possible.
-                        // ---------------------------------------------
                         setRepeatMode(intendedRepeatMode)
                         setShuffleMode(intendedShuffleMode)
-                        stateUpdater.updatePlaybackState() // Initial state update for UI
-
-                        // Initial update of playback progress for the first song
+                        stateUpdater.updatePlaybackState()
                         progressTracker.updateCurrentAudioFilePlaybackProgress(newController)
 
-                    } else {
-                        // Controller became null, indicating service disconnection or release
-                        attachedController = null
-                        Log.w(TAG, "PlayerControllerImpl received null MediaController. Releasing player state.")
-                        _playbackState.update { PlaybackState() }
+                        // Grok: Set up Visualizer with ExoPlayer's audio session ID
+                        try {
+                            val audioSessionId = exoPlayer.audioSessionId
+                            if (audioSessionId != 0) {
+                                visualizer = Visualizer(audioSessionId).apply {
+                                    captureSize = Visualizer.getCaptureSizeRange()[1]
+                                    setDataCaptureListener(
+                                        object : Visualizer.OnDataCaptureListener {
+                                            override fun onWaveFormDataCapture(visualizer: Visualizer?, waveform: ByteArray?, samplingRate: Int) {
+                                                // Not using waveform data
+                                            }
 
-                        // Reset tracking variables in the callback as the player state is now unknown/idle
+                                            override fun onFftDataCapture(visualizer: Visualizer?, fft: ByteArray?, samplingRate: Int) {
+                                                fft?.let {
+                                                    val intensity = beatDetector.detectBeat(it, samplingRate)
+                                                    val bpm = beatDetector.getEstimatedBpm() // Grok: Use getEstimatedBpm
+                                                    _playbackState.update { current ->
+                                                        current.copy(
+                                                            bassIntensity = intensity,
+                                                            estimatedBpm = bpm
+                                                        )
+                                                    }
+                                                    Log.v(TAG, "Beat intensity: $intensity, Estimated BPM: $bpm")
+                                                }
+                                            }
+                                        },
+                                        Visualizer.getMaxCaptureRate() / 4,
+                                        false, // No waveform
+                                        true // Enable FFT
+                                    )
+                                }
+                                Log.d(TAG, "Visualizer set up successfully with audio session ID: $audioSessionId")
+                            } else {
+                                Log.w(TAG, "Invalid audio session ID (0) for Visualizer setup.")
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to set up Visualizer: ${e.message}", e)
+                        }
+                    } else {
+                        attachedController = null
+                        Log.w(TAG, "PlayerControllerImpl received null MediaController.")
+                        _playbackState.update { PlaybackState() }
                         controllerCallback.resetTracking()
-                        progressTracker.resetProgress() // Reset progress tracker
+                        progressTracker.resetProgress()
+                        visualizer?.enabled = false
+                        visualizer?.release()
+                        visualizer = null
+                        beatDetector.reset()
                     }
                 }
             }
         }
 
-        // Launch a coroutine to periodically update playback position in the state
         repositoryScope.launch {
             progressTracker.startPlaybackPositionUpdates()
+        }
+
+        repositoryScope.launch {
+            _playbackState.map { it.isPlaying }.distinctUntilChanged().collect { isPlaying ->
+                if (isPlaying) {
+                    visualizer?.enabled = true
+                    Log.d(TAG, "Visualizer enabled during playback.")
+                } else {
+                    visualizer?.enabled = false
+                    _playbackState.update { it.copy(bassIntensity = 0f, estimatedBpm = 120f) }
+                    beatDetector.reset()
+                    Log.d(TAG, "Visualizer disabled when paused/stopped.")
+                }
+            }
         }
     }
 
@@ -144,7 +188,6 @@ class PlaybackControllerImpl @Inject constructor(
         queueManager.initiatePlayback(initialAudioFileUri, intendedRepeatMode, intendedShuffleMode)
     }
 
-    // NEW: Implementation for initiating playback in shuffle mode.
     override suspend fun initiateShufflePlayback(playingQueue: List<AudioFile>) {
         if (playingQueue.isEmpty()) {
             Log.w(TAG, "Cannot initiate shuffle playback: empty queue.")
@@ -156,9 +199,6 @@ class PlaybackControllerImpl @Inject constructor(
         initiatePlayback(randomAudio.uri)
     }
 
-    /**
-     * Toggles the playback state between playing and paused.
-     */
     override suspend fun playPause() {
         withContext(Dispatchers.Main) {
             mediaController.value?.run {
@@ -167,48 +207,30 @@ class PlaybackControllerImpl @Inject constructor(
         }
     }
 
-    /**
-     * Skips to the next media item in the playback queue.
-     */
     override suspend fun skipToNext() {
         withContext(Dispatchers.Main) {
             mediaController.value?.seekToNextMediaItem() ?: Log.w(TAG, "MediaController not set when trying to skip next.")
         }
     }
 
-    /**
-     * Skips to the previous media item in the playback queue.
-     */
     override suspend fun skipToPrevious() {
         withContext(Dispatchers.Main) {
             mediaController.value?.seekToPreviousMediaItem() ?: Log.w(TAG, "MediaController not set when trying to skip previous.")
         }
     }
 
-    /**
-     * Seeks to a specific position within the current media item.
-     * @param positionMs The position in milliseconds to seek to.
-     */
     override suspend fun seekTo(positionMs: Long) {
         withContext(Dispatchers.Main) {
             mediaController.value?.let { controller ->
                 controller.seekTo(positionMs)
-                stateUpdater.updatePlaybackState() // Update state immediately after seeking
-                progressTracker.updateCurrentAudioFilePlaybackProgress(controller) // Update progress tracker after seeking
+                stateUpdater.updatePlaybackState()
+                progressTracker.updateCurrentAudioFilePlaybackProgress(controller)
             } ?: Log.w(TAG, "MediaController not set when trying to seek.")
         }
     }
 
-    /**
-     * Sets the repeat mode for the player.
-     * @param mode The desired [RepeatMode] (OFF, ONE, ALL).
-     */
     override suspend fun setRepeatMode(mode: RepeatMode) {
         withContext(Dispatchers.Main) {
-            // ---------------------------------------------
-            // NEW: Store the intended repeat mode to apply it later if MediaController isn't ready
-            // and log when it's stored vs. applied for debugging.
-            // ---------------------------------------------
             intendedRepeatMode = mode
             mediaController.value?.let { controller ->
                 controller.repeatMode = when (mode) {
@@ -221,16 +243,8 @@ class PlaybackControllerImpl @Inject constructor(
         }
     }
 
-    /**
-     * Sets the shuffle mode for the player.
-     * @param mode The desired [ShuffleMode] (ON, OFF).
-     */
     override suspend fun setShuffleMode(mode: ShuffleMode) {
         withContext(Dispatchers.Main) {
-            // ---------------------------------------------
-            // NEW: Store the intended shuffle mode to apply it later if MediaController isn't ready
-            // and log when it's stored vs. applied for debugging.
-            // ---------------------------------------------
             intendedShuffleMode = mode
             mediaController.value?.let { controller ->
                 controller.shuffleModeEnabled = (mode == ShuffleMode.ON)
@@ -243,23 +257,15 @@ class PlaybackControllerImpl @Inject constructor(
         queueManager.addAudioToQueueNext(audioFile)
     }
 
-    /**
-     * Releases all resources held by the player controller, including removing listeners
-     * and cancelling coroutines. Should be called when the player is no longer needed.
-     */
     override suspend fun releasePlayer() {
-        // ---------------------------------------------
-        // CHANGE: Ensure we also release the underlying MediaController we created here.
-        // If you centralize the controller elsewhere, remove the release() here and delegate to that owner.
-        // ---------------------------------------------
         val controllerToRelease = mediaController.value
-        repositoryScope.cancel() // Cancel all coroutines launched in this scope
+        repositoryScope.cancel()
         withContext(Dispatchers.Main) {
             attachedController?.removeListener(controllerCallback)
             attachedController = null
             Log.d(TAG, "PlayerControllerImpl resources released and listener removed.")
-            controllerCallback.resetTracking() // Reset event tracking
-            progressTracker.resetProgress() // Reset progress tracker
+            controllerCallback.resetTracking()
+            progressTracker.resetProgress()
             try {
                 controllerToRelease?.release()
             } catch (e: Exception) {
@@ -267,12 +273,14 @@ class PlaybackControllerImpl @Inject constructor(
             } finally {
                 mediaController.value = null
             }
+            visualizer?.enabled = false
+            visualizer?.release()
+            visualizer = null
+            beatDetector.reset()
+            Log.d(TAG, "Visualizer released.")
         }
     }
 
-    /**
-     * Clears any current playback error message from the [_playbackState].
-     */
     override fun clearPlaybackError() {
         _playbackState.update { it.copy(error = null) }
     }
@@ -283,5 +291,76 @@ class PlaybackControllerImpl @Inject constructor(
 
     override suspend fun removeFromQueue(audioFile: AudioFile) {
         queueManager.removeFromQueue(audioFile)
+    }
+
+    // Grok: Helper class for beat detection
+    private class BeatDetector {
+        private var energyHistory = FloatArray(20) { 0f } // Store last 20 energy samples
+        private var historyIndex = 0
+        private var lastEnergy = 0f
+        private var smoothedIntensity = 0f
+        private var lastBeatTime = 0L
+        private var estimatedBpm = 120f // Default BPM for animation timing
+
+        fun detectBeat(fft: ByteArray, samplingRate: Int): Float {
+            val n = fft.size
+            val numBins = n / 2
+            var energySum = 0f
+            val beatFreqMin = 50f // Focus on 50-150 Hz for kick drums/bass hits
+            val beatFreqMax = 150f
+            val freqPerBin = samplingRate.toFloat() / n
+            val beatBinStart = (beatFreqMin / freqPerBin).toInt().coerceAtLeast(1)
+            val beatBinEnd = (beatFreqMax / freqPerBin).toInt().coerceAtMost(numBins - 1)
+
+            // Calculate energy in beat frequency range
+            for (k in beatBinStart..beatBinEnd) {
+                val real = fft[2 * k].toFloat()
+                val imag = fft[2 * k + 1].toFloat()
+                val magnitude = sqrt(real * real + imag * imag)
+                energySum += magnitude * magnitude // Use energy (magnitude squared)
+            }
+
+            val currentEnergy = if (beatBinEnd > beatBinStart) energySum / (beatBinEnd - beatBinStart) else 0f
+
+            // Update energy history for dynamic threshold
+            energyHistory[historyIndex] = currentEnergy
+            historyIndex = (historyIndex + 1) % energyHistory.size
+            val avgEnergy = energyHistory.average().toFloat()
+            val variance = energyHistory.map { (it - avgEnergy) * (it - avgEnergy) }.average().toFloat()
+            val dynamicThreshold = avgEnergy + 2f * sqrt(variance) // Threshold = mean + 2 * std dev
+
+            // Detect beat if energy exceeds threshold and is significantly higher than last energy
+            val isBeat = currentEnergy > dynamicThreshold && currentEnergy > lastEnergy * 1.5f
+            lastEnergy = currentEnergy
+
+            // Update BPM estimate based on beat intervals
+            if (isBeat) {
+                val currentTime = System.currentTimeMillis()
+                if (lastBeatTime > 0) {
+                    val intervalMs = currentTime - lastBeatTime
+                    if (intervalMs in 200..2000) { // Valid BPM range: 30-300
+                        val bpm = 60000f / intervalMs
+                        estimatedBpm = 0.9f * estimatedBpm + 0.1f * bpm // Smooth BPM estimate
+                    }
+                }
+                lastBeatTime = currentTime
+            }
+
+            // Smooth intensity for animation
+            val rawIntensity = if (isBeat) 1f else 0f
+            smoothedIntensity = 0.7f * smoothedIntensity + 0.3f * rawIntensity // EMA smoothing
+            return smoothedIntensity.coerceIn(0f, 1f)
+        }
+
+        fun getEstimatedBpm(): Float = estimatedBpm
+
+        fun reset() {
+            energyHistory.fill(0f)
+            historyIndex = 0
+            lastEnergy = 0f
+            smoothedIntensity = 0f
+            lastBeatTime = 0L
+            estimatedBpm = 120f
+        }
     }
 }

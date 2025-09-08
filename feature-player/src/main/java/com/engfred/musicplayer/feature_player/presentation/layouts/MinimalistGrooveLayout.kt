@@ -7,9 +7,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.*
 import androidx.compose.material3.windowsizeclass.WindowHeightSizeClass
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
@@ -56,13 +54,11 @@ fun MinimalistGrooveLayout(
     repeatMode: RepeatMode,
     shuffleMode: ShuffleMode
 ) {
-
     val view = LocalView.current
     val coroutineScope = rememberCoroutineScope()
     var showQueueBottomSheet by remember { mutableStateOf(false) }
     var albumArtMode by rememberSaveable { mutableStateOf(AlbumArtMode.OSCILLATING) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
 
     if (showQueueBottomSheet) {
         QueueBottomSheet(
@@ -146,6 +142,8 @@ fun MinimalistGrooveLayout(
                         AlbumArtMode.OSCILLATING -> OscillatingAlbumArt(
                             albumArtUri = uiState.currentAudioFile?.albumArtUri,
                             isPlaying = uiState.isPlaying,
+                            bassIntensity = uiState.bassIntensity,
+                            estimatedBpm = uiState.estimatedBpm, // Grok: Added for tempo-adaptive animation
                             modifier = Modifier
                                 .aspectRatio(1f)
                                 .padding(38.dp)
@@ -226,6 +224,8 @@ fun MinimalistGrooveLayout(
                         AlbumArtMode.OSCILLATING -> OscillatingAlbumArt(
                             albumArtUri = uiState.currentAudioFile?.albumArtUri,
                             isPlaying = uiState.isPlaying,
+                            bassIntensity = uiState.bassIntensity,
+                            estimatedBpm = uiState.estimatedBpm, // Grok: Added for tempo-adaptive animation
                             modifier = Modifier.size(200.dp).padding(20.dp)
                         )
                         AlbumArtMode.ROTATING -> RotatingAlbumArt(

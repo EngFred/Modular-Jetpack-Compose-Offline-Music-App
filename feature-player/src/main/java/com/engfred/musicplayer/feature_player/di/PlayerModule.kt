@@ -31,16 +31,17 @@ object PlayerModule {
     fun provideExoPlayer(
         @ApplicationContext context: Context
     ): ExoPlayer {
-        return ExoPlayer.Builder(context).build()
-    }
-
-    @Provides
-    @Singleton
-    fun provideAudioAttributes(): AudioAttributes {
-        return AudioAttributes.Builder()
-            .setUsage(C.USAGE_MEDIA)
-            .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-            .build()
+        // Grok: Configure ExoPlayer with AudioAttributes and noise handling, matching PlaybackService
+        return ExoPlayer.Builder(context).build().apply {
+            setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(C.USAGE_MEDIA)
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                    .build(),
+                true
+            )
+            setHandleAudioBecomingNoisy(true)
+        }
     }
 
     @UnstableApi
@@ -68,7 +69,8 @@ object PlayerModule {
         permissionHandlerUseCase: PermissionHandlerUseCase,
         playlistRepository: PlaylistRepository,
         @ApplicationContext context: Context,
-        sessionToken: SessionToken
+        sessionToken: SessionToken,
+        exoPlayer: ExoPlayer // Grok: Added to provide ExoPlayer to PlaybackControllerImpl
     ): PlaybackController {
         return PlaybackControllerImpl(
             sharedAudioDataSource,
@@ -76,7 +78,8 @@ object PlayerModule {
             permissionHandlerUseCase,
             playlistRepository,
             context,
-            sessionToken
+            sessionToken,
+            exoPlayer
         )
     }
 }

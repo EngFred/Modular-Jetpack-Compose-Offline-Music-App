@@ -14,6 +14,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.engfred.musicplayer.R
@@ -55,8 +56,8 @@ fun CustomSplashScreen() {
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                text = "Keep it safe, keep it Kotlin.",
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                text = "MADE BY ENGINEER FRED.",
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, fontWeight = FontWeight.ExtraBold),
                 color = Color.White.copy(alpha = 0.8f)
             )
         }

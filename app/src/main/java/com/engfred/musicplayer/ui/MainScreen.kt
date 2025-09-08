@@ -119,13 +119,13 @@ fun MainScreen(
                                     onSettingsClick()
                                 }
                             )
-                            DropdownMenuItem(
-                                text = { Text("About Developer", color = MaterialTheme.colorScheme.onSurface) },
-                                onClick = {
-                                    showDropdownMenu = false
-                                    onAboutClick()
-                                }
-                            )
+//                            DropdownMenuItem(
+//                                text = { Text("About Developer", color = MaterialTheme.colorScheme.onSurface) },
+//                                onClick = {
+//                                    showDropdownMenu = false
+//                                    onAboutClick()
+//                                }
+//                            )
                             DropdownMenuItem(
                                 text = { Text("Restart Player", color = MaterialTheme.colorScheme.onSurface) },
                                 onClick = {

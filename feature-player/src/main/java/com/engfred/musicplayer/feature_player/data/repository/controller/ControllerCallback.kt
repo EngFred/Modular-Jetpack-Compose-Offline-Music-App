@@ -16,6 +16,9 @@ import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.domain.repository.PlaybackState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
+// Grok: Added import for MediaItem
+import androidx.media3.common.MediaItem
+import com.engfred.musicplayer.feature_player.data.repository.PlaybackControllerImpl
 
 private const val TAG = "PlayerControllerImpl"
 
@@ -26,16 +29,16 @@ class ControllerCallback(
     private val progressFlow: StateFlow<CurrentAudioFilePlaybackProgress>,
     private val stateUpdater: PlaybackStateUpdater,
     private val progressTracker: PlaybackProgressTracker,
-    // FIX: Added to restore shuffle mode upon transitioning to the play next item.
+    //Added to restore shuffle mode upon transitioning to the play next item.
     private val pendingPlayNextMediaId: MutableStateFlow<String?>,
-    // FIX: Added sharedAudioDataSource to remove inaccessible files from in-memory lists in onPlayerError.
+    //Added sharedAudioDataSource to remove inaccessible files from in-memory lists in onPlayerError.
     private val sharedAudioDataSource: SharedAudioDataSource,
     private val playbackState: MutableStateFlow<PlaybackState>,
+    private val beatDetector: PlaybackControllerImpl.BeatDetector
 ) : Player.Listener {
 
     // Tracks the previous playback state to detect transitions (e.g., from playing to ended)
     private var lastPlaybackState = Player.STATE_IDLE
-
     // A timestamp to debounce rapid consecutive events (e.g., STATE_ENDED immediately followed by MEDIA_ITEM_TRANSITION)
     private var lastEventProcessedTimestamp: Long = 0L
 
@@ -50,7 +53,6 @@ class ControllerCallback(
 
     /**
      * Called when player events occur. This is where the "top tracks" logic resides.
-     *
      * @param player The [Player] instance.
      * @param events The [Player.Events] that occurred.
      */
@@ -63,20 +65,20 @@ class ControllerCallback(
         if (isSongTransition || isPlaybackEnded) {
             val now = System.currentTimeMillis()
             // Simple debounce: if an event just occurred very recently, skip processing
-            // the play event for the *previous* song to avoid double-counting.
+            // the play event for the previous song to avoid double-counting.
             if (now - lastEventProcessedTimestamp < 100) { // 100ms threshold, adjust if needed
                 Log.d(TAG, "Skipping play event processing for previous song due to rapid succession of events.")
                 stateUpdater.updatePlaybackState()
-                // Still update progress for the *new* current item to avoid stale data
+                // Still update progress for the new current item to avoid stale data
                 progressTracker.updateCurrentAudioFilePlaybackProgress(player as MediaController)
                 lastPlaybackState = player.playbackState
                 return
             }
             lastEventProcessedTimestamp = now
 
-            // --- CRITICAL: Use the *last known progress* for the song that just ended/transitioned ---
+            // --- CRITICAL: Use the last known progress for the song that just ended/transitioned ---
             // This value comes from the _currentAudioFilePlaybackProgress flow, which is updated frequently
-            // by startPlaybackPositionUpdates, giving us the most accurate "final" state of the *previous* song.
+            // by startPlaybackPositionUpdates, giving us the most accurate "final" state of the previous song.
             val songToEvaluateProgress = progressFlow.value
 
             // If it's a transition and the mediaId in _currentAudioFilePlaybackProgress
@@ -107,11 +109,12 @@ class ControllerCallback(
                 }
             }
         }
-
         // Always update the overall playback state exposed to the UI
         stateUpdater.updatePlaybackState()
-        // Always update progress tracker for the *new* current song, for the next event cycle
+
+        // Always update progress tracker for the new current song, for the next event cycle
         progressTracker.updateCurrentAudioFilePlaybackProgress(player as MediaController)
+
         // Always update lastPlaybackState for detecting future transitions
         lastPlaybackState = player.playbackState
     }
@@ -148,12 +151,22 @@ class ControllerCallback(
         }
     }
 
+    // Grok: Reset beatDetector on media item transitions to ensure song-specific BPM and intensity adaptation
+    override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+        if (mediaItem != null && reason != Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
+            beatDetector.reset()
+            Log.d(TAG, "Reset beat detector on media item transition for new song.")
+        }
+    }
+
     // FIX: Added to handle playback errors (e.g., inaccessible files), remove the failing item,
     // and continue playback, ensuring all songs in shuffle mode are attempted.
     override fun onPlayerError(error: PlaybackException) {
         Log.e(TAG, "Playback error: ${error.message}", error)
+
         val controller = progressTracker.mediaController.value ?: return
         val currentIndex = controller.currentMediaItemIndex
+
         if (currentIndex != C.INDEX_UNSET) {
             val failedMediaItem = controller.getMediaItemAt(currentIndex)
             val failedMediaId = failedMediaItem.mediaId
@@ -182,7 +195,6 @@ class ControllerCallback(
                     )
                     sharedAudioDataSource.deleteAudioFile(dummyAudioFile)
                     Log.d(TAG, "Removed inaccessible audio file (ID: $failedId) from shared data source.")
-
                     // Optional: Remove from all playlists if the file is inaccessible (uncomment if desired).
                     // playlistRepository.removeSongFromAllPlaylists(failedId)
                 }

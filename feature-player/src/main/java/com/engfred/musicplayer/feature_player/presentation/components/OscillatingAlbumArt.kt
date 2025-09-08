@@ -24,89 +24,107 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import kotlinx.coroutines.delay
+import kotlin.math.min
 
 @Composable
 fun OscillatingAlbumArt(
     albumArtUri: Uri?,
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
-    minScale: Float = 0.7f, // Pronounced contraction
-    maxScale: Float = 1.3f, // Pronounced expansion
+    minScale: Float = 0.92f,
+    maxScale: Float = 1.08f,
     bassIntensity: Float = 0f, // Beat-driven intensity (0f to 1f)
     estimatedBpm: Float = 120f // Estimated BPM from BeatDetector
 ) {
     val context = LocalContext.current
-    val infiniteTransition = rememberInfiniteTransition(label = "oscillation")
     val colorScheme = MaterialTheme.colorScheme
     var boxSize by remember { mutableStateOf(Size.Zero) } // Capture Box size
 
-    // Calculate animation duration based on BPM (milliseconds per beat)
-    val beatDurationMs = (60000f / estimatedBpm).toInt().coerceIn(200, 1000) // Limit to 60-300 BPM
+    // NEW: State to track the current beat phase for more authentic movement
+    var beatPhase by remember { mutableIntStateOf(0) }
 
-    // Single oscillator synced to estimated BPM
-    val scaleAnimation by infiniteTransition.animateFloat(
-        initialValue = minScale,
-        targetValue = maxScale,
-        animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = beatDurationMs,
-                easing = EaseInOutSine
-            ),
-            repeatMode = RepeatMode.Reverse
-        ), label = "beatScale"
-    )
-
-    // Calculate final scale based on bassIntensity
-    val scale = if (isPlaying) {
-        if (bassIntensity > 0.1f) { // Threshold to avoid noise in quiet sections
-            minScale + (maxScale - minScale) * bassIntensity // Emphasize beat-driven scaling
-        } else {
-            // Stronger fallback animation during quiet sections
-            minScale + (maxScale - minScale) * 0.5f * scaleAnimation
+    // NEW: Use a more physical spring animation that responds to bass intensity
+    val targetScale by remember(bassIntensity, isPlaying) {
+        derivedStateOf {
+            if (!isPlaying) {
+                1f // No animation when not playing
+            } else {
+                // Map bass intensity to scale with more nuanced response
+                // Creates the "small to medium to large" scaling effect you described
+                val intensityAdjusted = min(1f, bassIntensity * 1.5f) // Allow slight overshoot for strong beats
+                minScale + (maxScale - minScale) * intensityAdjusted
+            }
         }
-    } else {
-        1f
     }
 
-    // Border alpha pulses with beat
-    val borderAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.5f,
-        targetValue = 1.0f, // Bolder pulsing for visibility
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = beatDurationMs, easing = EaseInOutSine),
-            repeatMode = RepeatMode.Reverse
-        ), label = "borderAlpha"
+    // NEW: Smoother spring animation that mimics physical speaker movement
+    val animatedScale by animateFloatAsState(
+        targetValue = targetScale,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "subwooferScale"
     )
 
-    // Dynamic border width scales with beat
-    val borderWidth by infiniteTransition.animateFloat(
-        initialValue = 4f,
-        targetValue = 12f, // Wider for more prominent wave-like effect
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = beatDurationMs, easing = EaseInOutSine),
-            repeatMode = RepeatMode.Reverse
-        ), label = "borderWidth"
+    // NEW: Dynamic effects that pulse with the beat rather than a fixed animation
+    val pulseIntensity by remember(bassIntensity) {
+        derivedStateOf {
+            // Only show effects when there's actual bass detected
+            if (bassIntensity > 0.1f) bassIntensity else 0f
+        }
+    }
+
+    // NEW: Beat-synced effects - only activate when bass is detected
+    val borderAlpha by remember(pulseIntensity) {
+        derivedStateOf { 0.3f + 0.7f * pulseIntensity }
+    }
+
+    val borderWidth by remember(pulseIntensity) {
+        derivedStateOf { 4f + 8f * pulseIntensity }
+    }
+
+    val glowAlpha by remember(pulseIntensity) {
+        derivedStateOf { 0.3f + 0.6f * pulseIntensity }
+    }
+
+    // NEW: Use LaunchedEffect to track beat phases for more authentic movement
+    LaunchedEffect(isPlaying, estimatedBpm) {
+        if (!isPlaying) {
+            beatPhase = 0
+            return@LaunchedEffect
+        }
+
+        // Calculate beat interval based on BPM
+        val beatIntervalMs = (60000f / estimatedBpm).toLong().coerceIn(100, 2000)
+
+        while (isPlaying) {
+            delay(beatIntervalMs)
+            beatPhase = (beatPhase + 1) % 4 // 4-phase cycle for variety
+        }
+    }
+
+    // NEW: Add subtle secondary oscillation that follows beat phases
+    val secondaryOscillation by infiniteRepeatableAnimation(
+        initialValue = 0f,
+        targetValue = 1f,
+        durationMillis = if (estimatedBpm > 60) (60000 / estimatedBpm).toInt() else 1000,
+        isPlaying = isPlaying
     )
 
-    // Glow effect synced to beat
-    val glowAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.4f,
-        targetValue = 0.9f, // Stronger glow for wave-like effect
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = beatDurationMs, easing = EaseInOutSine),
-            repeatMode = RepeatMode.Reverse
-        ), label = "glowEffect"
-    )
+    // NEW: Combined scale for more organic movement
+    val combinedScale = animatedScale * (0.998f + 0.004f * secondaryOscillation)
 
     Box(
         modifier = modifier
             .aspectRatio(1f)
             .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-                shadowElevation = if (isPlaying) 8.dp.toPx() else 0f
-                ambientShadowColor = colorScheme.primary.copy(alpha = 0.4f)
-                spotShadowColor = colorScheme.primary.copy(alpha = 0.6f)
+                scaleX = combinedScale
+                scaleY = combinedScale
+                shadowElevation = if (isPlaying) (4f + 8f * pulseIntensity).dp.toPx() else 0f
+                ambientShadowColor = colorScheme.primary.copy(alpha = 0.3f * pulseIntensity)
+                spotShadowColor = colorScheme.primary.copy(alpha = 0.5f * pulseIntensity)
                 shape = CircleShape
                 clip = false
             }
@@ -117,36 +135,39 @@ fun OscillatingAlbumArt(
             },
         contentAlignment = Alignment.Center
     ) {
-        // Outer pulsing ring
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            colorScheme.primary.copy(alpha = glowAlpha * bassIntensity.coerceAtLeast(0.4f)),
-                            Color.Transparent
-                        ),
-                        radius = maxOf(1f, 1.2f * boxSize.width) // Ensure positive radius
+        // Outer pulsing ring - only visible during bass hits
+        if (pulseIntensity > 0.1f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                colorScheme.primary.copy(alpha = glowAlpha),
+                                Color.Transparent
+                            ),
+                            center = Offset(0.5f, 0.5f),
+                            radius = maxOf(1f, boxSize.width * 0.7f)
+                        )
                     )
-                )
-                .border(
-                    width = (borderWidth * bassIntensity.coerceAtLeast(0.4f)).dp, // Dynamic width
-                    color = colorScheme.onBackground.copy(alpha = if (isPlaying) borderAlpha else 0.2f),
-                    shape = CircleShape
-                )
-        )
+                    .border(
+                        width = borderWidth.dp,
+                        color = colorScheme.primary.copy(alpha = borderAlpha),
+                        shape = CircleShape
+                    )
+            )
+        }
 
-        // Inner pulsing ring
-        if (isPlaying) {
+        // Inner pulsing ring - follows the beat more closely
+        if (pulseIntensity > 0.2f) {
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val center = Offset(size.width / 2, size.height / 2)
                 val maxRadius = size.width / 2
                 drawCircle(
-                    color = colorScheme.primary.copy(alpha = 0.6f * bassIntensity.coerceAtLeast(0.4f)), // Stronger opacity
+                    color = colorScheme.primary.copy(alpha = 0.4f * pulseIntensity),
                     center = center,
-                    radius = maxRadius * scale, // Sync radius with main scale
-                    style = Stroke(width = 3.dp.toPx())
+                    radius = maxRadius * 0.9f,
+                    style = Stroke(width = (2f + 4f * pulseIntensity).dp.toPx())
                 )
             }
         }
@@ -164,7 +185,6 @@ fun OscillatingAlbumArt(
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
-
             if (albumArtUri != null) {
                 AsyncImage(
                     model = ImageRequest.Builder(context)
@@ -177,5 +197,33 @@ fun OscillatingAlbumArt(
                 )
             }
         }
+    }
+}
+
+// NEW: Helper function for secondary oscillations
+@Composable
+fun infiniteRepeatableAnimation(
+    initialValue: Float,
+    targetValue: Float,
+    durationMillis: Int,
+    isPlaying: Boolean
+): State<Float> {
+    val infiniteTransition = rememberInfiniteTransition(label = "secondaryOscillation")
+
+    return if (isPlaying) {
+        infiniteTransition.animateFloat(
+            initialValue = initialValue,
+            targetValue = targetValue,
+            animationSpec = infiniteRepeatable(
+                animation = tween(
+                    durationMillis = durationMillis,
+                    easing = EaseInOutSine
+                ),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "secondaryBeat"
+        )
+    } else {
+        remember { derivedStateOf { initialValue } }
     }
 }

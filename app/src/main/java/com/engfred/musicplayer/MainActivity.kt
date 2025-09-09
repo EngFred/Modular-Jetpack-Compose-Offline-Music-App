@@ -74,7 +74,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             Log.d(TAG, "setContent: composing UI...")
-            val selectedTheme = initialAppSettings?.selectedTheme ?: AppThemeType.FROSTBYTE
+            val selectedTheme = initialAppSettings?.selectedTheme ?: AppThemeType.DEEP_BLUE
             MusicPlayerAppTheme(selectedTheme = selectedTheme) {
                 val windowSizeClass = calculateWindowSizeClass(this)
                 val navController = rememberNavController()

@@ -6,8 +6,6 @@ import android.os.Build
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -21,7 +19,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.engfred.musicplayer.core.domain.model.AudioFile
-import com.engfred.musicplayer.feature_player.presentation.screens.PlayerScreen
+import com.engfred.musicplayer.feature_player.presentation.screens.NowPlayingScreen
 import com.engfred.musicplayer.feature_playlist.presentation.screens.PlaylistDetailScreen
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.detail.PlaylistDetailArgs
 import com.engfred.musicplayer.feature_settings.presentation.screens.SettingsScreen
@@ -135,7 +133,7 @@ fun AppNavHost(
                 )
             }
         ) {
-            PlayerScreen(
+            NowPlayingScreen(
                 windowWidthSizeClass = windowWidthSizeClass,
                 windowHeightSizeClass = windowHeightSizeClass,
                 onNavigateUp = {

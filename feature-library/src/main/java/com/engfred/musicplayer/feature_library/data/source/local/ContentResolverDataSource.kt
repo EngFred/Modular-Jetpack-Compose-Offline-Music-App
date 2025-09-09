@@ -39,8 +39,6 @@ class ContentResolverDataSource @Inject constructor(
 
     private val AUDIO_SELECTION = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
 
-    private val ALBUM_ART_BASE_URI = "content://media/external/audio/albumart".toUri()
-
     /**
      * Emits a list of audio files stored on the device using MediaStore.
      * This flow reacts to changes in the MediaStore by re-querying and emitting updated lists.
@@ -81,12 +79,7 @@ class ContentResolverDataSource @Inject constructor(
                             id
                         )
 
-                        val albumArtUri: Uri? = if (albumId != 0L) {
-                            ContentUris.withAppendedId(
-                                ALBUM_ART_BASE_URI,
-                                albumId
-                            )
-                        } else null
+                        val albumArtUri: Uri? = Uri.withAppendedPath(contentUri, "albumart")
 
                         audioFiles.add(
                             AudioFileDto(
@@ -95,10 +88,7 @@ class ContentResolverDataSource @Inject constructor(
                                 artist = artist,
                                 album = album,
                                 duration = duration,
-                                // The 'data' field (file path) is removed as Uri is the modern way to access media.
-                                // If you absolutely need the file path for specific legacy operations,
-                                // consider alternatives or specific permissions for Android 10+.
-                                data = contentUri.toString(), // Using URI string as a placeholder for 'data'
+                                data = contentUri.toString(),
                                 uri = contentUri,
                                 albumId = albumId,
                                 albumArtUri = albumArtUri,

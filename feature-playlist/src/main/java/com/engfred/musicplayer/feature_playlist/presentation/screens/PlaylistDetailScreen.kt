@@ -63,8 +63,6 @@ import androidx.compose.ui.platform.LocalContext
 import com.engfred.musicplayer.core.ui.AddSongToPlaylistDialog
 import com.engfred.musicplayer.core.ui.ConfirmationDialog
 import com.engfred.musicplayer.feature_playlist.presentation.components.detail.PlaylistDetailTopBar
-import com.skydoves.landscapist.ImageOptions
-import com.skydoves.landscapist.coil.CoilImage
 import com.engfred.musicplayer.core.domain.model.AutomaticPlaylistType
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -81,7 +79,7 @@ fun PlaylistDetailScreen(
 
     var moreMenuExpanded by remember { mutableStateOf(false) }
     var sortMenuExpanded by remember { mutableStateOf(false) }
-    var currentSortOrder by remember { mutableStateOf(if (uiState.playlist?.type == AutomaticPlaylistType.TOP_SONGS) PlaylistSortOrder.PLAY_COUNT else PlaylistSortOrder.DATE_ADDED) }
+    var currentSortOrder by remember { mutableStateOf(if (uiState.playlist?.type == AutomaticPlaylistType.MOST_PLAYED) PlaylistSortOrder.PLAY_COUNT else PlaylistSortOrder.DATE_ADDED) }
 
 
     LaunchedEffect(viewModel.uiEvent) {
@@ -251,7 +249,7 @@ fun PlaylistDetailScreen(
                                         onSortOrderChange = { currentSortOrder = it },
                                         sortMenuExpanded = sortMenuExpanded,
                                         onSortMenuExpandedChange = { sortMenuExpanded = it },
-                                        isTopSongs = uiState.playlist?.type == AutomaticPlaylistType.TOP_SONGS
+                                        isTopSongs = uiState.playlist?.type == AutomaticPlaylistType.MOST_PLAYED
                                     )
 
                                     Spacer(modifier = Modifier.height(16.dp))
@@ -264,7 +262,7 @@ fun PlaylistDetailScreen(
                         item {
                             PlaylistEmptyState(modifier = Modifier
                                 .fillMaxWidth()
-                                .height(200.dp))
+                                .height(200.dp), playlistType = uiState.playlist?.type)
                         }
                     } else if (!uiState.isLoading && uiState.error == null && uiState.playlist != null && !uiState.playlist?.songs.isNullOrEmpty()) {
                         itemsIndexed(
@@ -346,13 +344,13 @@ fun PlaylistDetailScreen(
                                 onSortOrderChange = { currentSortOrder = it },
                                 sortMenuExpanded = sortMenuExpanded,
                                 onSortMenuExpandedChange = { sortMenuExpanded = it },
-                                isTopSongs = uiState.playlist?.type == AutomaticPlaylistType.TOP_SONGS
+                                isTopSongs = uiState.playlist?.type == AutomaticPlaylistType.MOST_PLAYED
                             )
 
                             Spacer(modifier = Modifier.height(16.dp))
 
                             if (uiState.playlist?.songs.isNullOrEmpty()) {
-                                PlaylistEmptyState(modifier = Modifier.fillMaxSize())
+                                PlaylistEmptyState(modifier = Modifier.fillMaxSize(), playlistType = uiState.playlist?.type)
                             } else {
                                 PlaylistSongs(
                                     songs = sortedSongs,

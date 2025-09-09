@@ -1,22 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+<manifest package="com.engfred.musicplayer"
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Permissions for reading audio files -->
+    <!-- existing permissions (keep yours as well) -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-
-    <!-- Permissions for foreground service (required for background playback) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" /> <!-- Android 14+ -->
-
-    <!-- Permission for showing notifications (Android 13+) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-
-    <!-- Permissions for modifying audio settings -->
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-
-    <!-- For saving album image -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
 
@@ -30,6 +24,8 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.App.Starting">
+
+        <!-- Your MainActivity + Service entries (keep existing ones) -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -38,12 +34,10 @@
             android:theme="@style/Theme.App.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <!-- Music Service Declaration -->
         <service
             android:name="com.engfred.musicplayer.feature_player.data.service.PlaybackService"
             android:foregroundServiceType="mediaPlayback"
@@ -53,6 +47,19 @@
             </intent-filter>
         </service>
 
-    </application>
+        <!-- WIDGET RECEIVER: add this -->
+        <receiver
+            android:name=".widget.PlayerWidgetProvider"
+            android:exported="true"
+            android:label="Music Player Widget">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/player_widget_info" />
+        </receiver>
 
+    </application>
 </manifest>

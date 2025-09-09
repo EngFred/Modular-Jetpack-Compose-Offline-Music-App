@@ -1,5 +1,4 @@
 package com.engfred.musicplayer.feature_player.presentation.layouts
-
 import android.app.Activity
 import android.os.Build
 import android.view.HapticFeedbackConstants
@@ -7,6 +6,7 @@ import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -72,9 +72,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.toArgb
 import com.engfred.musicplayer.core.domain.repository.RepeatMode
 import com.engfred.musicplayer.core.domain.repository.ShuffleMode
+
 
 @RequiresApi(Build.VERSION_CODES.M)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -98,43 +98,36 @@ fun ImmersiveCanvasLayout(
     val view = LocalView.current
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-
     val backgroundColor = MaterialTheme.colorScheme.background
     val defaultContentColor = MaterialTheme.colorScheme.onBackground
     val colorScheme = MaterialTheme.colorScheme
-
     val dynamicContentColor = if (windowWidthSizeClass == WindowWidthSizeClass.Compact) {
         getContentColorForAlbumArt(context, uiState.currentAudioFile?.albumArtUri?.toString())
     } else {
         defaultContentColor
     }
-
-    // Handle status bar color and icon appearance
+// Handle status bar color and icon appearance
     DisposableEffect(windowWidthSizeClass, dynamicContentColor, selectedLayout) {
         val window = (context as? Activity)?.window
         val insetsController = window?.let { WindowInsetsControllerCompat(it, view) }
-
-        // Set status bar for compact mode in ImmersiveCanvasLayout
+// Set status bar for compact mode in ImmersiveCanvasLayout
         if (selectedLayout == PlayerLayout.IMMERSIVE_CANVAS && windowWidthSizeClass == WindowWidthSizeClass.Compact) {
 //            window?.statusBarColor = dynamicContentColor.toArgb()
-            // Adjust status bar icon appearance based on luminance
+// Adjust status bar icon appearance based on luminance
             insetsController?.isAppearanceLightStatusBars = (dynamicContentColor.luminance() > 0.5f).not()
         } else {
-            // Set to default theme status bar color
+// Set to default theme status bar color
 //            window?.statusBarColor = colorScheme.background.toArgb()
             insetsController?.isAppearanceLightStatusBars = colorScheme.background.luminance() > 0.5f
         }
-
-        // Cleanup: Revert to default theme status bar settings on dispose
+// Cleanup: Revert to default theme status bar settings on dispose
         onDispose {
 //            window?.statusBarColor = colorScheme.background.toArgb()
             insetsController?.isAppearanceLightStatusBars = colorScheme.background.luminance() > 0.5f
         }
     }
-
     var showQueueBottomSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
     if (showQueueBottomSheet && windowWidthSizeClass != WindowWidthSizeClass.Expanded) {
         QueueBottomSheet(
             onDismissRequest = { showQueueBottomSheet = false },
@@ -145,7 +138,6 @@ fun ImmersiveCanvasLayout(
             playingAudio = playingAudio
         )
     }
-
     CompositionLocalProvider(LocalContentColor provides defaultContentColor) {
         Box(
             modifier = Modifier
@@ -191,6 +183,15 @@ fun ImmersiveCanvasLayout(
                     )
                 }
                 .pointerInput(Unit) {
+                    detectVerticalDragGestures { _, dragAmount ->
+                        if (dragAmount > 20f) {
+// Drag down to exit the screen
+                            onNavigateUp()
+                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                        }
+                    }
+                }
+                .pointerInput(Unit) {
                     detectTapGestures(
                         onDoubleTap = {
                             uiState.currentAudioFile?.let {
@@ -205,7 +206,7 @@ fun ImmersiveCanvasLayout(
                     )
                 }
         ) {
-            // Responsive padding based on width and height
+// Responsive padding based on width and height
             val sectionHorizontalPadding = when {
                 windowWidthSizeClass == WindowWidthSizeClass.Expanded || windowHeightSizeClass == WindowHeightSizeClass.Expanded -> 32.dp
                 windowWidthSizeClass == WindowWidthSizeClass.Medium || windowHeightSizeClass == WindowHeightSizeClass.Medium -> 28.dp
@@ -228,7 +229,6 @@ fun ImmersiveCanvasLayout(
                 windowHeightSizeClass == WindowHeightSizeClass.Expanded -> 28.dp
                 else -> 24.dp
             }
-
             if (windowWidthSizeClass == WindowWidthSizeClass.Compact) {
                 Column(modifier = Modifier.fillMaxSize()) {
                     Box(
@@ -312,7 +312,7 @@ fun ImmersiveCanvasLayout(
                                             val success = saveBitmapToPictures(
                                                 context = context,
                                                 bitmap = bitmap,
-                                                filename = "${audioFileName}_album_art.jpg",
+                                                filename = "${audioFileName}album_art.jpg",
                                                 mimeType = "image/jpeg"
                                             )
                                             if (success) {
@@ -406,7 +406,7 @@ fun ImmersiveCanvasLayout(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Album art section
+// Album art section
                     Column(
                         modifier = Modifier
                             .weight(1f)
@@ -426,7 +426,7 @@ fun ImmersiveCanvasLayout(
                         )
                     }
                     Spacer(modifier = Modifier.width(32.dp))
-                    // Info section
+// Info section
                     Column(
                         modifier = Modifier
                             .weight(1.5f)
@@ -483,7 +483,7 @@ fun ImmersiveCanvasLayout(
                                     coroutineScope.launch {
                                         val bitmap = loadBitmapFromUri(context, uri)
                                         if (bitmap != null) {
-                                            val audioFileName = uiState.currentAudioFile?.title?.replace(" ", "_") ?: "album_art"
+                                            val audioFileName = uiState.currentAudioFile?.title?.replace(" ", "") ?: "album_art"
                                             val success = saveBitmapToPictures(
                                                 context = context,
                                                 bitmap = bitmap,

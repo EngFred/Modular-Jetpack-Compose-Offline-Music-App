@@ -74,7 +74,7 @@ class PlayerViewModel @Inject constructor(
             } catch (e: Exception) {
                 Log.e("PlayerViewModel", "Failed to load player settings from settings: ${e.message}", e)
                 // Fallback to default if loading fails
-                _playerLayoutState.value = PlayerLayout.ETHEREAL_FLOW
+                _playerLayoutState.value = PlayerLayout.MINIMALIST_GROOVE
             }
         }
     }

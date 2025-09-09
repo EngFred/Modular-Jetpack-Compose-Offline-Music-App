@@ -7,6 +7,7 @@ import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -87,7 +88,6 @@ fun EtherealFlowLayout(
     val view = LocalView.current
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val colorScheme = MaterialTheme.colorScheme
 
     val gradientColors by produceState(
         initialValue = listOf(Color(0xFF1E1E1E), Color(0xFF333333)),
@@ -136,6 +136,15 @@ fun EtherealFlowLayout(
                             view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
                         }
                     )
+                }
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures { _, dragAmount ->
+                        if (dragAmount > 20f) {
+// Drag down to exit the screen
+                            onNavigateUp()
+                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                        }
+                    }
                 }
         ) {
             // Responsive padding based on width and height

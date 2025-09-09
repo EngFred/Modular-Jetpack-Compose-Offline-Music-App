@@ -52,12 +52,11 @@ fun MinimalistGrooveLayout(
     shuffleMode: ShuffleMode
 ) {
     val view = LocalView.current
-    //context
+//context
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var showQueueBottomSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
     if (showQueueBottomSheet) {
         QueueBottomSheet(
             onDismissRequest = { showQueueBottomSheet = false },
@@ -68,11 +67,7 @@ fun MinimalistGrooveLayout(
             playingAudio = uiState.currentAudioFile,
         )
     }
-
-
-
     val useTwoPane = windowWidthSizeClass == WindowWidthSizeClass.Expanded
-
     Surface(
         color = MaterialTheme.colorScheme.background,
         contentColor = MaterialTheme.colorScheme.onBackground,
@@ -84,8 +79,13 @@ fun MinimalistGrooveLayout(
                 .pointerInput(Unit) {
                     detectVerticalDragGestures { _, dragAmount ->
                         if (dragAmount < -20f) {
+// Drag up to open queue
                             coroutineScope.launch { sheetState.show() }
                             showQueueBottomSheet = true
+                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                        } else if (dragAmount > 20f) {
+// Drag down to exit the screen
+                            onNavigateUp()
                             view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                         }
                     }
@@ -119,7 +119,6 @@ fun MinimalistGrooveLayout(
                     }
                 }
             )
-
             if (useTwoPane) {
                 Row(
                     modifier = Modifier
@@ -252,7 +251,6 @@ fun MinimalistGrooveLayout(
                     )
                 }
             }
-
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -285,7 +283,6 @@ fun MinimalistGrooveLayout(
         }
     }
 }
-
 @Composable
 private fun SongInfoSection(
     title: String?,

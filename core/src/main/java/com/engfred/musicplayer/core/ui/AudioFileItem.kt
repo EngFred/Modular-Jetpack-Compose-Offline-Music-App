@@ -1,6 +1,8 @@
 package com.engfred.musicplayer.core.ui
 
 import android.widget.Toast
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -37,9 +39,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,14 +57,16 @@ import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.util.MediaUtils
 import com.skydoves.landscapist.coil.CoilImage
 import androidx.compose.ui.zIndex
+import kotlinx.coroutines.isActive
 
 /**
  * A single audio file row styled like a chat list item (no card).
  *
  * - album art is circular
- * - rotates infinitely when current and playing
+ * - rotates continuously when item is current AND playing
+ * - pauses in place when current but paused
+ * - resets to 0° when no longer the current audio
  * - play count displayed as a small circular badge overlapping the top-left edge
- * - retains all original actions and visuals
  */
 @Composable
 fun AudioFileItem(
@@ -79,18 +85,35 @@ fun AudioFileItem(
     var showMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
-    // Rotation animation kept alive, only applied when playing
-    val transition = rememberInfiniteTransition(label = "albumRotation")
-    val rotationAnim by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 4000),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "rotation"
-    )
-    val rotationDegrees = if (isCurrentPlayingAudio && isAudioPlaying) rotationAnim else 0f
+    // Use an Animatable so we can (a) perform continuous linear rotation, and
+    // (b) preserve the rotation value when paused so it resumes from that angle.
+    val rotationAnim = remember { Animatable(0f) }
+
+    // Start / stop the continuous rotation based on playback state.
+    LaunchedEffect(isCurrentPlayingAudio, isAudioPlaying) {
+        // If this item is the currently playing audio and playback is active -> rotate.
+        if (isCurrentPlayingAudio && isAudioPlaying) {
+            // Keep animating by +360 repeatedly. Using LinearEasing avoids slow-in/slow-out pauses.
+            while (isActive) {
+                val target = rotationAnim.value + 360f
+                rotationAnim.animateTo(
+                    targetValue = target,
+                    animationSpec = tween(durationMillis = 4000, easing = LinearEasing)
+                )
+                // Loop continues immediately to the next +360 — no extra delay or easing pause.
+            }
+        } else {
+            // If the item is not current, reset to 0 degrees (like your original behavior).
+            // If it's current but paused, we DO NOT reset so it "pauses" at the current angle.
+            if (!isCurrentPlayingAudio) {
+                rotationAnim.snapTo(0f)
+            }
+            // otherwise (isCurrentPlayingAudio && !isAudioPlaying) -> do nothing (preserve angle)
+        }
+    }
+
+    // Keep rotation value bounded for display and pass to graphicsLayer.
+    val rotationDegrees = if (isCurrentPlayingAudio) (rotationAnim.value % 360f) else 0f
 
     Row(
         modifier = modifier

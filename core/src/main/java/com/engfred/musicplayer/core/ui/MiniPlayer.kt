@@ -43,6 +43,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
 import com.engfred.musicplayer.core.domain.model.AudioFile
+import com.engfred.musicplayer.core.ui.RotatingAlbumArt
 import com.skydoves.landscapist.ImageOptions
 import com.skydoves.landscapist.coil.CoilImage
 
@@ -102,39 +103,11 @@ fun MiniPlayer(
                         horizontalArrangement = Arrangement.SpaceBetween // Distributes elements evenly
                     ) {
                         // Album Art or Placeholder
-                        CoilImage(
-                            imageModel = { audioFile.albumArtUri },
-                            imageOptions = ImageOptions(
-                                contentDescription = "Album Art for ${audioFile.title}",
-                                contentScale = ContentScale.Crop
-                            ),
-                            modifier = Modifier
-                                .size(if (isCompactWidth) 48.dp else 64.dp) // Larger album art on wider screens
-                                .clip(RoundedCornerShape(8.dp)),
-                            failure = {
-                                Icon(
-                                    imageVector = Icons.Default.Album,
-                                    contentDescription = "No Album Art for ${audioFile.title}",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                    modifier = Modifier
-                                        .size(if (isCompactWidth) 48.dp else 64.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                                        .padding(8.dp)
-                                )
-                            },
-                            loading = {
-                                Icon(
-                                    imageVector = Icons.Default.Album,
-                                    contentDescription = "Loading Album Art for ${audioFile.title}",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                    modifier = Modifier
-                                        .size(if (isCompactWidth) 48.dp else 64.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                                        .padding(8.dp)
-                                )
-                            }
+                        RotatingAlbumArt(
+                            imageModel = audioFile.albumArtUri,
+                            size = if (isCompactWidth) 48.dp else 64.dp,
+                            trackId = audioFile.id,
+                            isRotating = isPlaying // rotates while playback is active
                         )
                         Spacer(modifier = Modifier.width(if (isCompactWidth) 12.dp else 16.dp))
 

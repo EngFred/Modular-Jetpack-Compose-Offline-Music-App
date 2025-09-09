@@ -5,5 +5,5 @@ package com.engfred.musicplayer.core.domain.model
  */
 enum class AutomaticPlaylistType {
     RECENTLY_ADDED,
-    TOP_SONGS
+    MOST_PLAYED
 }

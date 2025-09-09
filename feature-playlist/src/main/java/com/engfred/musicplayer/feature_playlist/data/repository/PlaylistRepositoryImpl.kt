@@ -113,19 +113,18 @@ class PlaylistRepositoryImpl @Inject constructor(
                 )
             }
 
-            // Add Top Songs playlist if there are songs
-            if (topPlayedPairs.isNotEmpty()) {
-                automaticPlaylists.add(
-                    Playlist(
-                        id = -2, // Use another negative ID
-                        name = "Top Songs (Last 7 Days)",
-                        songs = topPlayedPairs.map { it.first },
-                        isAutomatic = true,
-                        type = AutomaticPlaylistType.TOP_SONGS,
-                        playCounts = topPlayedPairs.associate { it.first.id to it.second }
-                    )
+            // Always add Top Songs playlist (even if empty)
+            automaticPlaylists.add(
+                Playlist(
+                    id = -2, // Use another negative ID
+                    name = "Weekly Most Played",
+                    songs = topPlayedPairs.map { it.first },
+                    isAutomatic = true,
+                    type = AutomaticPlaylistType.MOST_PLAYED,
+                    playCounts = topPlayedPairs.associate { it.first.id to it.second }
                 )
-            }
+            )
+
             // Combine automatic playlists (at the top) with user-created playlists
             automaticPlaylists + userPlaylists
         }
@@ -145,14 +144,14 @@ class PlaylistRepositoryImpl @Inject constructor(
             }
             -2L -> getTopPlayedSongs(sinceTimestamp = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000L), limit = 50).map { pairs ->
                 // The flow returned by getTopPlayedSongs already filters out playCounts < 3
-                if (pairs.isNotEmpty()) Playlist(
+                Playlist(
                     id = -2,
-                    name = "Top Songs (Last 7 Days)",
+                    name = "Weekly Most Played",
                     songs = pairs.map { it.first },
                     isAutomatic = true,
-                    type = AutomaticPlaylistType.TOP_SONGS,
+                    type = AutomaticPlaylistType.MOST_PLAYED,
                     playCounts = pairs.associate { it.first.id to it.second }
-                ) else null
+                )
             }
             else -> playlistDao.getPlaylistWithSongsById(playlistId).map { playlistWithSongs ->
                 playlistWithSongs?.toDomain()

@@ -33,6 +33,7 @@ fun LibraryContent(
     isAudioPlaying: Boolean,
     lazyListState: LazyListState,
     modifier: Modifier = Modifier,
+    onEditSong: (AudioFile) -> Unit
 ) {
     Box(
         modifier = modifier
@@ -89,7 +90,8 @@ fun LibraryContent(
                                 onAddToPlaylist = onAddToPlaylist,
                                 onRemoveOrDelete = onRemoveOrDelete,
                                 modifier = Modifier.fillMaxWidth(),
-                                isFromLibrary = true
+                                isFromLibrary = true,
+                                onEditInfo = onEditSong
                             )
                             if (audioFile != audios.lastOrNull()) {
                                 HorizontalDivider(

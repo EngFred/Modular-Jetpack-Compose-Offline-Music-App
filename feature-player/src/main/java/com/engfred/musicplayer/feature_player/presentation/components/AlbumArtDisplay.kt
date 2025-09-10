@@ -94,7 +94,7 @@ fun AlbumArtDisplay(
                     imageModel = { albumArtUri },
                     imageOptions = ImageOptions(
                         contentDescription = "Album Art",
-                        contentScale = ContentScale.Crop
+                        contentScale = ContentScale.FillBounds
                     ),
                     modifier = Modifier.fillMaxSize(),
                     failure = {
@@ -176,7 +176,7 @@ fun AlbumArtDisplay(
                     imageModel = { albumArtUri },
                     imageOptions = ImageOptions(
                         contentDescription = "Album Art",
-                        contentScale = ContentScale.Crop
+                        contentScale = ContentScale.FillBounds
                     ),
                     modifier = Modifier.fillMaxSize(),
                     failure = {

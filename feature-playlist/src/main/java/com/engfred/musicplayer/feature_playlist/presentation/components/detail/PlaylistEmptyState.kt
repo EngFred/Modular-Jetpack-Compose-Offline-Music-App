@@ -22,7 +22,7 @@ fun PlaylistEmptyState(
     } else if(playlistType == AutomaticPlaylistType.RECENTLY_ADDED) {
         "No recently added songs have been found."
     } else {
-        "This playlist is empty. Use the menu above to add song!"
+        "This playlist is empty. Use the menu above to add songs!"
     }
     AnimatedVisibility(
         visible = true,

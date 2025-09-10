@@ -60,6 +60,7 @@ import androidx.compose.ui.draw.clip
 import com.engfred.musicplayer.feature_playlist.presentation.components.detail.PlaylistSongs
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
+import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.ui.AddSongToPlaylistDialog
 import com.engfred.musicplayer.core.ui.ConfirmationDialog
 import com.engfred.musicplayer.feature_playlist.presentation.components.detail.PlaylistDetailTopBar
@@ -71,7 +72,8 @@ fun PlaylistDetailScreen(
     viewModel: PlaylistDetailViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
     onNavigateToNowPlaying: () -> Unit,
-    windowWidthSizeClass: WindowWidthSizeClass
+    windowWidthSizeClass: WindowWidthSizeClass,
+    onEditInfo: (AudioFile) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val mainLazyListState = rememberLazyListState()
@@ -283,7 +285,8 @@ fun PlaylistDetailScreen(
                                     viewModel.onEvent(PlaylistDetailEvent.SetPlayNext(it))
                                 },
                                 isFromAutomaticPlaylist = uiState.playlist?.isAutomatic ?: false,
-                                playCount = uiState.playlist?.playCounts?.get(audioFile.id)
+                                playCount = uiState.playlist?.playCounts?.get(audioFile.id),
+                                onEditInfo = onEditInfo
                             )
                             Spacer(Modifier.height(8.dp))
                         }
@@ -367,7 +370,8 @@ fun PlaylistDetailScreen(
                                         viewModel.onEvent(PlaylistDetailEvent.SetPlayNext(it))
                                     },
                                     isFromAutomaticPlaylist = uiState.playlist?.isAutomatic ?: false,
-                                    playCountMap = uiState.playlist?.playCounts
+                                    playCountMap = uiState.playlist?.playCounts,
+                                    onEditInfo = onEditInfo
                                 )
                             }
                         }

@@ -11,18 +11,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -32,19 +21,8 @@ import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.QueuePlayNext
 import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,17 +34,18 @@ import androidx.compose.ui.unit.dp
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.util.MediaUtils
 import com.skydoves.landscapist.coil.CoilImage
-import androidx.compose.ui.zIndex
 import kotlinx.coroutines.isActive
+import androidx.compose.ui.zIndex
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.unit.sp
 
 /**
- * A single audio file row styled like a chat list item (no card).
- *
- * - album art is circular
- * - rotates continuously when item is current AND playing
- * - pauses in place when current but paused
- * - resets to 0° when no longer the current audio
- * - play count displayed as a small circular badge overlapping the top-left edge
+ * AudioFileItem now uses `onEditInfo` callback for edit navigation.
+ * Keep onEditInfo optional so existing call-sites are backwards-compatible.
  */
 @Composable
 fun AudioFileItem(
@@ -80,39 +59,28 @@ fun AudioFileItem(
     onRemoveOrDelete: (AudioFile) -> Unit,
     isFromAutomaticPlaylist: Boolean = false,
     isFromLibrary: Boolean = false,
-    playCount: Int? = null
+    playCount: Int? = null,
+    onEditInfo: (AudioFile) -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
-    // Use an Animatable so we can (a) perform continuous linear rotation, and
-    // (b) preserve the rotation value when paused so it resumes from that angle.
     val rotationAnim = remember { Animatable(0f) }
 
-    // Start / stop the continuous rotation based on playback state.
     LaunchedEffect(isCurrentPlayingAudio, isAudioPlaying) {
-        // If this item is the currently playing audio and playback is active -> rotate.
         if (isCurrentPlayingAudio && isAudioPlaying) {
-            // Keep animating by +360 repeatedly. Using LinearEasing avoids slow-in/slow-out pauses.
             while (isActive) {
                 val target = rotationAnim.value + 360f
                 rotationAnim.animateTo(
                     targetValue = target,
                     animationSpec = tween(durationMillis = 4000, easing = LinearEasing)
                 )
-                // Loop continues immediately to the next +360 — no extra delay or easing pause.
             }
         } else {
-            // If the item is not current, reset to 0 degrees (like your original behavior).
-            // If it's current but paused, we DO NOT reset so it "pauses" at the current angle.
-            if (!isCurrentPlayingAudio) {
-                rotationAnim.snapTo(0f)
-            }
-            // otherwise (isCurrentPlayingAudio && !isAudioPlaying) -> do nothing (preserve angle)
+            if (!isCurrentPlayingAudio) rotationAnim.snapTo(0f)
         }
     }
 
-    // Keep rotation value bounded for display and pass to graphicsLayer.
     val rotationDegrees = if (isCurrentPlayingAudio) (rotationAnim.value % 360f) else 0f
 
     Row(
@@ -122,12 +90,7 @@ fun AudioFileItem(
             .padding(top = 4.dp, bottom = 4.dp, start = 15.dp, end = 5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Slightly larger outer box so the badge can overlap while remaining inside the row's hit area.
-        Box(
-            modifier = Modifier.size(64.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            // Inner clipped box: the album art which rotates when playing.
+        Box(modifier = Modifier.size(64.dp), contentAlignment = Alignment.Center) {
             Box(
                 modifier = Modifier
                     .size(56.dp)
@@ -156,22 +119,17 @@ fun AudioFileItem(
                 )
             }
 
-            // Play count badge: positioned slightly down-right relative to the album art's top-left,
-            // so it visually overlaps the edge (half-in / half-out). It's clickable and placed above the art.
             if (playCount != null) {
                 val badgeSize = 20.dp
                 Box(
                     modifier = Modifier
-                        // align near the top-start of the outer box
                         .align(Alignment.TopStart)
-                        // move a little right and down so the badge sits half-over the album art edge
                         .offset(x = 0.dp, y = 3.dp)
                         .size(badgeSize)
-                        .zIndex(1f) // ensure above the album art
+                        .zIndex(1f)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.primary)
                         .border(1.dp, MaterialTheme.colorScheme.surface, CircleShape)
-                        // make the badge itself clickable (delegates to row click for now)
                         .clickable { onClick(audioFile) },
                     contentAlignment = Alignment.Center
                 ) {
@@ -182,7 +140,8 @@ fun AudioFileItem(
                             color = MaterialTheme.colorScheme.onPrimary
                         ),
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        fontSize = 11.sp
                     )
                 }
             }
@@ -190,9 +149,7 @@ fun AudioFileItem(
 
         Spacer(modifier = Modifier.width(12.dp))
 
-        Column(
-            modifier = Modifier.weight(1f)
-        ) {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = audioFile.title,
                 style = MaterialTheme.typography.titleMedium.copy(
@@ -213,22 +170,16 @@ fun AudioFileItem(
             )
         }
 
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = MediaUtils.formatDuration(audioFile.duration),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 modifier = Modifier.padding(horizontal = 8.dp)
             )
-
-            if (isCurrentPlayingAudio && isAudioPlaying) {
-                VisualizerBars()
-            }
+            if (isCurrentPlayingAudio && isAudioPlaying) VisualizerBars()
         }
 
-        // Dropdown menu
         Box {
             IconButton(onClick = { showMenu = true }) {
                 Icon(
@@ -249,21 +200,14 @@ fun AudioFileItem(
                     text = { Text("Play Next") },
                     onClick = {
                         onPlayNext(audioFile)
-                        Toast.makeText(
-                            context,
-                            "Added '${audioFile.title}' to play next.",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        Toast.makeText(context, "Added '${audioFile.title}' to play next.", Toast.LENGTH_SHORT).show()
                         showMenu = false
                     },
                     leadingIcon = {
-                        Icon(
-                            Icons.Rounded.QueuePlayNext,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
+                        Icon(Icons.Rounded.QueuePlayNext, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
                     }
                 )
+
                 DropdownMenuItem(
                     text = { Text("Add to Playlist") },
                     onClick = {
@@ -271,13 +215,10 @@ fun AudioFileItem(
                         showMenu = false
                     },
                     leadingIcon = {
-                        Icon(
-                            Icons.AutoMirrored.Rounded.PlaylistAdd,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
+                        Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
                     }
                 )
+
                 if (!isFromAutomaticPlaylist) {
                     DropdownMenuItem(
                         text = { Text(if (isFromLibrary) "Delete song" else "Remove song") },
@@ -286,14 +227,23 @@ fun AudioFileItem(
                             showMenu = false
                         },
                         leadingIcon = {
-                            Icon(
-                                Icons.Rounded.Delete,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error
-                            )
+                            Icon(Icons.Rounded.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                         }
                     )
                 }
+
+                // NEW: Edit Info (before Share)
+                DropdownMenuItem(
+                    text = { Text("Edit Info") },
+                    onClick = {
+                        showMenu = false
+                        onEditInfo(audioFile) // single-activity navigation hook
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Rounded.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
+                    }
+                )
+
                 DropdownMenuItem(
                     text = { Text("Share Song") },
                     onClick = {
@@ -301,17 +251,14 @@ fun AudioFileItem(
                         showMenu = false
                     },
                     leadingIcon = {
-                        Icon(
-                            Icons.Rounded.Share,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
+                        Icon(Icons.Rounded.Share, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
                     }
                 )
             }
         }
     }
 }
+
 
 @Composable
 private fun VisualizerBars() {

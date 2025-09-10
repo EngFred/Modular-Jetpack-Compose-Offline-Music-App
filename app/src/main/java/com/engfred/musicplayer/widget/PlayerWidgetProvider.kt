@@ -9,12 +9,14 @@ import android.os.Build
 import android.util.Log
 import android.widget.RemoteViews
 import androidx.annotation.OptIn
+import androidx.annotation.RequiresApi
 import androidx.media3.common.util.UnstableApi
 import com.engfred.musicplayer.R
 import com.engfred.musicplayer.feature_player.data.service.PlaybackService
 
 private const val TAG = "PlayerWidgetProvider"
 
+@RequiresApi(Build.VERSION_CODES.P)
 class PlayerWidgetProvider : AppWidgetProvider() {
 
     companion object {
@@ -22,6 +24,7 @@ class PlayerWidgetProvider : AppWidgetProvider() {
         const val ACTION_WIDGET_NEXT = "com.engfred.musicplayer.ACTION_WIDGET_NEXT"
         const val ACTION_WIDGET_PREV = "com.engfred.musicplayer.ACTION_WIDGET_PREV"
         const val ACTION_UPDATE_WIDGET = "com.engfred.musicplayer.ACTION_UPDATE_WIDGET"
+        const val ACTION_WIDGET_REPEAT = "com.engfred.musicplayer.ACTION_WIDGET_REPEAT"
     }
 
     @OptIn(UnstableApi::class)
@@ -32,7 +35,8 @@ class PlayerWidgetProvider : AppWidgetProvider() {
         when (intent.action) {
             ACTION_WIDGET_PLAY_PAUSE,
             ACTION_WIDGET_NEXT,
-            ACTION_WIDGET_PREV -> {
+            ACTION_WIDGET_PREV,
+            ACTION_WIDGET_REPEAT -> {
                 val svcIntent = Intent(context, PlaybackService::class.java).apply {
                     action = intent.action
                 }
@@ -74,6 +78,7 @@ class PlayerWidgetProvider : AppWidgetProvider() {
         requestServiceRefresh(context)
     }
 
+    @RequiresApi(Build.VERSION_CODES.P)
     @OptIn(UnstableApi::class)
     private fun requestServiceRefresh(context: Context) {
         try {
@@ -104,6 +109,7 @@ class PlayerWidgetProvider : AppWidgetProvider() {
             views.setOnClickPendingIntent(R.id.widget_play_pause, pendingIntentFor(ACTION_WIDGET_PLAY_PAUSE))
             views.setOnClickPendingIntent(R.id.widget_next, pendingIntentFor(ACTION_WIDGET_NEXT))
             views.setOnClickPendingIntent(R.id.widget_prev, pendingIntentFor(ACTION_WIDGET_PREV))
+            views.setOnClickPendingIntent(R.id.widget_repeat, pendingIntentFor(ACTION_WIDGET_REPEAT))
         } catch (e: Exception) {
             Log.e(TAG, "Failed to set button pending intents: ${e.message}", e)
         }

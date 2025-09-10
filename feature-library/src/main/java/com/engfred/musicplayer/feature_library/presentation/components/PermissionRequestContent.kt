@@ -1,8 +1,5 @@
 package com.engfred.musicplayer.feature_library.presentation.components
 
-import android.content.Intent
-import android.net.Uri
-import android.provider.Settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -13,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -25,94 +23,102 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.PermissionState
 
-@OptIn(ExperimentalPermissionsApi::class)
+/**
+ * PermissionRequestContent
+ *
+ * A user-driven permission UI that only triggers the system permission dialog when the user taps
+ * the primary action. If the user permanently denied permissions, we show a clear action to open
+ * the App Settings page so they can enable permissions manually.
+ *
+ * - shouldShowRationale: whether the OS recommends showing a rationale.
+ * - isPermanentlyDenied: a higher-level computed boolean (caller decides when to treat as permanent).
+ * - onRequestPermission: callback to call when user asks to request permission (caller should call launchPermissionRequest()).
+ * - onOpenAppSettings: open application's settings page.
+ * - onContinueWithout: allow user to continue in limited mode without permission.
+ */
 @Composable
 fun PermissionRequestContent(
-    permissionState: PermissionState,
     shouldShowRationale: Boolean,
-    isPermanentlyDenied: Boolean
+    isPermanentlyDenied: Boolean,
+    onRequestPermission: () -> Unit,
+    onOpenAppSettings: () -> Unit,
+    onContinueWithout: () -> Unit
 ) {
     val context = LocalContext.current
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp), // Increased padding for more breathing room
+            .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // --- Icon for visual emphasis ---
         Icon(
-            imageVector = Icons.Default.Info, // Placeholder, consider a music-related icon
-            contentDescription = "Permission icon",
-            modifier = Modifier.size(64.dp), // Larger icon
-            tint = MaterialTheme.colorScheme.primary // Use primary color for prominence
+            imageVector = Icons.Default.Info,
+            contentDescription = "Permission information",
+            modifier = Modifier.size(64.dp),
+            tint = MaterialTheme.colorScheme.primary
         )
-        Spacer(modifier = Modifier.height(24.dp))
 
-        // --- Title ---
+        Spacer(modifier = Modifier.height(20.dp))
+
         Text(
-            text = "Music Library Access Needed",
-            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold), // Bolder title
+            text = "Music needs access to your audio files",
+            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
             color = MaterialTheme.colorScheme.onBackground,
             textAlign = TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(16.dp))
 
-        // --- Descriptive Message ---
+        Spacer(modifier = Modifier.height(12.dp))
+
         Text(
             text = when {
-                shouldShowRationale -> {
-                    "To play your favorite songs, Music Player needs access to your device's audio files. Granting this permission allows us to discover and organize your music library."
-                }
                 isPermanentlyDenied -> {
-                    "It looks like you've permanently denied music library access. To enable this feature, please go to App Settings and grant the necessary permission manually."
+                    // User has previously denied permanently (caller computed this)
+                    "You have permanently denied access to the music library. To enable full functionality, open the app settings and grant storage permission to Music."
+                }
+                shouldShowRationale -> {
+                    // OS recommends showing a rationale
+                    "Music needs permission to access your audio files so you can discover, browse and play your songs. Please grant access to continue."
                 }
                 else -> {
-                    "Please grant access to your music library to enable Music Player to discover and play your audio files."
+                    // First-time or undetermined state
+                    "To discover and play your songs, Music requires permission to access audio files on your device. Tap Grant Access to allow."
                 }
             },
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant // Slightly less prominent than onBackground
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Spacer(modifier = Modifier.height(32.dp)) // More space before buttons
 
-        // --- Primary Action Button ---
-        // Using FilledTonalButton for a slightly less prominent but still clear action
-        FilledTonalButton(
-            onClick = {
-                if (shouldShowRationale || !isPermanentlyDenied) {
-                    permissionState.launchPermissionRequest()
-                } else {
-                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = Uri.fromParts("package", context.packageName, null)
-                    }
-                    context.startActivity(intent)
-                }
-            },
-            modifier = Modifier.fillMaxWidth(0.8f) // Wider button
-        ) {
-            Text(
-                text = if (isPermanentlyDenied) "Go to App Settings" else "Grant Access",
-                style = MaterialTheme.typography.titleMedium // Slightly larger text
-            )
+        Spacer(modifier = Modifier.height(28.dp))
+
+        // Main action: either request permission or go to settings
+        if (isPermanentlyDenied) {
+            Button(
+                onClick = { onOpenAppSettings() },
+                modifier = Modifier.fillMaxWidth(0.85f)
+            ) {
+                Text(text = "Open App Settings", style = MaterialTheme.typography.titleMedium)
+            }
+        } else {
+            FilledTonalButton(
+                onClick = { onRequestPermission() },
+                modifier = Modifier.fillMaxWidth(0.85f)
+            ) {
+                Text(text = "Grant Access", style = MaterialTheme.typography.titleMedium)
+            }
         }
 
-        // --- Optional Secondary Action (e.g., "Learn More" or "Not Now") ---
-        if (shouldShowRationale) {
-            Spacer(modifier = Modifier.height(8.dp))
-            TextButton(
-                onClick = {
-                    // Handle "Not Now" or "Learn More" action
-                    // For example, navigate to a limited mode or show more info
-                }
-            ) {
-                Text(text = "Not Now", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Secondary action: allow user to continue without permission (limited experience)
+        TextButton(
+            onClick = { onContinueWithout() },
+            modifier = Modifier.fillMaxWidth(0.85f)
+        ) {
+            Text(text = "Continue without access", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

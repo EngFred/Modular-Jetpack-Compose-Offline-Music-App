@@ -16,6 +16,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.media3.common.util.UnstableApi
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
 import com.engfred.musicplayer.core.domain.repository.PlaybackState
+import com.engfred.musicplayer.core.ui.theme.AppThemeType
 import com.engfred.musicplayer.feature_player.presentation.layouts.EtherealFlowLayout
 import com.engfred.musicplayer.feature_player.presentation.layouts.ImmersiveCanvasLayout
 import com.engfred.musicplayer.feature_player.presentation.layouts.MinimalistGrooveLayout

@@ -1,20 +1,20 @@
 package com.engfred.musicplayer.feature_player.data.repository
+
 import android.content.Context
 import android.util.Log
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.domain.repository.PlaybackController
 import com.engfred.musicplayer.core.domain.repository.PlaybackState
+import com.engfred.musicplayer.core.domain.repository.PlaylistRepository
 import com.engfred.musicplayer.core.domain.repository.RepeatMode
 import com.engfred.musicplayer.core.domain.repository.ShuffleMode
-import com.engfred.musicplayer.core.mapper.AudioFileMapper
 import com.engfred.musicplayer.core.domain.usecases.PermissionHandlerUseCase
-import com.engfred.musicplayer.core.domain.repository.PlaylistRepository
+import com.engfred.musicplayer.core.mapper.AudioFileMapper
 import com.engfred.musicplayer.feature_player.data.repository.controller.ControllerCallback
 import com.engfred.musicplayer.feature_player.data.repository.controller.MediaControllerBuilder
 import com.engfred.musicplayer.feature_player.data.repository.controller.PlaybackProgressTracker
@@ -34,16 +34,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
+
 private const val TAG = "PlayerControllerImpl"
 @UnstableApi
 @Singleton
 class PlaybackControllerImpl @Inject constructor(
     private val sharedAudioDataSource: SharedAudioDataSource,
-    private val audioFileMapper: AudioFileMapper,
-    private val permissionHandlerUseCase: PermissionHandlerUseCase,
-    private val playlistRepository: PlaylistRepository,
+    audioFileMapper: AudioFileMapper,
+    permissionHandlerUseCase: PermissionHandlerUseCase,
+    playlistRepository: PlaylistRepository,
     @ApplicationContext private val context: Context,
-    private val sessionToken: SessionToken,
+    sessionToken: SessionToken,
 ) : PlaybackController {
     private val mediaController = MutableStateFlow<MediaController?>(null)
     private val _playbackState = MutableStateFlow(PlaybackState())
@@ -105,16 +106,30 @@ class PlaybackControllerImpl @Inject constructor(
     override suspend fun initiatePlayback(initialAudioFileUri: android.net.Uri) {
         queueManager.initiatePlayback(initialAudioFileUri, intendedRepeatMode, intendedShuffleMode)
     }
+    // In PlaybackControllerImpl.kt
     override suspend fun initiateShufflePlayback(playingQueue: List<AudioFile>) {
         if (playingQueue.isEmpty()) {
             Log.w(TAG, "Cannot initiate shuffle playback: empty queue.")
             return
         }
-        setShuffleMode(ShuffleMode.ON)
-        val randomAudio = playingQueue.shuffled().first()
-        sharedAudioDataSource.setPlayingQueue(playingQueue)
-        initiatePlayback(randomAudio.uri)
+
+        // Create a deterministic shuffled queue (a full permutation).
+        // This ensures every song appears exactly once in the queue.
+        val shuffledQueue = playingQueue.shuffled()
+
+        // Set the playing queue to the shuffled permutation so the QueueManager
+        // and sharedAudioDataSource reflect the actual order we want to play.
+        sharedAudioDataSource.setPlayingQueue(shuffledQueue)
+
+        // IMPORTANT: disable ExoPlayer's internal shuffle to avoid double-shuffling
+        // and unexpected skip behavior. We'll manage order via the shuffledQueue.
+        setShuffleMode(ShuffleMode.OFF)
+
+        // Start playback at the first item of the shuffled queue.
+        // initiatePlayback will set the controller queue and begin playback.
+        initiatePlayback(shuffledQueue.first().uri)
     }
+
     override suspend fun playPause() {
         withContext(Dispatchers.Main) {
             mediaController.value?.run {

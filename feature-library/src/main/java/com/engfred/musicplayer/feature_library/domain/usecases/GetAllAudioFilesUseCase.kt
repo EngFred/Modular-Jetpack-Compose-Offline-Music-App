@@ -3,7 +3,7 @@ package com.engfred.musicplayer.feature_library.domain.usecases
 import android.util.Log
 import com.engfred.musicplayer.core.common.Resource
 import com.engfred.musicplayer.core.domain.model.AudioFile
-import com.engfred.musicplayer.feature_library.domain.repository.AudioFileRepository
+import com.engfred.musicplayer.core.domain.repository.LibraryRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.catch
@@ -11,11 +11,11 @@ import kotlinx.coroutines.flow.onStart
 import javax.inject.Inject
 
 /**
- * Use case class to fetch all audio files from the [AudioFileRepository].
+ * Use case class to fetch all audio files from the [LibraryRepository].
  * Wraps the result in a [Resource] for better UI handling (loading, success, error).
  */
 class GetAllAudioFilesUseCase @Inject constructor(
-    private val repository: AudioFileRepository
+    private val repository: LibraryRepository
 ) {
     private val TAG = "GetAllAudioFilesUseCase"
 

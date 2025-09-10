@@ -1,8 +1,8 @@
 package com.engfred.musicplayer.feature_library.di
 import android.content.Context
-import com.engfred.musicplayer.feature_library.data.repository.AudioFileRepositoryImpl
+import com.engfred.musicplayer.feature_library.data.repository.LibraryRepositoryImpl
 import com.engfred.musicplayer.feature_library.data.source.local.ContentResolverDataSource
-import com.engfred.musicplayer.feature_library.domain.repository.AudioFileRepository
+import com.engfred.musicplayer.core.domain.repository.LibraryRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -24,7 +24,7 @@ object LibraryModule {
     @Singleton
     fun provideAudioFileRepository(
         dataSource: ContentResolverDataSource
-    ): AudioFileRepository {
-        return AudioFileRepositoryImpl(dataSource)
+    ): LibraryRepository {
+        return LibraryRepositoryImpl(dataSource)
     }
 }

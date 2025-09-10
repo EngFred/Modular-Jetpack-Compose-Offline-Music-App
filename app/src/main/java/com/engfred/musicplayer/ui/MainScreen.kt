@@ -79,7 +79,8 @@ fun MainScreen(
     onPlayPrev: () -> Unit,
     playingAudioFile: AudioFile?,
     isPlaying: Boolean,
-    windowWidthSizeClass: WindowWidthSizeClass
+    windowWidthSizeClass: WindowWidthSizeClass,
+    onEditSong: (AudioFile) -> Unit
 ) {
     val bottomNavController = rememberNavController()
     val bottomNavItems = listOf(
@@ -200,13 +201,15 @@ fun MainScreen(
                 .padding(innerPadding)
         ) {
             composable(AppDestinations.BottomNavItem.Library.baseRoute) {
-                LibraryScreen() // LibraryScreen will be laid out inside NavHost's padded area
+                LibraryScreen(
+                    onEditSong = onEditSong
+                ) // LibraryScreen will be laid out inside NavHost's padded area
             }
             composable(AppDestinations.BottomNavItem.Playlists.baseRoute) {
                 PlaylistsScreen(onPlaylistClick = onPlaylistClick, windowWidthSizeClass = windowWidthSizeClass)
             }
             composable(AppDestinations.BottomNavItem.Favorites.baseRoute) {
-                FavoritesScreen()
+                FavoritesScreen(onEditSong)
             }
         }
     }

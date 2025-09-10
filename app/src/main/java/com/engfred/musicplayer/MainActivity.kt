@@ -68,7 +68,7 @@ class MainActivity : ComponentActivity() {
             Log.d(TAG, "collecting playback state...")
             playbackController.getPlaybackState().collect {
                 playbackState = it
-                Log.d(TAG, "Playback state updated. IsPlaying: ${it.isPlaying}, Current file: ${it.currentAudioFile?.title}")
+//                Log.d(TAG, "Playback state updated. IsPlaying: ${it.isPlaying}, Current file: ${it.currentAudioFile?.title}")
             }
         }
 

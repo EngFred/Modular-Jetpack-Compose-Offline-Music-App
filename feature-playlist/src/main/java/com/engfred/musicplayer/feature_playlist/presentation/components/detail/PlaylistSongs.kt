@@ -27,7 +27,8 @@ fun PlaylistSongs(
     onPlayNext: (AudioFile) -> Unit,
     listState: LazyListState,
     modifier: Modifier = Modifier,
-    playCountMap: Map<Long, Int>? = null
+    playCountMap: Map<Long, Int>? = null,
+    onEditInfo: (AudioFile) -> Unit
 ) {
     AnimatedVisibility(
         visible = songs.isNotEmpty(),
@@ -53,7 +54,8 @@ fun PlaylistSongs(
                     onAddToPlaylist = onAddToPlaylist,
                     onPlayNext = onPlayNext,
                     isFromAutomaticPlaylist = isFromAutomaticPlaylist,
-                    playCount = playCountMap?.get(audioFile.id)
+                    playCount = playCountMap?.get(audioFile.id),
+                    onEditInfo = onEditInfo
                 )
             }
         }

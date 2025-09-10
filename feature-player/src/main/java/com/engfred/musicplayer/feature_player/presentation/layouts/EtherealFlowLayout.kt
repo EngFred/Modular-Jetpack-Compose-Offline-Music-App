@@ -23,11 +23,13 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.windowsizeclass.WindowHeightSizeClass
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -46,6 +48,8 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.domain.repository.PlaybackState
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
@@ -62,7 +66,7 @@ import com.engfred.musicplayer.feature_player.utils.getDynamicGradientColors
 import kotlinx.coroutines.launch
 import com.engfred.musicplayer.core.domain.repository.RepeatMode
 import com.engfred.musicplayer.core.domain.repository.ShuffleMode
-import androidx.compose.material3.MaterialTheme
+import com.engfred.musicplayer.core.ui.theme.AppThemeType
 import com.engfred.musicplayer.core.util.shareAudioFile
 
 
@@ -88,6 +92,26 @@ fun EtherealFlowLayout(
     val view = LocalView.current
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val colorScheme = MaterialTheme.colorScheme
+
+
+    // Handle status bar color and icon appearance
+    DisposableEffect(windowWidthSizeClass, selectedLayout) {
+        val window = (context as? Activity)?.window
+        val insetsController = window?.let { WindowInsetsControllerCompat(it, view) }
+
+        // Set status bar icons to dark for light themes, and light for dark themes
+        window?.let {
+            WindowCompat.getInsetsController(it, view).apply {
+                isAppearanceLightStatusBars = false
+                isAppearanceLightNavigationBars = false
+            }
+        }
+
+        onDispose {
+            insetsController?.isAppearanceLightStatusBars = colorScheme.background.luminance() > 0.5f
+        }
+    }
 
     val gradientColors by produceState(
         initialValue = listOf(Color(0xFF1E1E1E), Color(0xFF333333)),

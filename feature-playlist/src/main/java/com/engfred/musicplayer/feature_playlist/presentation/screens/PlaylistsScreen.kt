@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -34,9 +35,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.engfred.musicplayer.core.ui.ErrorIndicator
@@ -88,7 +89,7 @@ fun PlaylistsScreen(
         }
     }
 
-    // Replace Scaffold with a Box layout
+    // Background container
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -101,10 +102,7 @@ fun PlaylistsScreen(
                 )
             )
     ) {
-        // Main content column
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
+        Column(modifier = Modifier.fillMaxSize()) {
             when {
                 uiState.isLoading -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -119,6 +117,7 @@ fun PlaylistsScreen(
                         )
                     }
                 }
+                // If both lists are empty show the general info state (keeps existing behavior)
                 uiState.automaticPlaylists.isEmpty() && uiState.userPlaylists.isEmpty() -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         InfoIndicator(
@@ -128,6 +127,7 @@ fun PlaylistsScreen(
                     }
                 }
                 else -> {
+                    // At this point at least one list exists — automatic playlists will be shown first
                     if (uiState.currentLayout == PlaylistLayoutType.LIST) {
                         LazyColumn(
                             contentPadding = PaddingValues(
@@ -136,6 +136,7 @@ fun PlaylistsScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxSize()
                         ) {
+                            // Automatic playlists (always first)
                             items(uiState.automaticPlaylists, key = { it.id }) { playlist ->
                                 PlaylistItem(
                                     playlist = playlist,
@@ -147,6 +148,7 @@ fun PlaylistsScreen(
                                 )
                             }
 
+                            // User playlists header & items OR hint when none exist
                             if (uiState.userPlaylists.isNotEmpty()) {
                                 item {
                                     Text(
@@ -167,14 +169,28 @@ fun PlaylistsScreen(
                                         isDeletable = true
                                     )
                                 }
+                            } else {
+                                // Show hint text when there are no user playlists
+                                item {
+                                    Text(
+                                        text = "Your own playlists will show up here. Create some!",
+                                        color = MaterialTheme.colorScheme.onBackground,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp, vertical = 16.dp),
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
                             }
                         }
-                    } else { // Grid Layout
+                    } else {
+                        // Grid layout
                         LazyVerticalGrid(
                             columns = gridCells,
                             contentPadding = PaddingValues(contentHorizontalPadding),
                             modifier = Modifier.fillMaxSize()
                         ) {
+                            // Automatic playlists (always first)
                             items(uiState.automaticPlaylists, key = { it.id }) { playlist ->
                                 PlaylistGridItem(
                                     playlist = playlist,
@@ -182,16 +198,20 @@ fun PlaylistsScreen(
                                     onDeleteClick = { playlistId ->
                                         viewModel.onEvent(PlaylistEvent.DeletePlaylist(playlistId))
                                     },
-                                    isDeletable = false // Automatic playlists are not deletable
+                                    isDeletable = false
                                 )
                             }
+
+                            // Small spacer between automatic and user playlists (if both exist)
                             if (uiState.automaticPlaylists.isNotEmpty() && uiState.userPlaylists.isNotEmpty()) {
-                                item(span = { GridItemSpan(maxLineSpan) }) { // Spacer for grid
-                                    Spacer(Modifier.height(16.dp))
+                                item(span = { GridItemSpan(maxLineSpan) }) {
+                                    Spacer(Modifier.height(12.dp))
                                 }
                             }
+
+                            // User playlists header + items, or a spanning hint when empty
                             if (uiState.userPlaylists.isNotEmpty()) {
-                                item(span = { GridItemSpan(maxLineSpan) }) { // Span across all columns for header
+                                item(span = { GridItemSpan(maxLineSpan) }) {
                                     Text(
                                         text = "My Playlists",
                                         style = MaterialTheme.typography.titleLarge,
@@ -208,6 +228,19 @@ fun PlaylistsScreen(
                                             viewModel.onEvent(PlaylistEvent.DeletePlaylist(playlistId))
                                         },
                                         isDeletable = true
+                                    )
+                                }
+                            } else {
+                                // Hint spanning all columns
+                                item(span = { GridItemSpan(maxLineSpan) }) {
+                                    Text(
+                                        text = "Your own playlists will show up here. Create some!",
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onBackground,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp, vertical = 16.dp),
+                                        textAlign = TextAlign.Center
                                     )
                                 }
                             }

@@ -183,6 +183,9 @@ fun ControlBar(
             )
         }
     } else {
+        // Smaller circular background size for shuffle & repeat in this else layout
+        val smallIconBgSize = controlSizes.shuffleRepeatButtonSize * 0.78f
+
         Box(
             modifier = modifier
                 .fillMaxWidth()
@@ -195,6 +198,7 @@ fun ControlBar(
                 horizontalArrangement = Arrangement.spacedBy(controlSizes.horizontalSpacing, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Shuffle with smaller white circular background
                 PlaybackControlIconButton(
                     icon = Icons.Rounded.Shuffle,
                     contentDescription = "Toggle Shuffle Mode",
@@ -202,10 +206,12 @@ fun ControlBar(
                         val newShuffleMode = if (shuffleMode == ShuffleMode.ON) ShuffleMode.OFF else ShuffleMode.ON
                         onSetShuffleMode(newShuffleMode)
                     },
-                    tint = if (shuffleMode == ShuffleMode.ON) MaterialTheme.colorScheme.secondary else LocalContentColor.current.copy(alpha = 0.6f),
+                    tint = LocalContentColor.current,
                     size = controlSizes.shuffleRepeatIconSize,
-                    buttonSize = controlSizes.shuffleRepeatButtonSize
+                    buttonSize = smallIconBgSize,
+                    backgroundColor = if (shuffleMode == ShuffleMode.ON) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
                 )
+
                 PlaybackControlIconButton(
                     icon = Icons.Rounded.SkipPrevious,
                     contentDescription = "Skip Previous Song",
@@ -214,6 +220,7 @@ fun ControlBar(
                     size = controlSizes.skipIconSize,
                     buttonSize = controlSizes.skipIconSize + 12.dp
                 )
+
                 PlaybackControlIconButton(
                     icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                     contentDescription = if (isPlaying) "Pause Playback" else "Play Playback",
@@ -225,6 +232,7 @@ fun ControlBar(
                     scaleAnimation = true,
                     isPlaying = isPlaying
                 )
+
                 PlaybackControlIconButton(
                     icon = Icons.Rounded.SkipNext,
                     contentDescription = "Skip Next Song",
@@ -233,6 +241,8 @@ fun ControlBar(
                     size = controlSizes.skipIconSize,
                     buttonSize = controlSizes.skipIconSize + 12.dp
                 )
+
+                // Repeat with smaller white circular background
                 PlaybackControlIconButton(
                     icon = when (repeatMode) {
                         RepeatMode.OFF -> Icons.Rounded.Repeat
@@ -248,9 +258,10 @@ fun ControlBar(
                         }
                         onSetRepeatMode(newRepeatMode)
                     },
-                    tint = if (repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.primary else LocalContentColor.current.copy(alpha = 0.7f),
+                    tint = LocalContentColor.current,
                     size = controlSizes.shuffleRepeatIconSize,
-                    buttonSize = controlSizes.shuffleRepeatButtonSize
+                    buttonSize = smallIconBgSize,
+                    backgroundColor = if(repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
                 )
             }
         }

@@ -47,7 +47,7 @@
             </intent-filter>
         </service>
 
-        <!-- WIDGET RECEIVER: add this -->
+        <!-- WIDGET RECEIVER -->
         <receiver
             android:name=".widget.PlayerWidgetProvider"
             android:exported="true"

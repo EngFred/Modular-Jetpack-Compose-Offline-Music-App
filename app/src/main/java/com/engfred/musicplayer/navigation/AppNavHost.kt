@@ -27,9 +27,11 @@ import com.engfred.musicplayer.ui.MainScreen
 import com.engfred.musicplayer.ui.about.screen.CustomSplashScreen
 import androidx.compose.material3.windowsizeclass.WindowHeightSizeClass
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.core.net.toUri
+import com.engfred.musicplayer.feature_library.presentation.screens.EditSongScreenContainer
 import kotlinx.coroutines.delay
 
 /**
@@ -49,14 +51,16 @@ fun AppNavHost(
     isPlaying: Boolean,
     context: Context,
     onNavigateToNowPlaying: () -> Unit,
-    isPlayerActive: Boolean
+    isPlayerActive: Boolean,
 ) {
 
     // Set the start destination based on the condition
-    val startDestination = if (isPlayerActive) {
-        AppDestinations.MainGraph.route
-    } else {
-        AppDestinations.Splash.route
+    val startDestination = remember {
+        if (isPlayerActive) {
+            AppDestinations.MainGraph.route
+        } else {
+            AppDestinations.Splash.route
+        }
     }
 
     NavHost(
@@ -101,7 +105,10 @@ fun AppNavHost(
                 onPlayPrev = onPlayPrev,
                 isPlaying = isPlaying,
                 playingAudioFile = playingAudioFile,
-                windowWidthSizeClass = windowWidthSizeClass
+                windowWidthSizeClass = windowWidthSizeClass,
+                onEditSong = { audioFile ->
+                    rootNavController.navigate(AppDestinations.EditSong.createRoute(audioFile.id))
+                }
             )
         }
 
@@ -152,23 +159,38 @@ fun AppNavHost(
             )
         ) {
             PlaylistDetailScreen(
-                onNavigateBack = { rootNavController.popBackStack() },
+                onNavigateBack = { rootNavController.navigateUp() },
                 onNavigateToNowPlaying = onNavigateToNowPlaying,
-                windowWidthSizeClass = windowWidthSizeClass
+                windowWidthSizeClass = windowWidthSizeClass,
+                onEditInfo = {
+                    rootNavController.navigate(AppDestinations.EditSong.createRoute(it.id))
+                }
             )
         }
 
         // Settings
         composable(AppDestinations.Settings.route) {
             SettingsScreen(
-                onNavigateBack = { rootNavController.popBackStack() }
+                onNavigateBack = { rootNavController.navigateUp() }
+            )
+        }
+
+        composable(
+            route = AppDestinations.EditSong.route,
+            arguments = listOf(navArgument("audioId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val audioId = backStackEntry.arguments?.getLong("audioId") ?: -1L
+            // Compose screen that handles editing (ViewModel handles loading/saving)
+            EditSongScreenContainer(
+                audioId = audioId,
+                onFinish = { rootNavController.navigateUp() }
             )
         }
 
         // About
 //        composable(AppDestinations.About.route) {
 //            AboutScreen(
-//                onNavigateBack = { rootNavController.popBackStack() }
+//                onNavigateBack = { rootNavController.navigateUp() }
 //            )
 //        }
     }

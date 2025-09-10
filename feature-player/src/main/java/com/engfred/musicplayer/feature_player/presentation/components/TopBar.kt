@@ -377,9 +377,9 @@ private fun LayoutDropdownMenu(
             ) {
                 Text(
                     text = when (layout) {
-                        PlayerLayout.ETHEREAL_FLOW -> "Ethereal Flow"
-                        PlayerLayout.IMMERSIVE_CANVAS -> "Immersive Canvas"
-                        PlayerLayout.MINIMALIST_GROOVE -> "Minimalist Groove"
+                        PlayerLayout.ETHEREAL_FLOW -> "Ethereal"
+                        PlayerLayout.IMMERSIVE_CANVAS -> "Immersive"
+                        PlayerLayout.MINIMALIST_GROOVE -> "Minimalist"
                     },
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurface,

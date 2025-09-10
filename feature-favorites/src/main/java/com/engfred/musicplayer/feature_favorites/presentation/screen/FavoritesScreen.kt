@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.ui.AudioFileItem
 import com.engfred.musicplayer.core.ui.AddSongToPlaylistDialog
 import com.engfred.musicplayer.core.ui.ConfirmationDialog
@@ -24,6 +25,7 @@ import com.engfred.musicplayer.feature_favorites.presentation.viewmodel.Favorite
 
 @Composable
 fun FavoritesScreen(
+    onEditInfo: (AudioFile) -> Unit,
     viewModel: FavoritesViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -80,7 +82,7 @@ fun FavoritesScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "No favorite songs yet. Add some!",
+                            text = "Audio fies you mark as favorites will appear here!",
                             color = MaterialTheme.colorScheme.onBackground,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.padding(16.dp)
@@ -115,6 +117,7 @@ fun FavoritesScreen(
                                     onRemoveOrDelete = {
                                         viewModel.onEvent(FavoritesEvent.ShowRemoveFavoriteConfirmation(it))
                                     },
+                                    onEditInfo = onEditInfo,
                                     modifier = Modifier.fillMaxWidth()
                                 )
                                 if (index < uiState.favoriteAudioFiles.size - 1) {

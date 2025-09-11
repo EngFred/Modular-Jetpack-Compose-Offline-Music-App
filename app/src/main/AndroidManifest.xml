@@ -3,16 +3,25 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- existing permissions (keep yours as well) -->
+    <!-- Existing permissions (keep yours too) -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+
+    <!-- Read permissions -->
+    <!-- For Android 13+ use READ_MEDIA_AUDIO -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+
+    <!-- Legacy read permission (used on API <= 32). Keep maxSdkVersion to avoid lint errors on newer SDKs. -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+
+    <!-- Foreground / notification / playback related -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
+
+    <!-- Legacy write permission (only for API <= 28). Keep one entry only. -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
 
     <application
         android:name=".MusicPlayerApplication"
@@ -25,7 +34,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.App.Starting">
 
-        <!-- Your MainActivity + Service entries (keep existing ones) -->
+        <!-- MainActivity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -38,6 +47,7 @@
             </intent-filter>
         </activity>
 
+        <!-- Playback service -->
         <service
             android:name="com.engfred.musicplayer.feature_player.data.service.PlaybackService"
             android:foregroundServiceType="mediaPlayback"

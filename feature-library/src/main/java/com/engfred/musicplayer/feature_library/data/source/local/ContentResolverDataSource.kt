@@ -9,7 +9,6 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
 import android.util.Log
-import androidx.core.net.toUri
 import com.engfred.musicplayer.feature_library.data.model.AudioFileDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
@@ -18,11 +17,6 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
 import javax.inject.Inject
 
-/**
- * Data source for accessing device audio files using ContentResolver and MediaStore.
- * Provides a reactive flow that emits a new list of audio files whenever changes are detected
- * in the MediaStore.
- */
 class ContentResolverDataSource @Inject constructor(
     private val context: Context
 ) {
@@ -34,15 +28,12 @@ class ContentResolverDataSource @Inject constructor(
         MediaStore.Audio.Media.ALBUM,
         MediaStore.Audio.Media.DURATION,
         MediaStore.Audio.Media.ALBUM_ID,
-        MediaStore.Audio.Media.DATE_ADDED
+        MediaStore.Audio.Media.DATE_ADDED,
+        MediaStore.Audio.Media.MIME_TYPE
     )
 
     private val AUDIO_SELECTION = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
 
-    /**
-     * Emits a list of audio files stored on the device using MediaStore.
-     * This flow reacts to changes in the MediaStore by re-querying and emitting updated lists.
-     */
     fun getAllAudioFilesFlow(): Flow<List<AudioFileDto>> = callbackFlow {
         val fetchAndSendAudioFiles = {
             val audioFiles = mutableListOf<AudioFileDto>()
@@ -64,6 +55,7 @@ class ContentResolverDataSource @Inject constructor(
                     val durationColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
                     val albumIdColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
                     val dateAddedColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
+                    val mimeColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
 
                     while (it.moveToNext()) {
                         val id = it.getLong(idColumn)
@@ -73,6 +65,7 @@ class ContentResolverDataSource @Inject constructor(
                         val duration = it.getLong(durationColumn)
                         val albumId = it.getLong(albumIdColumn)
                         val dateAdded = it.getLong(dateAddedColumn)
+                        val mime = it.getString(mimeColumn)
 
                         val contentUri: Uri = ContentUris.withAppendedId(
                             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
@@ -92,14 +85,15 @@ class ContentResolverDataSource @Inject constructor(
                                 uri = contentUri,
                                 albumId = albumId,
                                 albumArtUri = albumArtUri,
-                                dateAdded = dateAdded
+                                dateAdded = dateAdded,
+                                mimeType = mime
                             )
                         )
                     }
                 }
                 trySend(audioFiles)
             } catch (e: Exception) {
-                Log.e("TAG", "Error fetching audio files", e)
+                Log.e("ContentResolverDataSource", "Error fetching audio files", e)
                 trySend(emptyList())
             } finally {
                 cursor?.close()

@@ -16,5 +16,6 @@ data class AudioFileDto(
     val uri: Uri,
     val albumId: Long?,
     val albumArtUri: Uri?,
-    val dateAdded: Long
+    val dateAdded: Long,
+    val mimeType: String? // NEW: For checking during edit
 )

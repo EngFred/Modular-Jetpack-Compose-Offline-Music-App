@@ -85,7 +85,7 @@ fun FavoritesScreen(
                             text = "Audio fies you mark as favorites will appear here!",
                             color = MaterialTheme.colorScheme.onBackground,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(16.dp)
+                            modifier = Modifier.padding(30.dp)
                         )
                     }
                 }

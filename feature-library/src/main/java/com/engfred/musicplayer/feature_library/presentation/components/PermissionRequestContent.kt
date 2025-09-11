@@ -15,11 +15,9 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -32,21 +30,19 @@ import androidx.compose.ui.unit.dp
  * the App Settings page so they can enable permissions manually.
  *
  * - shouldShowRationale: whether the OS recommends showing a rationale.
- * - isPermanentlyDenied: a higher-level computed boolean (caller decides when to treat as permanent).
- * - onRequestPermission: callback to call when user asks to request permission (caller should call launchPermissionRequest()).
+ * - isPermanentlyDenied: true if user has permanently denied permission (can't request again).
+ * - isPermissionDialogShowing: true if the system permission dialog is currently showing.
+ * - onRequestPermission: callback to call when user asks to request permission.
  * - onOpenAppSettings: open application's settings page.
- * - onContinueWithout: allow user to continue in limited mode without permission.
  */
 @Composable
 fun PermissionRequestContent(
     shouldShowRationale: Boolean,
     isPermanentlyDenied: Boolean,
+    isPermissionDialogShowing: Boolean,
     onRequestPermission: () -> Unit,
-    onOpenAppSettings: () -> Unit,
-    onContinueWithout: () -> Unit
+    onOpenAppSettings: () -> Unit
 ) {
-    val context = LocalContext.current
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -74,8 +70,12 @@ fun PermissionRequestContent(
 
         Text(
             text = when {
+                isPermissionDialogShowing -> {
+                    // System permission dialog is currently showing
+                    "Please check the permission dialog to grant access to your music library."
+                }
                 isPermanentlyDenied -> {
-                    // User has previously denied permanently (caller computed this)
+                    // User has permanently denied permission
                     "You have permanently denied access to the music library. To enable full functionality, open the app settings and grant storage permission to Music."
                 }
                 shouldShowRationale -> {
@@ -95,7 +95,9 @@ fun PermissionRequestContent(
         Spacer(modifier = Modifier.height(28.dp))
 
         // Main action: either request permission or go to settings
-        if (isPermanentlyDenied) {
+        if (isPermissionDialogShowing) {
+            // Show nothing while permission dialog is showing
+        } else if (isPermanentlyDenied) {
             Button(
                 onClick = { onOpenAppSettings() },
                 modifier = Modifier.fillMaxWidth(0.85f)
@@ -109,16 +111,6 @@ fun PermissionRequestContent(
             ) {
                 Text(text = "Grant Access", style = MaterialTheme.typography.titleMedium)
             }
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // Secondary action: allow user to continue without permission (limited experience)
-        TextButton(
-            onClick = { onContinueWithout() },
-            modifier = Modifier.fillMaxWidth(0.85f)
-        ) {
-            Text(text = "Continue without access", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

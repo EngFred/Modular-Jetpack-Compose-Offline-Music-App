@@ -39,10 +39,6 @@ class QueueManager(
      * If the queue doesn't match the controller's queue, it will be set.
      * @param initialAudioFileUri The [android.net.Uri] of the audio file to start playback from.
      */
-    /**
-     * Initiates playback of a given audio file within the current playing queue.
-     * Filters inaccessible files before setting the player queue to avoid enqueueing bad items.
-     */
     suspend fun initiatePlayback(initialAudioFileUri: android.net.Uri, intendedRepeat: RepeatMode, intendedShuffle: ShuffleMode) {
         withContext(Dispatchers.Main) {
             val controller = mediaController.value
@@ -110,54 +106,10 @@ class QueueManager(
                 progressTracker.updateCurrentAudioFilePlaybackProgress(controller)
                 Log.d(TAG, "Repositioned playback within existing queue to index $startIndex.")
             } else {
-                // PRODUCTION: Filter out inaccessible files before setting media items to avoid queue pollution.
-                val accessibleQueue = mutableListOf<AudioFile>()
-                val inaccessibleFiles = mutableListOf<AudioFile>()
-
-                withContext(Dispatchers.IO) {
-                    for (file in playingQueue) {
-                        val ok = try {
-                            isAudioFileAccessible(context, file.uri, permissionHandlerUseCase)
-                        } catch (e: Throwable) {
-                            Log.w(TAG, "isAudioFileAccessible threw for ${file.id}: ${e.message}")
-                            false
-                        }
-                        if (ok) accessibleQueue.add(file) else inaccessibleFiles.add(file)
-                    }
-                }
-
-                if (inaccessibleFiles.isNotEmpty()) {
-                    inaccessibleFiles.forEach { bad ->
-                        try {
-                            sharedAudioDataSource.deleteAudioFile(bad)
-                            Log.d(TAG, "Deleted inaccessible file ID=${bad.id} from shared data source.")
-                        } catch (e: Throwable) {
-                            Log.w(TAG, "deleteAudioFile failed for id=${bad.id}: ${e.message}. Trying removeAudioFileFromPlayingQueue fallback.")
-                            try {
-                                sharedAudioDataSource.removeAudioFileFromPlayingQueue(bad)
-                            } catch (inner: Throwable) {
-                                Log.w(TAG, "Fallback removal also failed for id=${bad.id}: ${inner.message}")
-                            }
-                        }
-                    }
-                }
-
-                // If after filtering there is nothing left to play, give a friendly error
-                if (accessibleQueue.isEmpty()) {
-                    Log.e(TAG, "No accessible audio files available after filtering.")
-                    playbackState.update { it.copy(error = "No playable audio files found.") }
-                    controller.stop()
-                    controller.clearMediaItems()
-                    progressTracker.resetProgress()
-                    return@withContext
-                }
-
-                // Compute adjusted start index within the filtered accessibleQueue
-                val adjustedStartIndex = accessibleQueue.indexOfFirst { it.uri == initialAudioFileUri }.takeIf { it >= 0 } ?: 0
-
+                // Use the playing queue as-is without filtering
                 try {
-                    val mediaItems = accessibleQueue.map { audioFileMapper.mapAudioFileToMediaItem(it) }
-                    controller.setMediaItems(mediaItems, adjustedStartIndex, C.TIME_UNSET)
+                    val mediaItems = playingQueue.map { audioFileMapper.mapAudioFileToMediaItem(it) }
+                    controller.setMediaItems(mediaItems, startIndex, C.TIME_UNSET)
 
                     // Re-apply stored repeat and shuffle modes
                     setRepeatCallback(intendedRepeat)
@@ -165,7 +117,7 @@ class QueueManager(
 
                     controller.prepare()
                     controller.play()
-                    Log.d(TAG, "Initiated playback after filtering inaccessible files. StartIndex=$adjustedStartIndex")
+                    Log.d(TAG, "Initiated playback without filtering. StartIndex=$startIndex")
                     progressTracker.updateCurrentAudioFilePlaybackProgress(controller)
                 } catch (e: Exception) {
                     Log.e(TAG, "Error setting media items or playing during initiation: ${e.message}", e)
@@ -174,7 +126,6 @@ class QueueManager(
             }
         }
     }
-
 
     /**
      * Adds an [AudioFile] to the player's queue right after the currently playing song.

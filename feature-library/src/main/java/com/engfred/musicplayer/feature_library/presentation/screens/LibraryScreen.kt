@@ -46,10 +46,13 @@ fun LibraryScreen(
     val uiState = viewModel.uiState.collectAsState().value
     val permission = viewModel.getRequiredPermission()
     val permissionState = rememberPermissionState(permission)
-    // Persist across config changes so "permanently denied" detection is accurate after user requests.
-    var hasRequestedPermission by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
     val lazyListState = rememberLazyListState()
+
+    // Track if permission has been requested at least once
+    var hasRequestedPermission by rememberSaveable { mutableStateOf(false) }
+    // Track if we're currently showing the permission dialog
+    var isPermissionDialogShowing by rememberSaveable { mutableStateOf(false) }
 
     val deleteMediaLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartIntentSenderForResult()
@@ -69,13 +72,14 @@ fun LibraryScreen(
         }
     }
 
-    // React to permission state changes (granted or revoked) so ViewModel can update and UI follows
+    // React to permission state changes
     LaunchedEffect(permissionState.status) {
         if (permissionState.status.isGranted) {
-            // Permission granted — inform ViewModel so it can load library
+            // Permission granted
             viewModel.onEvent(LibraryEvent.PermissionGranted)
+            isPermissionDialogShowing = false
         } else {
-            // Not granted — keep ViewModel informed (it may show limited UI)
+            // Permission not granted - update ViewModel state
             viewModel.onEvent(LibraryEvent.CheckPermission)
         }
     }
@@ -94,7 +98,6 @@ fun LibraryScreen(
         }
     }
 
-    // Use the provided modifier so NavHost padding (innerPadding) can be applied by the parent.
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -107,16 +110,18 @@ fun LibraryScreen(
                 )
             )
     ) {
-        // Permission flow: show PermissionRequestContent if permission not granted.
-        // Important: we DO NOT auto-launch permission requests; we only show the UI and wait for user action.
         if (!uiState.hasStoragePermission) {
             PermissionRequestContent(
                 shouldShowRationale = permissionState.status.shouldShowRationale,
-                isPermanentlyDenied = (!permissionState.status.isGranted && !permissionState.status.shouldShowRationale && hasRequestedPermission),
+                isPermanentlyDenied = (!permissionState.status.isGranted &&
+                        !permissionState.status.shouldShowRationale &&
+                        hasRequestedPermission),
+                isPermissionDialogShowing = isPermissionDialogShowing,
                 onRequestPermission = {
                     // User tapped "Grant Access" -> launch the system permission dialog
                     permissionState.launchPermissionRequest()
                     hasRequestedPermission = true
+                    isPermissionDialogShowing = true
                 },
                 onOpenAppSettings = {
                     // Open the App settings page to allow user to manually grant permission
@@ -124,11 +129,6 @@ fun LibraryScreen(
                         data = Uri.fromParts("package", context.packageName, null)
                     }
                     context.startActivity(intent)
-                },
-                onContinueWithout = {
-                    // User chooses to continue without granting permission (limited experience).
-                    // Notify ViewModel so it can adjust UI/behavior accordingly.
-                    viewModel.onEvent(LibraryEvent.CheckPermission)
                 }
             )
         } else {
@@ -166,7 +166,7 @@ fun LibraryScreen(
         }
     }
 
-    // Dialogs & Floating flows (unchanged behavior)
+    // Dialogs & Floating flows
     if (uiState.showAddToPlaylistDialog) {
         AddSongToPlaylistDialog(
             onDismiss = { viewModel.onEvent(LibraryEvent.DismissAddToPlaylistDialog) },

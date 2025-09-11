@@ -230,7 +230,7 @@ fun PlaylistsScreen(
                                 color = MaterialTheme.colorScheme.onBackground,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 16.dp),
+                                    .padding(horizontal = 30.dp, vertical = 16.dp),
                                 textAlign = TextAlign.Center
                             )
                         }
@@ -284,42 +284,3 @@ fun PlaylistsScreen(
         }
     }
 }
-
-///**
-// * Simple compact chip for automatic playlists shown in a horizontal row.
-// * Keep this small and tappable — automatic playlists are not deletable and are surfaced here.
-// */
-//@Composable
-//private fun AutomaticPlaylistChip(
-//    playlistName: String,
-//    onClick: () -> Unit,
-//    height: Dp = 84.dp,
-//    cornerRadius: Dp = 12.dp
-//) {
-//    val shape: Shape = RoundedCornerShape(cornerRadius)
-//    Box(
-//        modifier = Modifier
-//            .width(160.dp)
-//            .height(height)
-//            .clip(shape)
-//            .background(MaterialTheme.colorScheme.surfaceVariant)
-//            .border(1.dp, MaterialTheme.colorScheme.outline, shape)
-//            .clickable { onClick() }
-//            .padding(12.dp)
-//    ) {
-//        Column(modifier = Modifier
-//            .wrapContentWidth()
-//            .wrapContentHeight()
-//        ) {
-//            Text(
-//                text = playlistName,
-//                style = MaterialTheme.typography.titleMedium,
-//                fontWeight = FontWeight.SemiBold,
-//                maxLines = 2,
-//                overflow = TextOverflow.Ellipsis,
-//                fontSize = 14.sp,
-//                color = MaterialTheme.colorScheme.onSurfaceVariant
-//            )
-//        }
-//    }
-//}

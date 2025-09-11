@@ -4,11 +4,14 @@ import android.app.RecoverableSecurityException
 import android.content.ContentUris
 import android.content.Context
 import android.graphics.BitmapFactory
+import android.net.Uri
+import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
 import com.engfred.musicplayer.core.common.Resource
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.domain.repository.LibraryRepository
+import com.engfred.musicplayer.core.mapper.AudioFileMapper
 import com.engfred.musicplayer.feature_library.data.source.local.ContentResolverDataSource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -16,6 +19,7 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import javax.inject.Inject
+import androidx.core.graphics.scale
 
 class LibraryRepositoryImpl @Inject constructor(
     private val dataSource: ContentResolverDataSource
@@ -38,6 +42,35 @@ class LibraryRepositoryImpl @Inject constructor(
                 )
             }
         }
+    }
+
+    override suspend fun getAudioFileByUri(uri: Uri): Resource<AudioFile> {
+        return try {
+            val dto = dataSource.getAudioFileByUri(uri)
+            if (dto != null) {
+                val audioFile = AudioFile(
+                    id = dto.id,
+                    title = dto.title ?: "Unknown Title",
+                    artist = dto.artist ?: "Unknown Artist",
+                    album = dto.album ?: "Unknown Album",
+                    duration = dto.duration,
+                    uri = dto.uri,
+                    albumArtUri = dto.albumArtUri,
+                    dateAdded = dto.dateAdded * 1000L
+                )
+                Resource.Success(audioFile)
+            } else {
+                Resource.Error("Audio file not found for uri: $uri")
+            }
+        } catch (se: RecoverableSecurityException) {
+            Log.w(TAG, "RecoverableSecurityException while getting audio file by uri: ${se.message}")
+            // Propagate or wrap as error depending on your app flow. Keeping consistent with editAudioMetadata which throws.
+            throw se
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting audio file by uri", e)
+            Resource.Error(e.message ?: "Unknown error while fetching audio file")
+        }
+
     }
 
     override suspend fun editAudioMetadata(
@@ -170,11 +203,9 @@ class LibraryRepositoryImpl @Inject constructor(
         val scaleFactor = if (maxDimension > targetSize) targetSize.toFloat() / maxDimension else 1f
 
         val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
-        val scaledBitmap = android.graphics.Bitmap.createScaledBitmap(
-            bitmap,
+        val scaledBitmap = bitmap.scale(
             (originalWidth * scaleFactor).toInt(),
-            (originalHeight * scaleFactor).toInt(),
-            true
+            (originalHeight * scaleFactor).toInt()
         )
         val outputStream = ByteArrayOutputStream()
         scaledBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, outputStream)

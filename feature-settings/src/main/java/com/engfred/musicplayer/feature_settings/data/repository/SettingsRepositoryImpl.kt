@@ -38,7 +38,7 @@ class SettingsRepositoryImpl @Inject constructor(
     override fun getAppSettings(): Flow<AppSettings> {
         return dataStore.data.map { preferences ->
             val selectedThemeString = preferences[PreferencesKeys.SELECTED_THEME] ?: AppThemeType.DEEP_BLUE.name
-            val selectedPlayerLayoutString = preferences[PreferencesKeys.SELECTED_PLAYER_LAYOUT] ?: PlayerLayout.MINIMALIST_GROOVE.name
+            val selectedPlayerLayoutString = preferences[PreferencesKeys.SELECTED_PLAYER_LAYOUT] ?: PlayerLayout.ETHEREAL_FLOW.name
             val playlistLayoutTypeString = preferences[PreferencesKeys.PLAYLIST_LAYOUT_TYPE] ?: PlaylistLayoutType.LIST.name
             val repeatModeString = preferences[PreferencesKeys.REPEAT_MODE] ?: RepeatMode.OFF.name
             val shuffleModeString = preferences[PreferencesKeys.SHUFFLE_MODE] ?: ShuffleMode.OFF.name

@@ -52,11 +52,12 @@ fun AppNavHost(
     context: Context,
     onNavigateToNowPlaying: () -> Unit,
     isPlayerActive: Boolean,
+    isPlayingExternalUri: Boolean
 ) {
 
     // Set the start destination based on the condition
     val startDestination = remember {
-        if (isPlayerActive) {
+        if (isPlayerActive || isPlayingExternalUri) {
             AppDestinations.MainGraph.route
         } else {
             AppDestinations.Splash.route

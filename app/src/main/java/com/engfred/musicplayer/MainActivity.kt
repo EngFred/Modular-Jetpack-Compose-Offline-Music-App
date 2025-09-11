@@ -23,7 +23,10 @@ import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.lifecycleScope
+import com.engfred.musicplayer.core.common.Resource
+import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
 import com.engfred.musicplayer.core.domain.model.AppSettings
+import com.engfred.musicplayer.core.domain.repository.LibraryRepository
 import com.engfred.musicplayer.core.domain.repository.PlaybackController
 import com.engfred.musicplayer.core.domain.repository.PlaybackState
 import com.engfred.musicplayer.core.ui.theme.AppThemeType
@@ -43,6 +46,8 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var getAppSettingsUseCase: GetAppSettingsUseCase
     @Inject lateinit var playbackController: PlaybackController
+    @Inject lateinit var libraryRepository: LibraryRepository
+    @Inject lateinit var sharedAudioDataSource: SharedAudioDataSource
 
     // State used to hold an incoming external playback URI so Compose can react and start playback
     private var externalPlaybackUri by mutableStateOf<Uri?>(null)
@@ -119,6 +124,7 @@ class MainActivity : ComponentActivity() {
                     isPlaying = playbackState.isPlaying,
                     playingAudioFile = playbackState.currentAudioFile,
                     context = this,
+                    isPlayingExternalUri = externalPlaybackUri != null,
                     onNavigateToNowPlaying = {
                         if (playbackState.currentAudioFile != null) {
                             navController.navigate(AppDestinations.NowPlaying.route)
@@ -135,6 +141,7 @@ class MainActivity : ComponentActivity() {
                         initiatePlaybackFromExternalUri(uri)
                         // Clear to avoid replaying the same URI repeatedly
                         externalPlaybackUri = null
+                        navController.navigate(AppDestinations.NowPlaying.route)
                     }
                 }
             }
@@ -255,19 +262,29 @@ class MainActivity : ComponentActivity() {
         try {
             Log.d(TAG, "Attempt to initiate playback for external URI: $uri")
             // Delegate to PlaybackController which already performs accessibility checks and queue setup.
-            playbackController.initiatePlayback(uri)
+            val audioFileFetchStatus = libraryRepository.getAudioFileByUri(uri)
 
-            // Wait briefly for the playback state to update and navigation to work smoothly (tunable).
-            var attempts = 0
-            while (attempts < 20) { // wait up to ~4 seconds (20 * 200ms)
-                val state = playbackController.getPlaybackState() // Flow; we cannot block here; instead check last known state is not accessible directly
-                // Instead of attempting to collect here, let UI's playback state flows update and the AppNavHost decide when to enable NowPlaying navigation.
-                // We'll break early to avoid blocking.
-                break
+            when (audioFileFetchStatus) {
+                is Resource.Error -> {
+                    Log.e(TAG, "Failed to fetch audio file for external URI: ${audioFileFetchStatus.message}")
+                    Toast.makeText(this, "Failed to play selected file: ${audioFileFetchStatus.message}", Toast.LENGTH_LONG).show()
+                    return
+                }
+                is Resource.Loading -> {
+                    Toast.makeText(this, "Opening file in Music..", Toast.LENGTH_SHORT).show()
+                    return
+                }
+                is Resource.Success -> {
+                    val audioFile = audioFileFetchStatus.data
+                    if (audioFile == null) {
+                        Log.e(TAG, "Audio File not found!")
+                        Toast.makeText(this, "Audio File not found!", Toast.LENGTH_LONG).show()
+                        return
+                    }
+                    sharedAudioDataSource.setPlayingQueue(listOf(audioFile))
+                    playbackController.initiatePlayback(uri)
+                }
             }
-
-            // Inform the user
-            Toast.makeText(this, "Opening file in Music..", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start playback for external URI: ${e.message}", e)
             Toast.makeText(this, "Failed to play selected file: ${e.message}", Toast.LENGTH_LONG).show()

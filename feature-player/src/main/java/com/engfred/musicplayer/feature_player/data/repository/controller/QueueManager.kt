@@ -39,6 +39,10 @@ class QueueManager(
      * If the queue doesn't match the controller's queue, it will be set.
      * @param initialAudioFileUri The [android.net.Uri] of the audio file to start playback from.
      */
+    /**
+     * Initiates playback of a given audio file within the current playing queue.
+     * Filters inaccessible files before setting the player queue to avoid enqueueing bad items.
+     */
     suspend fun initiatePlayback(initialAudioFileUri: android.net.Uri, intendedRepeat: RepeatMode, intendedShuffle: ShuffleMode) {
         withContext(Dispatchers.Main) {
             val controller = mediaController.value
@@ -55,7 +59,6 @@ class QueueManager(
                 return@withContext
             }
 
-            // Find the index of the initial audio file in the current playing queue
             val audioFileToPlay = playingQueue.find { it.uri == initialAudioFileUri } ?: run {
                 Log.w(TAG, "Initial audio file not found in current playing queue for URI: $initialAudioFileUri")
                 playbackState.update { it.copy(error = "Selected song not found in library.") }
@@ -65,14 +68,12 @@ class QueueManager(
             val desiredMediaId = audioFileToPlay.id.toString()
             val startIndex = playingQueue.indexOf(audioFileToPlay)
 
-            // Pre-playback accessibility check: ensure the file exists and is readable
-            val isAccessible = isAudioFileAccessible(
-                context = context,
-                audioFileUri = audioFileToPlay.uri,
-                permissionHandlerUseCase = permissionHandlerUseCase
-            )
-            if (!isAccessible) {
-                Log.e(TAG, "Audio file is not accessible: ${audioFileToPlay.uri}. Aborting playback.")
+            // Quick accessibility check for the requested initial audio file.
+            val isAccessibleInitial = withContext(Dispatchers.IO) {
+                isAudioFileAccessible(context, audioFileToPlay.uri, permissionHandlerUseCase)
+            }
+            if (!isAccessibleInitial) {
+                Log.e(TAG, "Initial audio file is not accessible: ${audioFileToPlay.uri}. Aborting playback.")
                 playbackState.update {
                     it.copy(
                         currentAudioFile = null,
@@ -83,21 +84,20 @@ class QueueManager(
                 return@withContext
             }
 
-            // Updated matching logic: Compare ordered lists of media IDs to account for order changes
+            // Check if controller's queue already matches the shared queue (by mediaId list)
             val currentMediaIds = (0 until controller.mediaItemCount).map { controller.getMediaItemAt(it).mediaId }
             val sharedMediaIds = playingQueue.map { it.id.toString() }
             val currentMediaItemsMatchSharedSource = controller.mediaItemCount == playingQueue.size &&
                     currentMediaIds == sharedMediaIds
 
             if (currentMediaItemsMatchSharedSource) {
-                // FIX: If queues match, handle repositioning appropriately, with reshuffle if needed.
                 val currentMediaId = controller.currentMediaItem?.mediaId
                 if (currentMediaId == desiredMediaId && controller.isPlaying) {
-                    Log.d(TAG, "Already playing the desired song. No action needed.")
+                    Log.d(TAG, "Already playing desired song. No action needed.")
                     return@withContext
                 }
 
-                // Temporarily disable shuffle to seek to the original index, then re-enable to reshuffle from the new position.
+                // Temporarily disable shuffle to seek deterministically
                 val wasShuffle = controller.shuffleModeEnabled
                 controller.shuffleModeEnabled = false
                 controller.seekToDefaultPosition(startIndex)
@@ -110,23 +110,62 @@ class QueueManager(
                 progressTracker.updateCurrentAudioFilePlaybackProgress(controller)
                 Log.d(TAG, "Repositioned playback within existing queue to index $startIndex.")
             } else {
-                // Set the queue without upfront filtering to avoid initial delay; inaccessible files will be handled on playback error.
-                val adjustedStartIndex = startIndex
+                // PRODUCTION: Filter out inaccessible files before setting media items to avoid queue pollution.
+                val accessibleQueue = mutableListOf<AudioFile>()
+                val inaccessibleFiles = mutableListOf<AudioFile>()
+
+                withContext(Dispatchers.IO) {
+                    for (file in playingQueue) {
+                        val ok = try {
+                            isAudioFileAccessible(context, file.uri, permissionHandlerUseCase)
+                        } catch (e: Throwable) {
+                            Log.w(TAG, "isAudioFileAccessible threw for ${file.id}: ${e.message}")
+                            false
+                        }
+                        if (ok) accessibleQueue.add(file) else inaccessibleFiles.add(file)
+                    }
+                }
+
+                if (inaccessibleFiles.isNotEmpty()) {
+                    inaccessibleFiles.forEach { bad ->
+                        try {
+                            sharedAudioDataSource.deleteAudioFile(bad)
+                            Log.d(TAG, "Deleted inaccessible file ID=${bad.id} from shared data source.")
+                        } catch (e: Throwable) {
+                            Log.w(TAG, "deleteAudioFile failed for id=${bad.id}: ${e.message}. Trying removeAudioFileFromPlayingQueue fallback.")
+                            try {
+                                sharedAudioDataSource.removeAudioFileFromPlayingQueue(bad)
+                            } catch (inner: Throwable) {
+                                Log.w(TAG, "Fallback removal also failed for id=${bad.id}: ${inner.message}")
+                            }
+                        }
+                    }
+                }
+
+                // If after filtering there is nothing left to play, give a friendly error
+                if (accessibleQueue.isEmpty()) {
+                    Log.e(TAG, "No accessible audio files available after filtering.")
+                    playbackState.update { it.copy(error = "No playable audio files found.") }
+                    controller.stop()
+                    controller.clearMediaItems()
+                    progressTracker.resetProgress()
+                    return@withContext
+                }
+
+                // Compute adjusted start index within the filtered accessibleQueue
+                val adjustedStartIndex = accessibleQueue.indexOfFirst { it.uri == initialAudioFileUri }.takeIf { it >= 0 } ?: 0
 
                 try {
-                    val mediaItems = playingQueue.map { audioFileMapper.mapAudioFileToMediaItem(it) }
+                    val mediaItems = accessibleQueue.map { audioFileMapper.mapAudioFileToMediaItem(it) }
                     controller.setMediaItems(mediaItems, adjustedStartIndex, C.TIME_UNSET)
 
-                    // ---------------------------------------------
-                    // NEW: Re-apply stored repeat and shuffle modes to ensure they're set for new playback
-                    // sessions, especially when the playlist changes.
-                    // ---------------------------------------------
+                    // Re-apply stored repeat and shuffle modes
                     setRepeatCallback(intendedRepeat)
                     setShuffleCallback(intendedShuffle)
 
                     controller.prepare()
                     controller.play()
-                    Log.d(TAG, "Initiated playback for: $initialAudioFileUri by setting new media items from shared source.")
+                    Log.d(TAG, "Initiated playback after filtering inaccessible files. StartIndex=$adjustedStartIndex")
                     progressTracker.updateCurrentAudioFilePlaybackProgress(controller)
                 } catch (e: Exception) {
                     Log.e(TAG, "Error setting media items or playing during initiation: ${e.message}", e)
@@ -135,6 +174,7 @@ class QueueManager(
             }
         }
     }
+
 
     /**
      * Adds an [AudioFile] to the player's queue right after the currently playing song.

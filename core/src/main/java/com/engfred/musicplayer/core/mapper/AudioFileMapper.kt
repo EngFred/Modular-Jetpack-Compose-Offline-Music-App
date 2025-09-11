@@ -27,7 +27,8 @@ class AudioFileMapper @Inject constructor() {
                     duration = metadata.durationMs ?: 0L,
                     uri = mediaItem.localConfiguration?.uri ?: Uri.EMPTY,
                     albumArtUri = metadata.artworkUri,
-                    dateAdded = metadata.recordingDay?.toLong() ?: 0L
+                    dateAdded = metadata.recordingDay?.toLong() ?: 0L,
+                    artistId = null
                 )
             }.also {
                 Log.d(TAG, "Mapped MediaItem ${mediaItem.mediaId} to AudioFile: ${it.title}")

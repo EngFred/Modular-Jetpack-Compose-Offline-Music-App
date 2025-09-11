@@ -62,11 +62,11 @@ interface PlaylistDao {
     @Query("DELETE FROM song_play_events WHERE timestamp < :olderThanTimestamp")
     suspend fun deleteOldPlayEvents(olderThanTimestamp: Long)
 
-    // NEW: Query to get all playlist IDs that contain a specific audio file.
+    //Query to get all playlist IDs that contain a specific audio file.
     @Query("SELECT playlistId FROM playlist_songs WHERE audioFileId = :audioFileId")
     suspend fun getPlaylistIdsContainingSong(audioFileId: Long): List<Long>
 
-    // NEW: Update metadata for the song in all playlists (updates all rows with matching audioFileId)
+    //Update metadata for the song in all playlists (updates all rows with matching audioFileId)
     @Query("UPDATE playlist_songs SET title = :title, artist = :artist, albumArtUri = :albumArtUri WHERE audioFileId = :audioFileId")
     suspend fun updatePlaylistSongMetadata(audioFileId: Long, title: String, artist: String, albumArtUri: String?)
 }

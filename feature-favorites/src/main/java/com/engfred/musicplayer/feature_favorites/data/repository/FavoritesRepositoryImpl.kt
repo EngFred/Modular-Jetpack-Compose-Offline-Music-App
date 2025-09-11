@@ -24,7 +24,8 @@ class FavoritesRepositoryImpl @Inject constructor(
             duration = this.duration,
             uri = this.uri,
             albumArtUri = this.albumArtUri,
-            dateAdded = this.dateAdded
+            dateAdded = this.dateAdded,
+            artistId = this.artistId
         )
     }
     private fun AudioFile.toEntity(): FavoriteAudioFileEntity {
@@ -36,7 +37,8 @@ class FavoritesRepositoryImpl @Inject constructor(
             duration = this.duration,
             uri = this.uri,
             albumArtUri = this.albumArtUri,
-            dateAdded = this.dateAdded
+            dateAdded = this.dateAdded,
+            artistId = this.artistId
         )
     }
     // --- Repository interface implementations ---

@@ -61,7 +61,8 @@ class PlaylistRepositoryImpl @Inject constructor(
             duration = this.duration,
             uri = this.uri,
             albumArtUri = this.albumArtUri,
-            dateAdded = this.dateAdded
+            dateAdded = this.dateAdded,
+            artistId = null
         )
     }
 
@@ -91,13 +92,22 @@ class PlaylistRepositoryImpl @Inject constructor(
 
     override fun getPlaylists(): Flow<List<Playlist>> {
         // Combine user-created playlists with automatic playlists
+        val userPlaylistsFlow = playlistDao.getPlaylistsWithSongs().map { playlistWithSongsList ->
+            playlistWithSongsList.map { it.toDomain() }
+        }
+        val recentlyAddedFlow = getRecentlyAddedSongs(limit = 20) // Limit to 20 recently added songs
+        val topPlayedFlow = getTopPlayedSongs(
+            sinceTimestamp = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000L),
+            limit = 20
+        ) // Top 20 songs from last 7 days (requires >= 3 plays)
+        val artistPlaylistsFlow = getArtistPlaylists()
+
         return combine(
-            playlistDao.getPlaylistsWithSongs().map { playlistWithSongsList ->
-                playlistWithSongsList.map { it.toDomain() }
-            },
-            getRecentlyAddedSongs(limit = 20), // Limit to 20 recently added songs
-            getTopPlayedSongs(sinceTimestamp = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000L), limit = 20) // Top 20 songs from last 7 days (requires >= 3 plays)
-        ) { userPlaylists, recentlyAddedSongs, topPlayedPairs ->
+            userPlaylistsFlow,
+            recentlyAddedFlow,
+            topPlayedFlow,
+            artistPlaylistsFlow
+        ) { userPlaylists, recentlyAddedSongs, topPlayedPairs, artistPlaylists ->
             val automaticPlaylists = mutableListOf<Playlist>()
 
             // Add Recently Added playlist if there are songs
@@ -105,7 +115,7 @@ class PlaylistRepositoryImpl @Inject constructor(
                 automaticPlaylists.add(
                     Playlist(
                         id = -1, // Use a negative ID to distinguish from Room IDs
-                        name = "Recently Added",
+                        name = "20 Recently Added",
                         songs = recentlyAddedSongs,
                         isAutomatic = true,
                         type = AutomaticPlaylistType.RECENTLY_ADDED
@@ -125,15 +135,17 @@ class PlaylistRepositoryImpl @Inject constructor(
                 )
             )
 
+            // Add artist playlists
+            automaticPlaylists.addAll(artistPlaylists)
+
             // Combine automatic playlists (at the top) with user-created playlists
             automaticPlaylists + userPlaylists
         }
     }
 
     override fun getPlaylistById(playlistId: Long): Flow<Playlist?> {
-        // Handle automatic playlist IDs
-        return when (playlistId) {
-            -1L -> getRecentlyAddedSongs(limit = 20).map { songs ->
+        return when {
+            playlistId == -1L -> getRecentlyAddedSongs(limit = 20).map { songs ->
                 if (songs.isNotEmpty()) Playlist(
                     id = -1,
                     name = "Recently Added",
@@ -142,8 +154,10 @@ class PlaylistRepositoryImpl @Inject constructor(
                     type = AutomaticPlaylistType.RECENTLY_ADDED
                 ) else null
             }
-
-            -2L -> getTopPlayedSongs(sinceTimestamp = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000L), limit = 50).map { pairs ->
+            playlistId == -2L -> getTopPlayedSongs(
+                sinceTimestamp = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000L),
+                limit = 50
+            ).map { pairs ->
                 // The flow returned by getTopPlayedSongs already filters out playCounts < 3
                 Playlist(
                     id = -2,
@@ -154,7 +168,27 @@ class PlaylistRepositoryImpl @Inject constructor(
                     playCounts = pairs.associate { it.first.id to it.second }
                 )
             }
-
+            playlistId < 0 -> {
+                val artistId = -playlistId
+                sharedAudioDataSource.deviceAudioFiles.map { allAudioFiles ->
+                    val songs = allAudioFiles.filter { it.artistId == artistId }.sortedBy { it.title }
+                    if (songs.isEmpty()) {
+                        null
+                    } else {
+                        var artistName = songs.first().artist ?: "Unknown Artist"
+                        if (artistName == "<unknown>") {
+                            artistName = "Unknown Artist"
+                        }
+                        Playlist(
+                            id = playlistId,
+                            name = artistName,
+                            songs = songs,
+                            isAutomatic = true,
+                            type = AutomaticPlaylistType.ARTIST
+                        )
+                    }
+                }
+            }
             else -> playlistDao.getPlaylistWithSongsById(playlistId).map { playlistWithSongs ->
                 playlistWithSongs?.toDomain()
             }
@@ -260,6 +294,28 @@ class PlaylistRepositoryImpl @Inject constructor(
             Log.d(TAG, "Recorded play event for audioFileId: $audioFileId")
         } catch (e: Exception) {
             Log.e(TAG, "Error recording song play event for audioFileId: $audioFileId", e)
+        }
+    }
+
+    /**
+     * Retrieves a flow of artist-specific automatic playlists, generated dynamically from device audio files.
+     */
+    private fun getArtistPlaylists(): Flow<List<Playlist>> {
+        return sharedAudioDataSource.deviceAudioFiles.map { allAudioFiles ->
+            allAudioFiles.groupBy { it.artistId }.mapNotNull { (artistId, songs) ->
+                if (artistId == null || artistId <= 0) return@mapNotNull null
+                var artistName = songs.firstOrNull()?.artist ?: "Unknown Artist"
+                if (artistName == "<unknown>") {
+                    artistName = "Unknown Artist"
+                }
+                Playlist(
+                    id = -artistId,
+                    name = artistName,
+                    songs = songs.sortedBy { it.title },
+                    isAutomatic = true,
+                    type = AutomaticPlaylistType.ARTIST
+                )
+            }.sortedBy { it.name }
         }
     }
 }

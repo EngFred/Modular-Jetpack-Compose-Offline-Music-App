@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
@@ -46,7 +48,6 @@ fun PlaylistGridItem(
     playlist: Playlist,
     onClick: (Long) -> Unit,
     onDeleteClick: (Long) -> Unit,
-    isDeletable: Boolean,
     modifier: Modifier = Modifier
 ) {
     var showDeleteConfirmationDialog by remember { mutableStateOf(false) }
@@ -65,7 +66,6 @@ fun PlaylistGridItem(
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
                 .padding(bottom = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top
@@ -104,37 +104,35 @@ fun PlaylistGridItem(
                     )
                 }
 
-                if (isDeletable) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(4.dp)
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                ) {
+                    IconButton(
+                        onClick = { showMenu = true },
+                        modifier = Modifier.size(32.dp)
                     ) {
-                        IconButton(
-                            onClick = { showMenu = true },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.MoreVert,
-                                contentDescription = "Playlist options",
-                                tint = Color.White
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Delete Playlist") },
-                                onClick = {
-                                    showDeleteConfirmationDialog = true
-                                    showMenu = false
-                                },
-                                leadingIcon = {
-                                    Icon(Icons.Rounded.Delete, contentDescription = "Delete")
-                                }
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Rounded.MoreVert,
+                            contentDescription = "Playlist options",
+                            tint = Color.White
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Delete Playlist") },
+                            onClick = {
+                                showDeleteConfirmationDialog = true
+                                showMenu = false
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Rounded.Delete, contentDescription = "Delete")
+                            }
+                        )
                     }
                 }
             }

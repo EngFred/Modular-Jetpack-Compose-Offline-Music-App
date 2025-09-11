@@ -32,7 +32,8 @@ class ContentResolverDataSource @Inject constructor(
         MediaStore.Audio.Media.DURATION,
         MediaStore.Audio.Media.ALBUM_ID,
         MediaStore.Audio.Media.DATE_ADDED,
-        MediaStore.Audio.Media.MIME_TYPE
+        MediaStore.Audio.Media.MIME_TYPE,
+        MediaStore.Audio.Media.ARTIST_ID
     )
 
     private val AUDIO_SELECTION = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
@@ -59,6 +60,7 @@ class ContentResolverDataSource @Inject constructor(
                     val albumIdColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
                     val dateAddedColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
                     val mimeColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
+                    val artistIdColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST_ID)
 
                     while (it.moveToNext()) {
                         val id = it.getLong(idColumn)
@@ -69,6 +71,7 @@ class ContentResolverDataSource @Inject constructor(
                         val albumId = it.getLong(albumIdColumn)
                         val dateAdded = it.getLong(dateAddedColumn)
                         val mime = it.getString(mimeColumn)
+                        val artistId = it.getLong(artistIdColumn)
 
                         val contentUri: Uri = ContentUris.withAppendedId(
                             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
@@ -89,7 +92,8 @@ class ContentResolverDataSource @Inject constructor(
                                 albumId = albumId,
                                 albumArtUri = albumArtUri,
                                 dateAdded = dateAdded,
-                                mimeType = mime
+                                mimeType = mime,
+                                artistId = artistId
                             )
                         )
                     }
@@ -148,6 +152,7 @@ class ContentResolverDataSource @Inject constructor(
                     val albumIdColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
                     val dateAddedColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
                     val mimeColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
+                    val artistIdColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST_ID)
 
                     val id = it.getLong(idColumn)
                     val title = it.getString(titleColumn)
@@ -157,6 +162,7 @@ class ContentResolverDataSource @Inject constructor(
                     val albumId = it.getLong(albumIdColumn)
                     val dateAdded = it.getLong(dateAddedColumn)
                     val mime = it.getString(mimeColumn)
+                    val artistId = it.getLong(artistIdColumn)
 
                     val contentUri: Uri = ContentUris.withAppendedId(
                         MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
@@ -176,7 +182,8 @@ class ContentResolverDataSource @Inject constructor(
                         albumId = albumId,
                         albumArtUri = albumArtUri,
                         dateAdded = dateAdded,
-                        mimeType = mime
+                        mimeType = mime,
+                        artistId = artistId
                     )
                 }
             }

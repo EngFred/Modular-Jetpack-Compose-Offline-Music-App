@@ -16,6 +16,7 @@ data class FavoriteAudioFileEntity(
     val audioFileId: Long, // Corresponds to AudioFile.id
     val title: String,
     val artist: String?,
+    val artistId: Long?,
     val album: String?,
     val duration: Long,
     val uri: Uri,

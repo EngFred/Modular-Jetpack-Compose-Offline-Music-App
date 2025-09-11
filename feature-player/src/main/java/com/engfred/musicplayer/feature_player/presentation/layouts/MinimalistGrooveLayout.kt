@@ -13,7 +13,6 @@ import androidx.compose.material3.*
 import androidx.compose.material3.windowsizeclass.WindowHeightSizeClass
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
@@ -32,7 +31,6 @@ import com.engfred.musicplayer.feature_player.presentation.components.*
 import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerEvent
 import kotlinx.coroutines.launch
 
-@RequiresApi(Build.VERSION_CODES.M)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MinimalistGrooveLayout(

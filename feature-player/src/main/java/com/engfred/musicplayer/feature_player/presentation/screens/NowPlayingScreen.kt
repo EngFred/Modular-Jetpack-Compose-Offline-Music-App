@@ -1,7 +1,5 @@
 package com.engfred.musicplayer.feature_player.presentation.screens
 
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,14 +14,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.media3.common.util.UnstableApi
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
 import com.engfred.musicplayer.core.domain.repository.PlaybackState
-import com.engfred.musicplayer.core.ui.theme.AppThemeType
 import com.engfred.musicplayer.feature_player.presentation.layouts.EtherealFlowLayout
 import com.engfred.musicplayer.feature_player.presentation.layouts.ImmersiveCanvasLayout
 import com.engfred.musicplayer.feature_player.presentation.layouts.MinimalistGrooveLayout
 import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerEvent
 import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerViewModel
 
-@RequiresApi(Build.VERSION_CODES.M)
 @UnstableApi
 @Composable
 fun NowPlayingScreen(

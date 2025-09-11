@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.engfred.musicplayer.core.domain.model.Playlist
 import com.skydoves.landscapist.coil.CoilImage
+import com.engfred.musicplayer.feature_playlist.utils.TextUtils
 
 @Composable
 fun AutomaticPlaylistItem(
@@ -98,7 +99,7 @@ fun AutomaticPlaylistItem(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "${playlist.songs.size} songs",
+                text = TextUtils.pluralize(playlist.songs.size, "song"),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                 textAlign = TextAlign.Center,

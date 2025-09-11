@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import com.engfred.musicplayer.core.domain.model.Playlist
 import com.engfred.musicplayer.core.util.formatDate
 import com.engfred.musicplayer.feature_playlist.presentation.components.DeleteConfirmationDialog
+import com.engfred.musicplayer.feature_playlist.utils.TextUtils
 import com.skydoves.landscapist.coil.CoilImage
 
 @Composable
@@ -115,7 +116,7 @@ fun PlaylistItem(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "${playlist.songs.size} songs",
+                    text = TextUtils.pluralize(playlist.songs.size, "song"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

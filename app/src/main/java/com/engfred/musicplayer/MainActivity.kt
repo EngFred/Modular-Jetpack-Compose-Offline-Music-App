@@ -13,7 +13,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.RequiresApi
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.getValue
@@ -23,6 +23,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.lifecycleScope
+import androidx.media3.common.util.UnstableApi
 import com.engfred.musicplayer.core.common.Resource
 import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
 import com.engfred.musicplayer.core.domain.model.AppSettings
@@ -35,9 +36,9 @@ import com.engfred.musicplayer.feature_settings.domain.usecases.GetAppSettingsUs
 import com.engfred.musicplayer.navigation.AppDestinations
 import com.engfred.musicplayer.navigation.AppNavHost
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import kotlinx.coroutines.delay
 
 private const val TAG = "MainActivity"
 
@@ -52,15 +53,21 @@ class MainActivity : ComponentActivity() {
     // State used to hold an incoming external playback URI so Compose can react and start playback
     private var externalPlaybackUri by mutableStateOf<Uri?>(null)
 
+    // Pending URI for cases where permission is required
+    private var pendingPlaybackUri: Uri? = null
+
     // Will hold the last intent data handled so we don't process same URI multiple times
     private var lastHandledUriString: String? = null
 
     // Permission launcher, initialized in onCreate
     private lateinit var permissionLauncher: ActivityResultLauncher<String>
 
-    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-    @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
-    @RequiresApi(Build.VERSION_CODES.M)
+    private var playbackState by mutableStateOf(PlaybackState())
+    private var initialAppSettings: AppSettings? by mutableStateOf(null)
+    private var appSettingsLoaded by mutableStateOf(false)
+
+    @UnstableApi
+    @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
@@ -72,22 +79,16 @@ class MainActivity : ComponentActivity() {
         permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
                 Log.d(TAG, "Storage/read permission granted by the user.")
-                // Try to play the pending URI if we have one
-                externalPlaybackUri?.let { uri ->
-                    lifecycleScope.launch {
-                        initiatePlaybackFromExternalUri(uri)
-                    }
-                }
+                // Set the externalPlaybackUri to trigger playback now that permission is granted
+                externalPlaybackUri = pendingPlaybackUri
+                pendingPlaybackUri = null
             } else {
                 Toast.makeText(this, "Permission required to play external audio files.", Toast.LENGTH_SHORT).show()
+                pendingPlaybackUri = null
             }
         }
 
         // Observe settings and playback state outside of Compose (keeps previous behavior)
-        var appSettingsLoaded by mutableStateOf(false)
-        var initialAppSettings: AppSettings? by mutableStateOf(null)
-        var playbackState by mutableStateOf(PlaybackState())
-
         lifecycleScope.launch {
             getAppSettingsUseCase().collect { settings ->
                 initialAppSettings = settings
@@ -134,14 +135,16 @@ class MainActivity : ComponentActivity() {
                     }
                 )
 
-                // If an external URI is set, initiate playback and navigate to NowPlaying
+                // If an external URI is set, initiate playback and navigate to NowPlaying if successful
                 androidx.compose.runtime.LaunchedEffect(externalPlaybackUri) {
                     val uri = externalPlaybackUri
                     if (uri != null) {
-                        initiatePlaybackFromExternalUri(uri)
+                        val success = initiatePlaybackFromExternalUri(uri)
+                        if (success) {
+                            navController.navigate(AppDestinations.NowPlaying.route)
+                        } // else: toast already shown inside initiate
                         // Clear to avoid replaying the same URI repeatedly
                         externalPlaybackUri = null
-                        navController.navigate(AppDestinations.NowPlaying.route)
                     }
                 }
             }
@@ -209,7 +212,7 @@ class MainActivity : ComponentActivity() {
                                 externalPlaybackUri = uri
                             } else {
                                 // Save URI to try playback immediately after permission result
-                                externalPlaybackUri = uri
+                                pendingPlaybackUri = uri
                                 permissionLauncher.launch(requiredPerm)
                             }
                         } else {
@@ -258,9 +261,17 @@ class MainActivity : ComponentActivity() {
      * Attempt to initiate playback for the external uri using the PlaybackController.
      * This runs on the lifecycleScope and navigates to NowPlaying if playback state updates.
      */
-    private suspend fun initiatePlaybackFromExternalUri(uri: Uri) {
+    private suspend fun initiatePlaybackFromExternalUri(uri: Uri): Boolean {
         try {
             Log.d(TAG, "Attempt to initiate playback for external URI: $uri")
+
+            // Wait for the player to be ready
+            if (!playbackController.waitUntilReady()) {
+                Log.e(TAG, "Player not ready in time for external playback.")
+                Toast.makeText(this, "Player not ready. Please try again.", Toast.LENGTH_LONG).show()
+                return false
+            }
+
             // Delegate to PlaybackController which already performs accessibility checks and queue setup.
             val audioFileFetchStatus = libraryRepository.getAudioFileByUri(uri)
 
@@ -268,26 +279,42 @@ class MainActivity : ComponentActivity() {
                 is Resource.Error -> {
                     Log.e(TAG, "Failed to fetch audio file for external URI: ${audioFileFetchStatus.message}")
                     Toast.makeText(this, "Failed to play selected file: ${audioFileFetchStatus.message}", Toast.LENGTH_LONG).show()
-                    return
+                    return false
                 }
                 is Resource.Loading -> {
                     Toast.makeText(this, "Opening file in Music..", Toast.LENGTH_SHORT).show()
-                    return
+                    return false
                 }
                 is Resource.Success -> {
                     val audioFile = audioFileFetchStatus.data
                     if (audioFile == null) {
                         Log.e(TAG, "Audio File not found!")
                         Toast.makeText(this, "Audio File not found!", Toast.LENGTH_LONG).show()
-                        return
+                        return false
                     }
                     sharedAudioDataSource.setPlayingQueue(listOf(audioFile))
                     playbackController.initiatePlayback(uri)
+
+                    // Wait a short time to confirm playback has started successfully
+                    val startTime = System.currentTimeMillis()
+                    var success = false
+                    while (System.currentTimeMillis() - startTime < 3000 && !success) {
+                        if (playbackState.currentAudioFile != null && (playbackState.isPlaying || playbackState.isLoading)) {
+                            success = true
+                        }
+                        delay(200)
+                    }
+                    if (!success) {
+                        Log.w(TAG, "Playback did not start successfully within timeout.")
+                        Toast.makeText(this, "Failed to start playback.", Toast.LENGTH_SHORT).show()
+                    }
+                    return success
                 }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start playback for external URI: ${e.message}", e)
             Toast.makeText(this, "Failed to play selected file: ${e.message}", Toast.LENGTH_LONG).show()
+            return false
         }
     }
 }

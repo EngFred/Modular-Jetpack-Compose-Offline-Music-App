@@ -66,11 +66,9 @@ import com.engfred.musicplayer.feature_player.utils.getDynamicGradientColors
 import kotlinx.coroutines.launch
 import com.engfred.musicplayer.core.domain.repository.RepeatMode
 import com.engfred.musicplayer.core.domain.repository.ShuffleMode
-import com.engfred.musicplayer.core.ui.theme.AppThemeType
 import com.engfred.musicplayer.core.util.shareAudioFile
 
 
-@RequiresApi(Build.VERSION_CODES.M)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EtherealFlowLayout(

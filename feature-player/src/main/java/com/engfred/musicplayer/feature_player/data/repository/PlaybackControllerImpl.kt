@@ -25,6 +25,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -100,6 +101,7 @@ class PlaybackControllerImpl @Inject constructor(
             }
         }
         repositoryScope.launch {
+            progressTracker.playEventRecorder = controllerCallback
             progressTracker.startPlaybackPositionUpdates()
         }
     }
@@ -207,5 +209,13 @@ class PlaybackControllerImpl @Inject constructor(
     }
     override suspend fun removeFromQueue(audioFile: AudioFile) {
         queueManager.removeFromQueue(audioFile)
+    }
+
+    override suspend fun waitUntilReady(timeoutMs: Long): Boolean {
+        val start = System.currentTimeMillis()
+        while (mediaController.value == null && System.currentTimeMillis() - start < timeoutMs) {
+            delay(100)
+        }
+        return mediaController.value != null
     }
 }

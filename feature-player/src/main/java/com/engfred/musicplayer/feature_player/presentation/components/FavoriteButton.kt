@@ -53,23 +53,16 @@ fun FavoriteButton(
         onClick = onToggleFavorite,
         modifier = Modifier.size(buttonSize) // Touch target size
     ) {
-        Box {
-            Icon(
-                imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                contentDescription = if (isFavorite) "Remove from Favorites" else "Add to Favorites",
-                tint = if (isFavorite) Color(0xFFE91E63) else LocalContentColor.current.copy(alpha = 0.7f),
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .size(iconSize)
-                    .graphicsLayer {
-                        scaleX = favoriteScale
-                        scaleY = favoriteScale
-                    }
-            )
-            FavoriteParticleEffect(
-                modifier = Modifier.align(Alignment.Center),
-                isFavorite = isFavorite
-            )
-        }
+        Icon(
+            imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+            contentDescription = if (isFavorite) "Remove from Favorites" else "Add to Favorites",
+            tint = if (isFavorite) Color(0xFFE91E63) else LocalContentColor.current.copy(alpha = 0.7f),
+            modifier = Modifier
+                .size(iconSize)
+                .graphicsLayer {
+                    scaleX = favoriteScale
+                    scaleY = favoriteScale
+                }
+        )
     }
 }

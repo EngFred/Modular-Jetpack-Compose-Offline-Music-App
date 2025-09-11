@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
@@ -42,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import com.engfred.musicplayer.core.domain.model.Playlist
 import com.engfred.musicplayer.feature_playlist.presentation.components.DeleteConfirmationDialog
 import com.skydoves.landscapist.coil.CoilImage
+import com.engfred.musicplayer.feature_playlist.utils.TextUtils
 
 @Composable
 fun PlaylistGridItem(
@@ -150,7 +149,7 @@ fun PlaylistGridItem(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "${playlist.songs.size} songs",
+                text = TextUtils.pluralize(playlist.songs.size, "song"),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                 textAlign = TextAlign.Center,

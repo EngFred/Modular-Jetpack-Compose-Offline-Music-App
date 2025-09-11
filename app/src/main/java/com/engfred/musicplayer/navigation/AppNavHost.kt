@@ -2,16 +2,20 @@ package com.engfred.musicplayer.navigation
 
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.widget.Toast
-import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.windowsizeclass.WindowHeightSizeClass
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.core.net.toUri
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -19,25 +23,18 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.engfred.musicplayer.core.domain.model.AudioFile
+import com.engfred.musicplayer.feature_library.presentation.screens.EditSongScreenContainer
 import com.engfred.musicplayer.feature_player.presentation.screens.NowPlayingScreen
 import com.engfred.musicplayer.feature_playlist.presentation.screens.PlaylistDetailScreen
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.detail.PlaylistDetailArgs
 import com.engfred.musicplayer.feature_settings.presentation.screens.SettingsScreen
 import com.engfred.musicplayer.ui.MainScreen
 import com.engfred.musicplayer.ui.about.screen.CustomSplashScreen
-import androidx.compose.material3.windowsizeclass.WindowHeightSizeClass
-import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.core.net.toUri
-import com.engfred.musicplayer.feature_library.presentation.screens.EditSongScreenContainer
 import kotlinx.coroutines.delay
 
 /**
  * Defines the main navigation graph for the application.
  */
-@RequiresApi(Build.VERSION_CODES.M)
 @UnstableApi
 @Composable
 fun AppNavHost(

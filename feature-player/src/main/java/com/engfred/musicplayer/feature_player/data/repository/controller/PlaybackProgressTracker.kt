@@ -31,6 +31,11 @@ class PlaybackProgressTracker(
     private val _currentAudioFilePlaybackProgress = MutableStateFlow(CurrentAudioFilePlaybackProgress())
     val currentAudioFilePlaybackProgress: StateFlow<CurrentAudioFilePlaybackProgress> = _currentAudioFilePlaybackProgress.asStateFlow()
 
+    var playEventRecorder: PlayEventRecorder? = null
+
+    private var lastMediaId: String? = null
+    private var lastPlaybackPositionMs: Long = 0L
+
     /**
      * Updates the internal [_currentAudioFilePlaybackProgress] with the latest playback
      * information of the actively playing song.
@@ -61,6 +66,23 @@ class PlaybackProgressTracker(
                     if (actualController.playbackState != Player.STATE_IDLE && actualController.playbackState != Player.STATE_ENDED) {
                         stateUpdater.updatePlaybackState()
                         updateCurrentAudioFilePlaybackProgress(actualController) // Keep this updated frequently
+
+                        val progress = _currentAudioFilePlaybackProgress.value
+                        val currentId = progress.mediaId ?: return@let
+                        if (currentId != lastMediaId) {
+                            playEventRecorder?.resetRecordedFlag()
+                            lastPlaybackPositionMs = progress.playbackPositionMs
+                            lastMediaId = currentId
+                        } else {
+                            val total = progress.totalDurationMs
+                            if (total > 0 && lastPlaybackPositionMs >= total - 5000 && progress.playbackPositionMs <= 5000) {
+                                playEventRecorder?.resetRecordedFlag()
+                            }
+                            lastPlaybackPositionMs = progress.playbackPositionMs
+                        }
+                        if (actualController.isPlaying) {
+                            playEventRecorder?.checkAndRecordIfThresholdMet(progress)
+                        }
                     }
                 }
             }
@@ -70,5 +92,8 @@ class PlaybackProgressTracker(
 
     fun resetProgress() {
         _currentAudioFilePlaybackProgress.value = CurrentAudioFilePlaybackProgress()
+        lastMediaId = null
+        lastPlaybackPositionMs = 0L
+        playEventRecorder?.resetRecordedFlag()
     }
 }

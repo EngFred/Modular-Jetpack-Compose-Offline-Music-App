@@ -10,17 +10,22 @@ import com.engfred.musicplayer.core.domain.repository.PlaylistRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import androidx.media3.common.util.UnstableApi
 import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.domain.repository.PlaybackState
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import androidx.media3.common.MediaItem
 import kotlin.math.min
 
 private const val TAG = "PlayerControllerImpl"
+
+interface PlayEventRecorder {
+    fun resetRecordedFlag()
+    fun checkAndRecordIfThresholdMet(progress: CurrentAudioFilePlaybackProgress)
+}
 
 @UnstableApi
 class ControllerCallback(
@@ -32,15 +37,44 @@ class ControllerCallback(
     private val pendingPlayNextMediaId: MutableStateFlow<String?>,
     private val sharedAudioDataSource: SharedAudioDataSource,
     private val playbackState: MutableStateFlow<PlaybackState>
-) : Player.Listener {
+) : Player.Listener, PlayEventRecorder {
 
     private var lastPlaybackState = Player.STATE_IDLE
     private var lastEventProcessedTimestamp: Long = 0L
+    private var hasRecordedForCurrentPlay: Boolean = false
 
     fun resetTracking() {
         lastPlaybackState = Player.STATE_IDLE
         lastEventProcessedTimestamp = 0L
+        hasRecordedForCurrentPlay = false
         Log.d(TAG, "ControllerCallback event tracking variables reset.")
+    }
+
+    override fun resetRecordedFlag() {
+        hasRecordedForCurrentPlay = false
+    }
+
+    override fun checkAndRecordIfThresholdMet(progress: CurrentAudioFilePlaybackProgress) {
+        if (hasRecordedForCurrentPlay) return
+        val playedDurationMs = progress.playbackPositionMs
+        val totalDurationMs = progress.totalDurationMs
+        if (playedDurationMs != C.TIME_UNSET) {
+            val playedPercentage = playedDurationMs.toFloat() / totalDurationMs
+            if (playedPercentage >= 0.5f) {
+                val audioFileId = progress.mediaId?.toLongOrNull()
+                if (audioFileId != null) {
+                    repositoryScope.launch {
+                        playlistRepository.recordSongPlayEvent(audioFileId)
+                        Log.d(TAG, "Recorded play event for song ID: $audioFileId (Played: ${playedDurationMs / 1000}s / ${totalDurationMs / 1000}s)")
+                    }
+                    hasRecordedForCurrentPlay = true
+                } else {
+                    Log.e(TAG, "Could not convert mediaId to AudioFile ID: ${progress.mediaId}")
+                }
+            } else {
+                Log.d(TAG, "Skipped recording play event for song ID: ${progress.mediaId}")
+            }
+        }
     }
 
     override fun onEvents(player: Player, events: Player.Events) {
@@ -59,16 +93,7 @@ class ControllerCallback(
                 return
             }
             lastEventProcessedTimestamp = now
-            val songToEvaluateProgress = progressFlow.value
             val currentMediaItemAfterEvent = player.currentMediaItem
-            val isActuallyDifferentSong = currentMediaItemAfterEvent?.mediaId != songToEvaluateProgress.mediaId
-            if (songToEvaluateProgress.mediaId != null &&
-                songToEvaluateProgress.totalDurationMs > 0 &&
-                (isSongTransition && isActuallyDifferentSong || isPlaybackEnded)) {
-                evaluateAndRecordPlayEvent(songToEvaluateProgress)
-            } else {
-                Log.d(TAG, "Skipped play event evaluation. MediaId: ${songToEvaluateProgress.mediaId}, Duration: ${songToEvaluateProgress.totalDurationMs}, Played: ${songToEvaluateProgress.playbackPositionMs}")
-            }
 
             if (isSongTransition && currentMediaItemAfterEvent != null) {
                 if (pendingPlayNextMediaId.value == currentMediaItemAfterEvent.mediaId) {
@@ -97,16 +122,7 @@ class ControllerCallback(
                 Log.d(TAG, "Skipping play event processing for discontinuity due to rapid events.")
                 return
             }
-            val mediaController = progressTracker.mediaController.value ?: return
-            if (mediaController.repeatMode != Player.REPEAT_MODE_ONE) return
-            val playedDurationMs = oldPosition.positionMs
-            val totalDurationMs = mediaController.duration.coerceAtLeast(0L)
-            val mediaId = mediaController.currentMediaItem?.mediaId
-            if (mediaId != null && totalDurationMs > 0 && playedDurationMs != C.TIME_UNSET) {
-                val progress = CurrentAudioFilePlaybackProgress(mediaId, playedDurationMs, totalDurationMs)
-                evaluateAndRecordPlayEvent(progress)
-                lastEventProcessedTimestamp = now
-            }
+            lastEventProcessedTimestamp = now
         }
     }
 
@@ -224,27 +240,5 @@ class ControllerCallback(
         }
         // Ensure UI state reflects the latest
         stateUpdater.updatePlaybackState()
-    }
-
-    private fun evaluateAndRecordPlayEvent(progress: CurrentAudioFilePlaybackProgress) {
-        val playedDurationMs = progress.playbackPositionMs
-        val totalDurationMs = progress.totalDurationMs
-        if (playedDurationMs != C.TIME_UNSET) {
-            val playedPercentage = playedDurationMs.toFloat() / totalDurationMs
-            val minPlayDurationMs = 30 * 1000L
-            if (playedPercentage >= 0.5f || playedDurationMs >= minPlayDurationMs) {
-                repositoryScope.launch {
-                    val audioFileId = progress.mediaId?.toLongOrNull()
-                    if (audioFileId != null) {
-                        playlistRepository.recordSongPlayEvent(audioFileId)
-                        Log.d(TAG, "Recorded play event for song ID: $audioFileId (Played: ${playedDurationMs / 1000}s / ${totalDurationMs / 1000}s)")
-                    } else {
-                        Log.e(TAG, "Could not convert mediaId to AudioFile ID: ${progress.mediaId}")
-                    }
-                }
-            } else {
-                Log.d(TAG, "Skipped recording play event for song ID: ${progress.mediaId}")
-            }
-        }
     }
 }

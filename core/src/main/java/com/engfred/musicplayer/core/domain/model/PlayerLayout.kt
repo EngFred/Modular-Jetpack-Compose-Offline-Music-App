@@ -1,7 +1,7 @@
 package com.engfred.musicplayer.core.domain.model
 
 enum class PlayerLayout {
-    MINIMALIST_GROOVE,
     ETHEREAL_FLOW,
+    MINIMALIST_GROOVE,
     IMMERSIVE_CANVAS,
 }

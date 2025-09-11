@@ -5,6 +5,7 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.util.Log
 import android.widget.RemoteViews
@@ -12,6 +13,7 @@ import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import com.engfred.musicplayer.R
 import com.engfred.musicplayer.feature_player.data.service.PlaybackService
+import androidx.core.net.toUri
 
 private const val TAG = "PlayerWidgetProvider"
 
@@ -49,7 +51,6 @@ class PlayerWidgetProvider : AppWidgetProvider() {
                 }
             }
             Intent.ACTION_BOOT_COMPLETED -> {
-                // request immediate refresh once service is available
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     requestServiceRefresh(context)
                 }
@@ -66,17 +67,16 @@ class PlayerWidgetProvider : AppWidgetProvider() {
         super.onUpdate(context, appWidgetManager, appWidgetIds)
         Log.d(TAG, "onUpdate widgets count=${appWidgetIds.size}")
 
-        // Show a default placeholder view immediately
+        // Update each widget individually with per-widget unique pending intents
         appWidgetIds.forEach { appWidgetId ->
             try {
-                val views = buildRemoteViews(context)
+                val views = buildRemoteViews(context, appWidgetId)
                 appWidgetManager.updateAppWidget(appWidgetId, views)
             } catch (e: Exception) {
                 Log.e(TAG, "Error updating widget id=$appWidgetId: ${e.message}", e)
             }
         }
 
-        // Ask the PlaybackService to push the real current state (this ensures play/pause icon matches)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             requestServiceRefresh(context)
         }
@@ -98,29 +98,38 @@ class PlayerWidgetProvider : AppWidgetProvider() {
         }
     }
 
-    private fun buildRemoteViews(context: Context): RemoteViews {
+    // Build RemoteViews per widget instance so we can create unique PendingIntents per widgetId
+    private fun buildRemoteViews(context: Context, appWidgetId: Int): RemoteViews {
         val pkg = context.packageName
         val views = RemoteViews(pkg, R.layout.widget_player)
 
-        fun pendingIntentFor(action: String): PendingIntent {
-            val i = Intent(context, PlayerWidgetProvider::class.java).apply { this.action = action }
-            val flags = PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0
-            return PendingIntent.getBroadcast(context, action.hashCode(), i, flags)
+        fun pendingIntentFor(action: String, widgetId: Int): PendingIntent {
+            val i = Intent(context, PlayerWidgetProvider::class.java).apply {
+                this.action = action
+                // Make the Intent unique across widget instances and updates
+                data = "app://widget/$action/$widgetId".toUri()
+                `package` = pkg
+            }
+            val requestCode = (action.hashCode() xor widgetId)
+            val flags = PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
+            return PendingIntent.getBroadcast(context, requestCode, i, flags)
         }
 
         try {
-            views.setOnClickPendingIntent(R.id.widget_play_pause, pendingIntentFor(ACTION_WIDGET_PLAY_PAUSE))
-            views.setOnClickPendingIntent(R.id.widget_next, pendingIntentFor(ACTION_WIDGET_NEXT))
-            views.setOnClickPendingIntent(R.id.widget_prev, pendingIntentFor(ACTION_WIDGET_PREV))
-            views.setOnClickPendingIntent(R.id.widget_repeat, pendingIntentFor(ACTION_WIDGET_REPEAT))
+            views.setOnClickPendingIntent(R.id.widget_play_pause, pendingIntentFor(ACTION_WIDGET_PLAY_PAUSE, appWidgetId))
+            views.setOnClickPendingIntent(R.id.widget_next, pendingIntentFor(ACTION_WIDGET_NEXT, appWidgetId))
+            views.setOnClickPendingIntent(R.id.widget_prev, pendingIntentFor(ACTION_WIDGET_PREV, appWidgetId))
+            views.setOnClickPendingIntent(R.id.widget_repeat, pendingIntentFor(ACTION_WIDGET_REPEAT, appWidgetId))
         } catch (e: Exception) {
             Log.e(TAG, "Failed to set button pending intents: ${e.message}", e)
         }
 
         val openAppIntent = context.packageManager.getLaunchIntentForPackage(pkg)
         openAppIntent?.let {
-            val flags = PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0
-            val openPending = PendingIntent.getActivity(context, 0, it, flags)
+            // make open intents unique too (to avoid reuse across widget instances)
+            it.data = "app://widget/open/$appWidgetId".toUri()
+            val flags = PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
+            val openPending = PendingIntent.getActivity(context, appWidgetId, it, flags)
             views.setOnClickPendingIntent(R.id.widget_album_art, openPending)
             views.setOnClickPendingIntent(R.id.widget_title, openPending)
             views.setOnClickPendingIntent(R.id.widget_artist, openPending)

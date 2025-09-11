@@ -9,14 +9,12 @@ import android.os.Build
 import android.util.Log
 import android.widget.RemoteViews
 import androidx.annotation.OptIn
-import androidx.annotation.RequiresApi
 import androidx.media3.common.util.UnstableApi
 import com.engfred.musicplayer.R
 import com.engfred.musicplayer.feature_player.data.service.PlaybackService
 
 private const val TAG = "PlayerWidgetProvider"
 
-@RequiresApi(Build.VERSION_CODES.P)
 class PlayerWidgetProvider : AppWidgetProvider() {
 
     companion object {
@@ -52,10 +50,14 @@ class PlayerWidgetProvider : AppWidgetProvider() {
             }
             Intent.ACTION_BOOT_COMPLETED -> {
                 // request immediate refresh once service is available
-                requestServiceRefresh(context)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    requestServiceRefresh(context)
+                }
             }
             ACTION_UPDATE_WIDGET -> {
-                requestServiceRefresh(context)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    requestServiceRefresh(context)
+                }
             }
         }
     }
@@ -75,10 +77,11 @@ class PlayerWidgetProvider : AppWidgetProvider() {
         }
 
         // Ask the PlaybackService to push the real current state (this ensures play/pause icon matches)
-        requestServiceRefresh(context)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            requestServiceRefresh(context)
+        }
     }
 
-    @RequiresApi(Build.VERSION_CODES.P)
     @OptIn(UnstableApi::class)
     private fun requestServiceRefresh(context: Context) {
         try {

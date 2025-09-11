@@ -24,4 +24,8 @@ interface FavoriteAudioFileDao {
 
     @Query("SELECT EXISTS(SELECT 1 FROM favorite_audio_files WHERE audioFileId = :audioFileId LIMIT 1)")
     suspend fun isFavorite(audioFileId: Long): Boolean
+
+    // NEW: Update metadata for the favorite (updates the row if it exists)
+    @Query("UPDATE favorite_audio_files SET title = :title, artist = :artist, albumArtUri = :albumArtUri WHERE audioFileId = :audioFileId")
+    suspend fun updateFavoriteAudioFileMetadata(audioFileId: Long, title: String, artist: String, albumArtUri: String?)
 }

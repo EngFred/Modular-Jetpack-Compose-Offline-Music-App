@@ -51,7 +51,6 @@ import com.engfred.musicplayer.core.domain.repository.RepeatMode
 const val MUSIC_NOTIFICATION_CHANNEL_ID = "music_playback_channel";
 const val MUSIC_NOTIFICATION_ID = 101;
 
-@RequiresApi(Build.VERSION_CODES.P)
 @UnstableApi
 @AndroidEntryPoint
 class PlaybackService : MediaSessionService() {
@@ -157,7 +156,9 @@ class PlaybackService : MediaSessionService() {
                 while (true) {
                     delay(1000);
                     if (exoPlayer.isPlaying) {
-                        updateWidget();
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                            updateWidget()
+                        };
                     }
                 }
             };

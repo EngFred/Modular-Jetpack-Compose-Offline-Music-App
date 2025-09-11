@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.core.domain.repository
 
+import android.util.Log
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.domain.model.Playlist
 import kotlinx.coroutines.flow.Flow
@@ -47,6 +48,8 @@ interface PlaylistRepository {
 
     // NEW: Removes a song from all playlists it belongs to.
     suspend fun removeSongFromAllPlaylists(audioFileId: Long)
+
+    suspend fun updateSongInAllPlaylists(updatedAudioFile: AudioFile)
 
     /**
      * Retrieves a flow of recently added songs, sorted by date added (descending).

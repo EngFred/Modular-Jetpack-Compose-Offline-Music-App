@@ -56,6 +56,7 @@ import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.detail.Pl
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.detail.PlaylistDetailViewModel
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.draw.clip
 import com.engfred.musicplayer.feature_playlist.presentation.components.detail.PlaylistSongs
 import androidx.compose.ui.Alignment
@@ -79,10 +80,8 @@ fun PlaylistDetailScreen(
     val mainLazyListState = rememberLazyListState()
     val context = LocalContext.current
 
-    var moreMenuExpanded by remember { mutableStateOf(false) }
-    var sortMenuExpanded by remember { mutableStateOf(false) }
-    var currentSortOrder by remember { mutableStateOf(if (uiState.playlist?.type == AutomaticPlaylistType.MOST_PLAYED) PlaylistSortOrder.PLAY_COUNT else PlaylistSortOrder.DATE_ADDED) }
-
+    var moreMenuExpanded by rememberSaveable { mutableStateOf(false) }
+    var sortMenuExpanded by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(viewModel.uiEvent) {
         viewModel.uiEvent.collect { message ->
@@ -90,17 +89,7 @@ fun PlaylistDetailScreen(
         }
     }
 
-    val sortedSongs = remember(uiState.playlist?.songs, currentSortOrder, uiState.playlist?.playCounts) {
-        uiState.playlist?.songs?.let { songs ->
-            when (currentSortOrder) {
-                PlaylistSortOrder.DATE_ADDED -> songs
-                PlaylistSortOrder.ALPHABETICAL -> songs.sortedBy { it.title.lowercase() }
-                PlaylistSortOrder.PLAY_COUNT -> songs.sortedByDescending { uiState.playlist?.playCounts?.get(it.id) ?: 0 }
-            }
-        } ?: emptyList()
-    }
-
-    var showAddSongsBottomSheet by remember { mutableStateOf(false) }
+    var showAddSongsBottomSheet by rememberSaveable { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     if (showAddSongsBottomSheet) {
@@ -119,16 +108,10 @@ fun PlaylistDetailScreen(
 
     val isCompactWidth = windowWidthSizeClass == WindowWidthSizeClass.Compact
 
-    // We need to know if the first item (header section) is visible.
-    // Derived state to check if the first item is no longer visible,
-    // which indicates the user has scrolled past the header.
-    // **FIX**: The previous logic only checked if the scroll offset was greater than 0,
-    // which triggered the top bar immediately. The new logic checks if the scroll
-    // offset is greater than a threshold that corresponds to the header's height,
-    // minus the height of the sticky top bar itself.
+    // Determine if scrolled past header to adjust top bar style
     val scrolledPastHeader by remember {
         derivedStateOf {
-            val threshold = 350 // This value needs to be tuned to the height of your header, adjust as needed.
+            val threshold = 350 // tune as needed
             mainLazyListState.firstVisibleItemIndex > 0 ||
                     (mainLazyListState.firstVisibleItemIndex == 0 && mainLazyListState.firstVisibleItemScrollOffset > threshold)
         }
@@ -164,18 +147,15 @@ fun PlaylistDetailScreen(
                 brush = Brush.verticalGradient(
                     colors = listOf(
                         MaterialTheme.colorScheme.background,
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                     )
                 )
-            ).padding(paddingValues)
+            )
+            .padding(paddingValues)
 
         if (isCompactWidth) {
-            // --- Compact Layout (Phones - Portrait) ---
+            // Compact phone layout
             Box(modifier = Modifier.fillMaxSize()) {
-                // PlaylistDetailTopBar is now on top and always visible
-                // and its content changes based on scroll position.
-                // 1. New: The top bar is now a separate composable that is placed in a Box.
-                // 2. New: `scrolledPastHeader` and `isCompactWidth` are passed to it.
                 PlaylistDetailTopBar(
                     playlistName = uiState.playlist?.name,
                     playlistArtUri = uiState.playlist?.songs?.firstOrNull()?.albumArtUri,
@@ -189,7 +169,7 @@ fun PlaylistDetailScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .statusBarsPadding()
-                        .zIndex(2f) // Ensures it's always on top of the list
+                        .zIndex(2f)
                 )
 
                 LazyColumn(
@@ -200,38 +180,46 @@ fun PlaylistDetailScreen(
                     verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
                     item {
-                        // We put the original header content here, but without the top bar.
-                        // We also add padding to account for the new sticky top bar.
-                        // 3. New: `topBarPadding` is added to push the content down.
                         val topBarPadding = 38.dp
                         PlaylistDetailHeaderSection(
                             playlist = uiState.playlist,
                             isCompact = true,
-                            modifier = Modifier.padding(top = topBarPadding) // Add top padding for the sticky bar
+                            modifier = Modifier.padding(top = topBarPadding)
                         )
                     }
 
-                    item { Spacer(modifier = Modifier.height(5.dp)) }
+                    item { Spacer(modifier = Modifier.height(8.dp)) }
 
                     item {
                         when {
-                            uiState.isLoading -> LoadingIndicator(modifier = Modifier
-                                .fillMaxWidth()
-                                .height(200.dp))
+                            uiState.isLoading -> LoadingIndicator(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp)
+                            )
 
-                            uiState.error != null -> ErrorIndicator(modifier = Modifier
-                                .fillMaxWidth()
-                                .height(200.dp), message = uiState.error!!)
+                            uiState.error != null -> ErrorIndicator(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp),
+                                message = uiState.error!!
+                            )
 
-                            uiState.playlist == null -> InfoIndicator(modifier = Modifier
-                                .fillMaxWidth()
-                                .height(200.dp), message = "Playlist not found or could not be loaded.", icon = Icons.Outlined.LibraryMusic)
+                            uiState.playlist == null -> InfoIndicator(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp),
+                                message = "Playlist not found or could not be loaded.",
+                                icon = Icons.Outlined.LibraryMusic
+                            )
 
                             else -> {
                                 Column(Modifier.fillMaxWidth()) {
+                                    // Use the upgraded action buttons
                                     PlaylistActionButtons(
                                         onPlayClick = {
-                                            uiState.playlist?.songs?.firstOrNull()?.let { firstSong ->
+                                            uiState.playlist?.songs?.let {
+                                                val firstSong = uiState.sortedSongs.first()
                                                 viewModel.onEvent(PlaylistDetailEvent.PlaySong(firstSong))
                                             }
                                         },
@@ -247,8 +235,10 @@ fun PlaylistDetailScreen(
 
                                     PlaylistSongsHeader(
                                         songCount = uiState.playlist?.songs?.size ?: 0,
-                                        currentSortOrder = currentSortOrder,
-                                        onSortOrderChange = { currentSortOrder = it },
+                                        currentSortOrder = uiState.currentSortOrder,
+                                        onSortOrderChange = {
+                                            viewModel.onEvent(PlaylistDetailEvent.SetSortOrder(it))
+                                        },
                                         sortMenuExpanded = sortMenuExpanded,
                                         onSortMenuExpandedChange = { sortMenuExpanded = it },
                                         isTopSongs = uiState.playlist?.type == AutomaticPlaylistType.MOST_PLAYED
@@ -262,13 +252,16 @@ fun PlaylistDetailScreen(
 
                     if (!uiState.isLoading && uiState.error == null && uiState.playlist != null && uiState.playlist?.songs.isNullOrEmpty()) {
                         item {
-                            PlaylistEmptyState(modifier = Modifier
-                                .fillMaxWidth()
-                                .height(200.dp), playlistType = uiState.playlist?.type)
+                            PlaylistEmptyState(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp),
+                                playlistType = uiState.playlist?.type
+                            )
                         }
                     } else if (!uiState.isLoading && uiState.error == null && uiState.playlist != null && !uiState.playlist?.songs.isNullOrEmpty()) {
                         itemsIndexed(
-                            items = sortedSongs,
+                            items = uiState.sortedSongs,
                             key = { _, audioFile -> audioFile.id }
                         ) { _, audioFile ->
                             AudioFileItem(
@@ -294,7 +287,7 @@ fun PlaylistDetailScreen(
                 }
             }
         } else {
-            // --- Expanded Layout (Tablets / Phones - Landscape) ---
+            // Expanded / tablet layout
             Row(modifier = mainContentModifier.padding(horizontal = 48.dp)) {
                 Column(
                     modifier = Modifier
@@ -310,7 +303,7 @@ fun PlaylistDetailScreen(
                         isCompact = false,
                     )
 
-//Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     PlaylistActionButtons(
                         onPlayClick = {
@@ -332,7 +325,7 @@ fun PlaylistDetailScreen(
                     modifier = Modifier
                         .weight(0.6f)
                         .fillMaxHeight()
-                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.3f))
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.18f))
                         .clip(MaterialTheme.shapes.medium)
                         .padding(start = 24.dp, end = 16.dp, top = 16.dp, bottom = 16.dp)
                 ) {
@@ -343,8 +336,10 @@ fun PlaylistDetailScreen(
                         else -> {
                             PlaylistSongsHeader(
                                 songCount = uiState.playlist?.songs?.size ?: 0,
-                                currentSortOrder = currentSortOrder,
-                                onSortOrderChange = { currentSortOrder = it },
+                                currentSortOrder = uiState.currentSortOrder,
+                                onSortOrderChange = {
+                                    viewModel.onEvent(PlaylistDetailEvent.SetSortOrder(it))
+                                },
                                 sortMenuExpanded = sortMenuExpanded,
                                 onSortMenuExpandedChange = { sortMenuExpanded = it },
                                 isTopSongs = uiState.playlist?.type == AutomaticPlaylistType.MOST_PLAYED
@@ -356,7 +351,7 @@ fun PlaylistDetailScreen(
                                 PlaylistEmptyState(modifier = Modifier.fillMaxSize(), playlistType = uiState.playlist?.type)
                             } else {
                                 PlaylistSongs(
-                                    songs = sortedSongs,
+                                    songs = uiState.sortedSongs,
                                     currentPlayingId = uiState.currentPlayingAudioFile?.id,
                                     onSongClick = { clickedAudioFile -> viewModel.onEvent(PlaylistDetailEvent.PlaySong(clickedAudioFile)) },
                                     onSongRemove = { song -> viewModel.onEvent(PlaylistDetailEvent.ShowRemoveSongConfirmation(song)) },
@@ -422,7 +417,6 @@ fun PlaylistDetailScreen(
                 }
             )
         } ?: run {
-            // If dialog is somehow shown without an audioFileToRemove, dismiss it.
             viewModel.onEvent(PlaylistDetailEvent.DismissRemoveSongConfirmation)
         }
     }

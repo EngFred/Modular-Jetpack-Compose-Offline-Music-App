@@ -24,7 +24,7 @@ object FavoritesModule {
             context,
             FavoritesDatabase::class.java,
             "music_player_favorites_db"
-        ).build()
+        ).fallbackToDestructiveMigration().build()
     }
 
     @Provides

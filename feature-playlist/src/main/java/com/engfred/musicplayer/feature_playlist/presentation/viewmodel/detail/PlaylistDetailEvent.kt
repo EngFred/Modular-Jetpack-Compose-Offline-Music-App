@@ -2,6 +2,7 @@ package com.engfred.musicplayer.feature_playlist.presentation.viewmodel.detail
 
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.domain.model.Playlist
+import com.engfred.musicplayer.feature_playlist.domain.model.PlaylistSortOrder
 
 sealed class PlaylistDetailEvent {
     data class RenamePlaylist(val newName: String) : PlaylistDetailEvent()
@@ -21,4 +22,5 @@ sealed class PlaylistDetailEvent {
     data class ShowRemoveSongConfirmation(val audioFile: AudioFile) : PlaylistDetailEvent()
     data object DismissRemoveSongConfirmation : PlaylistDetailEvent()
     data object ConfirmRemoveSong : PlaylistDetailEvent()
+    data class SetSortOrder(val sortOrder: PlaylistSortOrder) : PlaylistDetailEvent()
 }

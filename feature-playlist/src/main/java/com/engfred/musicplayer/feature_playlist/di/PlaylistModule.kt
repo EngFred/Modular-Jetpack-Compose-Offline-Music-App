@@ -26,7 +26,7 @@ object PlaylistModule {
             PlaylistDatabase::class.java,
             "music_player_playlist_db"
         )
-            .addMigrations(PlaylistDatabaseMigrations.MIGRATION_1_2)
+            .fallbackToDestructiveMigration()
             .build()
     }
 

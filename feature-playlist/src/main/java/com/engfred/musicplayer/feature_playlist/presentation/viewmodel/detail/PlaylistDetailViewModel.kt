@@ -9,6 +9,7 @@ import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.domain.repository.PlaybackController
 import com.engfred.musicplayer.core.domain.repository.PlaylistRepository
 import com.engfred.musicplayer.core.domain.repository.ShuffleMode
+import com.engfred.musicplayer.feature_playlist.domain.model.PlaylistSortOrder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -63,7 +64,9 @@ class PlaylistDetailViewModel @Inject constructor(
         playlistRepository.getPlaylists().onEach { allPlaylists ->
             _uiState.update { currentState ->
                 currentState.copy(
-                    playlists = allPlaylists.filter { playlist -> playlist.id != currentPlaylistId && !playlist.isAutomatic }
+                    playlists = allPlaylists.filter { playlist ->
+                        playlist.id != currentPlaylistId && !playlist.isAutomatic
+                    }
                 )
             }
         }.launchIn(viewModelScope)
@@ -72,7 +75,10 @@ class PlaylistDetailViewModel @Inject constructor(
     private fun startObservingPlaybackState(playbackController: PlaybackController) {
         playbackController.getPlaybackState().onEach { state ->
             _uiState.update { currentState ->
-                currentState.copy(currentPlayingAudioFile = state.currentAudioFile, isPlaying = state.isPlaying)
+                currentState.copy(
+                    currentPlayingAudioFile = state.currentAudioFile,
+                    isPlaying = state.isPlaying
+                )
             }
         }.launchIn(viewModelScope)
     }
@@ -196,7 +202,6 @@ class PlaylistDetailViewModel @Inject constructor(
                 }
 
                 is PlaylistDetailEvent.PlaySong -> {
-                    //REMOVE SHUFFLE FIRST
                     playbackController.setShuffleMode(ShuffleMode.OFF)
                     startAudioPlayback(event.audioFile)
                 }
@@ -215,24 +220,15 @@ class PlaylistDetailViewModel @Inject constructor(
                     loadPlaylistDetails(savedStateHandle)
                 }
 
-                PlaylistDetailEvent.PlayNext -> {
-                    playbackController.skipToNext()
-                }
-
-                PlaylistDetailEvent.PlayPause -> {
-                    playbackController.playPause()
-                }
-
-                PlaylistDetailEvent.PlayPrev -> {
-                    playbackController.skipToPrevious()
-                }
+                PlaylistDetailEvent.PlayNext -> playbackController.skipToNext()
+                PlaylistDetailEvent.PlayPause -> playbackController.playPause()
+                PlaylistDetailEvent.PlayPrev -> playbackController.skipToPrevious()
 
                 is PlaylistDetailEvent.AddedSongToPlaylist -> {
                     val audioFile = _uiState.value.audioToAddToPlaylist
                     if (audioFile != null) {
-                        val songAlreadyInPlaylist =
-                            event.playlist.songs.any { it.id == audioFile.id }
-                        if (songAlreadyInPlaylist) {
+                        val alreadyIn = event.playlist.songs.any { it.id == audioFile.id }
+                        if (alreadyIn) {
                             _uiEvent.emit("Song already in playlist")
                         } else {
                             try {
@@ -247,23 +243,27 @@ class PlaylistDetailViewModel @Inject constructor(
                 }
 
                 PlaylistDetailEvent.DismissAddToPlaylistDialog -> {
-                    Log.d(TAG, "DismissAddToPlaylistDialog event received")
                     _uiState.update { it.copy(audioToAddToPlaylist = null, showAddToPlaylistDialog = false) }
                 }
 
                 is PlaylistDetailEvent.ShowPlaylistsDialog -> {
-                    Log.d(TAG, "ShowPlaylistsDialog event received")
                     _uiState.update {
-                        it.copy(
-                            audioToAddToPlaylist = event.audioFile,
-                            showAddToPlaylistDialog = true
-                        )
+                        it.copy(audioToAddToPlaylist = event.audioFile, showAddToPlaylistDialog = true)
                     }
                 }
 
                 is PlaylistDetailEvent.SetPlayNext -> {
-                    Log.d(TAG, "SetPlayNext event received")
                     playbackController.addAudioToQueueNext(event.audioFile)
+                }
+
+                is PlaylistDetailEvent.SetSortOrder -> {
+                    _uiState.update { currentState ->
+                        val sorted = applySorting(event.sortOrder, currentState.playlist)
+                        currentState.copy(
+                            currentSortOrder = event.sortOrder,
+                            sortedSongs = sorted
+                        )
+                    }
                 }
             }
         }
@@ -277,75 +277,70 @@ class PlaylistDetailViewModel @Inject constructor(
             combine(
                 playlistRepository.getPlaylistById(playlistId),
                 sharedAudioDataSource.deviceAudioFiles
-            ) { playlist, deviceFiles ->
-                playlist to deviceFiles
-            }.onEach { (playlist, deviceFiles) ->
-                if (playlist != null) {
-                    _uiState.update { currentState ->
-                        currentState.copy(playlist = playlist)
-                    }
+            ) { playlist, deviceFiles -> playlist to deviceFiles }
+                .onEach { (playlist, deviceFiles) ->
+                    if (playlist != null) {
+                        _uiState.update { currentState ->
+                            val sorted = applySorting(currentState.currentSortOrder, playlist)
+                            currentState.copy(playlist = playlist, sortedSongs = sorted)
+                        }
 
-                    // skip cleaning if it's already in progress
-                    if (_uiState.value.isCleaningMissingSongs) return@onEach
+                        if (_uiState.value.isCleaningMissingSongs) return@onEach
+                        if (playlist.isAutomatic) {
+                            _uiState.update { it.copy(isLoading = false) }
+                            return@onEach
+                        }
 
-                    if (playlist.isAutomatic) {
-                        _uiState.update { it.copy(isLoading = false) }
-                        return@onEach
-                    }
+                        val deviceIds = deviceFiles.map { it.id }.toSet()
+                        val missingSongs = playlist.songs.filter { it.id !in deviceIds }
 
-                    val deviceIds = deviceFiles.map { it.id }.toSet()
-                    val missingSongs = playlist.songs.filter { it.id !in deviceIds }
-
-                    if (missingSongs.isEmpty()) {
-                        // no cleanup needed
-                        _uiState.update { it.copy(isLoading = false) }
-                    } else {
-                        // cleanup needed → flip flag ON
-                        _uiState.update { it.copy(isCleaningMissingSongs = true) }
-
-                        viewModelScope.launch {
-                            try {
-                                missingSongs.forEach { song ->
-                                    try {
-                                        playlistRepository.removeSongFromPlaylist(playlistId, song.id)
-                                        Log.d(TAG, "Removed missing song '${song.title}' from playlist ID: $playlistId")
-                                    } catch (e: Exception) {
-                                        Log.e(
-                                            TAG,
-                                            "Failed to remove missing song ID: ${song.id} from playlist ID: $playlistId",
-                                            e
-                                        )
+                        if (missingSongs.isEmpty()) {
+                            _uiState.update { it.copy(isLoading = false) }
+                        } else {
+                            _uiState.update { it.copy(isCleaningMissingSongs = true) }
+                            viewModelScope.launch {
+                                try {
+                                    missingSongs.forEach { song ->
+                                        try {
+                                            playlistRepository.removeSongFromPlaylist(playlistId, song.id)
+                                            Log.d(TAG, "Removed missing song '${song.title}' from playlist ID: $playlistId")
+                                        } catch (e: Exception) {
+                                            Log.e(TAG, "Failed to remove missing song ID: ${song.id} from playlist ID: $playlistId", e)
+                                        }
                                     }
-                                }
-                            } finally {
-                                // cleanup finished → flip flag OFF
-                                _uiState.update {
-                                    it.copy(isCleaningMissingSongs = false, isLoading = false)
+                                } finally {
+                                    _uiState.update {
+                                        it.copy(isCleaningMissingSongs = false, isLoading = false)
+                                    }
                                 }
                             }
                         }
-                    }
-                } else {
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            error = "Playlist not found.",
-                            playlist = null
-                        )
+                    } else {
+                        _uiState.update {
+                            it.copy(isLoading = false, error = "Playlist not found.", playlist = null)
+                        }
                     }
                 }
-            }.launchIn(viewModelScope)
+                .launchIn(viewModelScope)
         } ?: run {
             _uiState.update { it.copy(error = "Playlist ID not provided.") }
         }
     }
 
-
-
     private suspend fun startAudioPlayback(audioFile: AudioFile) {
         uiState.value.playlist?.songs?.let {
-            sharedAudioDataSource.setPlayingQueue(it)
+            sharedAudioDataSource.setPlayingQueue(_uiState.value.sortedSongs)
             playbackController.initiatePlayback(audioFile.uri)
         }
+    }
+
+    /** Applies sorting based on the given order and playlist */
+    private fun applySorting(order: PlaylistSortOrder, playlist: com.engfred.musicplayer.core.domain.model.Playlist?): List<AudioFile> {
+        return when (order) {
+            PlaylistSortOrder.DATE_ADDED -> if(playlist?.isAutomatic?.not() == true) playlist.songs.reversed() else playlist?.songs?.sortedByDescending { it.dateAdded }
+            PlaylistSortOrder.ALPHABETICAL -> playlist?.songs?.sortedBy { it.title.lowercase() }
+            PlaylistSortOrder.PLAY_COUNT -> playlist?.songs?.sortedByDescending { playlist.playCounts?.get(it.id)
+                ?: 0 }
+        } ?: emptyList()
     }
 }

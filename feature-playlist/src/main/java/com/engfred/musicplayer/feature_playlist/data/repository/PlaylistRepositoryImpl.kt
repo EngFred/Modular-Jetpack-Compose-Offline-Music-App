@@ -142,6 +142,7 @@ class PlaylistRepositoryImpl @Inject constructor(
                     type = AutomaticPlaylistType.RECENTLY_ADDED
                 ) else null
             }
+
             -2L -> getTopPlayedSongs(sinceTimestamp = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000L), limit = 50).map { pairs ->
                 // The flow returned by getTopPlayedSongs already filters out playCounts < 3
                 Playlist(
@@ -153,6 +154,7 @@ class PlaylistRepositoryImpl @Inject constructor(
                     playCounts = pairs.associate { it.first.id to it.second }
                 )
             }
+
             else -> playlistDao.getPlaylistWithSongsById(playlistId).map { playlistWithSongs ->
                 playlistWithSongs?.toDomain()
             }
@@ -189,6 +191,21 @@ class PlaylistRepositoryImpl @Inject constructor(
         Log.d(TAG, "Removed song ID: $audioFileId from all playlists (${playlistIds.size} playlists affected).")
     }
 
+    // NEW: Updates the song's metadata in all playlists where it appears.
+    override suspend fun updateSongInAllPlaylists(updatedAudioFile: AudioFile) {
+        try {
+            playlistDao.updatePlaylistSongMetadata(
+                audioFileId = updatedAudioFile.id,
+                title = updatedAudioFile.title,
+                artist = updatedAudioFile.artist ?: "Unknown Artist",
+                albumArtUri = updatedAudioFile.albumArtUri?.toString()
+            )
+            Log.d("LocalUpdate", "Updated song metadata in all playlists with ID: ${updatedAudioFile.id}")
+        }catch (ex: Exception) {
+            Log.e("LocalUpdate", "Error updating song metadata in all playlists: ${ex.message}")
+        }
+    }
+
     /**
      * Retrieves a flow of recently added songs from the shared audio data source,
      * sorted by date added (descending).
@@ -206,9 +223,7 @@ class PlaylistRepositoryImpl @Inject constructor(
      * Retrieves a flow of top played songs by querying play events in the database.
      * It then maps these top played audio file IDs to actual AudioFile objects
      * from the shared audio data source.
-     *
      * NOTE: This function enforces that only songs with at least 3 plays are included.
-     *
      * @param sinceTimestamp The timestamp (milliseconds) from which to count play events.
      * @param limit The maximum number of songs to retrieve.
      */
@@ -218,7 +233,6 @@ class PlaylistRepositoryImpl @Inject constructor(
             sharedAudioDataSource.deviceAudioFiles
         ) { topPlayedIds, allAudioFiles ->
             val audioFileMap = allAudioFiles.associateBy { it.id } // Create a map for efficient lookup
-
             // Filter to require at least 3 plays, preserve order returned by DAO (assumed descending by play count),
             // and then limit the number of results.
             val filtered = topPlayedIds

@@ -3,24 +3,18 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Existing permissions (keep yours too) -->
+    <!-- existing permissions (keep yours as well) -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-
-    <!-- Read permissions -->
-    <!-- For Android 13+ use READ_MEDIA_AUDIO -->
-    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-
-    <!-- Legacy read permission (used on API <= 32). Keep maxSdkVersion to avoid lint errors on newer SDKs. -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
-
-    <!-- Foreground / notification / playback related -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
 
-    <!-- Legacy write permission (only for API <= 28). Keep one entry only. -->
+    <!-- Android 13+ -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <!-- Legacy read (API <= 32) -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
 
     <application
@@ -34,16 +28,34 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.App.Starting">
 
-        <!-- MainActivity -->
+        <!-- MainActivity: Add ACTION_VIEW intent-filter so file managers offer your app -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:launchMode="singleTop"
             android:theme="@style/Theme.App.Starting">
+            <!-- Launcher -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Accept VIEW for audio files (so "Open with / Play with" shows your app) -->
+            <intent-filter android:label="@string/app_name">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <!-- BROWSABLE allows external links (not always required for file managers) -->
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <!-- Accept both content and file schemes -->
+                <data android:scheme="content" android:mimeType="audio/*" />
+                <data android:scheme="file" android:mimeType="audio/*" />
+
+                <!-- Some file managers send generic */*; accepting that too makes your app more visible.
+                     NOTE: If you accept "*/*" be sure to guard handling so you only process actual audio URIs. -->
+                <data android:scheme="content" android:mimeType="*/*" />
+                <data android:scheme="file" android:mimeType="*/*" />
             </intent-filter>
         </activity>
 
@@ -57,7 +69,7 @@
             </intent-filter>
         </service>
 
-        <!-- WIDGET RECEIVER -->
+        <!-- Widget receiver -->
         <receiver
             android:name=".widget.PlayerWidgetProvider"
             android:exported="true"

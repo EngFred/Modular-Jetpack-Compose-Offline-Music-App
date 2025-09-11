@@ -1,9 +1,9 @@
 package com.engfred.musicplayer.feature_playlist.presentation.components.detail
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,17 +12,31 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
 
+/**
+ * Action buttons for playlist detail screen.
+ *
+ * - Both Play and Shuffle are outlined tiles for visual consistency.
+ * - Play uses a distinct border color (primary) to differentiate it.
+ */
 @Composable
 fun PlaylistActionButtons(
     onPlayClick: () -> Unit,
@@ -30,71 +44,132 @@ fun PlaylistActionButtons(
     isCompact: Boolean,
     modifier: Modifier = Modifier
 ) {
+    // Sizes tuned for compact vs expanded
+    val tileHeight = if (isCompact) 56.dp else 68.dp
+    val tileMinWidth = if (isCompact) 130.dp else 180.dp
+    val cornerRadius = if (isCompact) 12.dp else 16.dp
+    val iconSize = if (isCompact) 28.dp else 36.dp
+    val labelStyle = MaterialTheme.typography.titleMedium
+
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = if (isCompact) 15.dp else 0.dp),
-        horizontalArrangement = Arrangement.Center,
+            .padding(horizontal = if (isCompact) 12.dp else 0.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        val tileHeight = if (isCompact) 56.dp else 64.dp
-        val tileMinWidth = if (isCompact) 120.dp else 160.dp
-
-        // Play Tile
-        Box(
+        // Play tile - Outlined (looks like Shuffle) with primary-colored border
+        OutlinedButton(
+            onClick = onPlayClick,
             modifier = Modifier
                 .weight(1f)
                 .height(tileHeight)
                 .widthIn(min = tileMinWidth)
-                .background(MaterialTheme.colorScheme.primary)
-                .clickable { onPlayClick() }
-                .padding(horizontal = 16.dp),
-            contentAlignment = Alignment.Center
+                .clip(RoundedCornerShape(cornerRadius)),
+            shape = RoundedCornerShape(cornerRadius),
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.12f),
+                contentColor = MaterialTheme.colorScheme.onSurface
+            ),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
         ) {
             Row(
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(tileHeight)
             ) {
-                Icon(
-                    Icons.Rounded.PlayArrow,
-                    contentDescription = "Play Playlist",
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(40.dp)
-                )
-                Spacer(modifier = Modifier.width(2.dp))
-                Text(
-                    "Play",
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    style = MaterialTheme.typography.titleMedium
-                )
+                // Icon chip
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    tonalElevation = 2.dp,
+                    modifier = Modifier.size(iconSize + 12.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Rounded.PlayArrow,
+                            contentDescription = "Play Playlist",
+                            modifier = Modifier.size(iconSize),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column {
+                    Text(
+                        text = "Play",
+                        style = labelStyle,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "All songs",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
 
-        // Shuffle Tile
-        Box(
+        // Shuffle tile - Outlined style, lighter border (uses secondary)
+        OutlinedButton(
+            onClick = onShuffleClick,
             modifier = Modifier
                 .weight(1f)
                 .height(tileHeight)
                 .widthIn(min = tileMinWidth)
-                .background(MaterialTheme.colorScheme.secondary)
-                .clickable { onShuffleClick() }
-                .padding(horizontal = 16.dp),
-            contentAlignment = Alignment.Center
+                .clip(RoundedCornerShape(cornerRadius)),
+            shape = RoundedCornerShape(cornerRadius),
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.12f),
+                contentColor = MaterialTheme.colorScheme.onSurface
+            ),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary)
         ) {
             Row(
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
             ) {
-                Icon(
-                    Icons.Rounded.Shuffle,
-                    contentDescription = "Shuffle Playlist",
-                    tint = MaterialTheme.colorScheme.onSecondary
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    "Shuffle",
-                    color = MaterialTheme.colorScheme.onSecondary,
-                    style = MaterialTheme.typography.titleMedium
-                )
+                // Icon chip
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    tonalElevation = 2.dp,
+                    modifier = Modifier.size(iconSize + 12.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Rounded.Shuffle,
+                            contentDescription = "Shuffle Playlist",
+                            modifier = Modifier.size(iconSize),
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column {
+                    Text(
+                        "Shuffle",
+                        style = labelStyle,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        "Mix order",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }

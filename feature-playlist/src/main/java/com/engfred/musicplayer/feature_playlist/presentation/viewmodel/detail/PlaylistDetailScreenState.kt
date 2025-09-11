@@ -2,6 +2,7 @@ package com.engfred.musicplayer.feature_playlist.presentation.viewmodel.detail
 
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.domain.model.Playlist
+import com.engfred.musicplayer.feature_playlist.domain.model.PlaylistSortOrder
 
 data class PlaylistDetailScreenState(
     val playlist: Playlist? = null,
@@ -16,5 +17,7 @@ data class PlaylistDetailScreenState(
     val audioToAddToPlaylist: AudioFile? = null,
     val showRemoveSongConfirmationDialog: Boolean = false,
     val audioFileToRemove: AudioFile? = null,
-    val isCleaningMissingSongs: Boolean = false
+    val isCleaningMissingSongs: Boolean = false,
+    val currentSortOrder: PlaylistSortOrder = PlaylistSortOrder.DATE_ADDED,
+    val sortedSongs: List<AudioFile> = emptyList()
 )

@@ -73,7 +73,11 @@ fun EditSongScreenContainer(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val uri = Uri.withAppendedPath(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, audioId.toString())
                 val pendingIntent: PendingIntent =
-                    MediaStore.createWriteRequest(context.contentResolver, listOf(uri))
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        MediaStore.createWriteRequest(context.contentResolver, listOf(uri))
+                    } else {
+                        TODO("VERSION.SDK_INT < R")
+                    }
                 pendingIntent.intentSender.let { sender ->
                     val req = IntentSenderRequest.Builder(sender).build()
                     intentSenderLauncher.launch(req)

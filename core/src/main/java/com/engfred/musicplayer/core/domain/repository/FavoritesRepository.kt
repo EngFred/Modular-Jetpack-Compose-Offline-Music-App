@@ -31,4 +31,6 @@ interface FavoritesRepository {
      * @return True if it's a favorite, false otherwise.
      */
     suspend fun isFavorite(audioFileId: Long): Boolean
+
+    suspend fun updateFavoriteAudioFile(updatedAudioFile: AudioFile)
 }

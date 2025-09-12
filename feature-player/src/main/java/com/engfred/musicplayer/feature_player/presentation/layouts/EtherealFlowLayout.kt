@@ -1,11 +1,13 @@
 package com.engfred.musicplayer.feature_player.presentation.layouts
 
 import android.app.Activity
+import android.content.res.Configuration
 import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,7 +20,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -37,10 +43,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -86,6 +94,9 @@ fun EtherealFlowLayout(
     repeatMode: RepeatMode,
     shuffleMode: ShuffleMode
 ) {
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
     val view = LocalView.current
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -93,7 +104,7 @@ fun EtherealFlowLayout(
 
 
     // Handle status bar color and icon appearance
-    DisposableEffect(windowWidthSizeClass, selectedLayout) {
+    DisposableEffect(isLandscape, selectedLayout) {
         val window = (context as? Activity)?.window
         val insetsController = window?.let { WindowInsetsControllerCompat(it, view) }
 
@@ -128,14 +139,15 @@ fun EtherealFlowLayout(
     var showQueueBottomSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    if (showQueueBottomSheet && windowWidthSizeClass != WindowWidthSizeClass.Expanded) {
+    if (showQueueBottomSheet && !isLandscape) {
         QueueBottomSheet(
             onDismissRequest = { showQueueBottomSheet = false },
             sheetState = sheetState,
             playingQueue = playingQueue,
             onPlayQueueItem = onPlayQueueItem,
             onRemoveQueueItem = onRemoveQueueItem,
-            playingAudio = playingAudio
+            playingAudio = playingAudio,
+            modifier = Modifier.background(MaterialTheme.colorScheme.surface)
         )
     }
 
@@ -175,70 +187,218 @@ fun EtherealFlowLayout(
                             true
                         }
                     )
-                }
+                }.systemBarsPadding()
         ) {
-            // Responsive padding based on width and height
-            val horizontalPadding = when {
-                windowWidthSizeClass == WindowWidthSizeClass.Expanded || windowHeightSizeClass == WindowHeightSizeClass.Expanded -> 32.dp
-                windowWidthSizeClass == WindowWidthSizeClass.Medium || windowHeightSizeClass == WindowHeightSizeClass.Medium -> 28.dp
-                else -> 24.dp
-            }
-            val verticalPadding = when {
-                windowHeightSizeClass == WindowHeightSizeClass.Expanded -> 36.dp
-                windowHeightSizeClass == WindowHeightSizeClass.Medium -> 32.dp
-                else -> 28.dp
-            }
-            val spacing = when {
-                windowHeightSizeClass == WindowHeightSizeClass.Expanded -> 24.dp
-                windowHeightSizeClass == WindowHeightSizeClass.Medium -> 20.dp
-                else -> 16.dp
-            }
+            val horizontalPadding = if (isLandscape) 32.dp else 24.dp
+            val verticalPadding = if (isLandscape) 36.dp else 28.dp
+            val spacing = if (isLandscape) 24.dp else 16.dp
 
-            when (windowWidthSizeClass) {
-                WindowWidthSizeClass.Compact -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(bottom = verticalPadding)
-                            .semantics {
-                                customActions = listOf(
-                                    CustomAccessibilityAction(
-                                        label = "Skip to previous song",
-                                        action = {
-                                            onEvent(PlayerEvent.SkipToPrevious)
-                                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                            true
-                                        }
-                                    ),
-                                    CustomAccessibilityAction(
-                                        label = "Skip to next song",
-                                        action = {
-                                            onEvent(PlayerEvent.SkipToNext)
-                                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                            true
-                                        }
-                                    )
-                                )
-                            }
-                            .pointerInput(Unit) {
-                                var dragAmountCumulative = 0f
-                                detectHorizontalDragGestures(
-                                    onDragEnd = {
-                                        val dragThreshold = 100f
-                                        if (dragAmountCumulative > dragThreshold) {
-                                            onEvent(PlayerEvent.SkipToPrevious)
-                                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                        } else if (dragAmountCumulative < -dragThreshold) {
-                                            onEvent(PlayerEvent.SkipToNext)
-                                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                        }
-                                        dragAmountCumulative = 0f
-                                    },
-                                    onHorizontalDrag = { _, dragAmount ->
-                                        dragAmountCumulative += dragAmount
+            if (!isLandscape) {
+                // Portrait layout
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = verticalPadding)
+                        .semantics {
+                            customActions = listOf(
+                                CustomAccessibilityAction(
+                                    label = "Skip to previous song",
+                                    action = {
+                                        onEvent(PlayerEvent.SkipToPrevious)
+                                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                        true
+                                    }
+                                ),
+                                CustomAccessibilityAction(
+                                    label = "Skip to next song",
+                                    action = {
+                                        onEvent(PlayerEvent.SkipToNext)
+                                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                        true
                                     }
                                 )
-                            },
+                            )
+                        }
+                        .pointerInput(Unit) {
+                            var dragAmountCumulative = 0f
+                            detectHorizontalDragGestures(
+                                onDragEnd = {
+                                    val dragThreshold = 100f
+                                    if (dragAmountCumulative > dragThreshold) {
+                                        onEvent(PlayerEvent.SkipToPrevious)
+                                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                    } else if (dragAmountCumulative < -dragThreshold) {
+                                        onEvent(PlayerEvent.SkipToNext)
+                                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                    }
+                                    dragAmountCumulative = 0f
+                                },
+                                onHorizontalDrag = { _, dragAmount ->
+                                    dragAmountCumulative += dragAmount
+                                }
+                            )
+                        },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    TopBar(
+                        onNavigateUp = onNavigateUp,
+                        currentSongIndex = currentSongIndex,
+                        totalQueueSize = playingQueue.size,
+                        onOpenQueue = {
+                            coroutineScope.launch { sheetState.show() }
+                            showQueueBottomSheet = true
+                        },
+                        windowWidthSizeClass = WindowWidthSizeClass.Compact, // Unused but passed
+                        selectedLayout = selectedLayout,
+                        onLayoutSelected = onLayoutSelected,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .statusBarsPadding(),
+                        onShareAudio = {
+                            uiState.currentAudioFile?.let {
+                                shareAudioFile(context, it)
+                            }
+                        }
+                    )
+                    AlbumArtDisplay(
+                        albumArtUri = uiState.currentAudioFile?.albumArtUri,
+                        isPlaying = uiState.isPlaying,
+                        windowWidthSizeClass = WindowWidthSizeClass.Compact, // Unused but passed
+                        playerLayout = PlayerLayout.ETHEREAL_FLOW
+                    )
+                    TrackInfo(
+                        title = uiState.currentAudioFile?.title,
+                        artist = uiState.currentAudioFile?.artist,
+                        playerLayout = PlayerLayout.ETHEREAL_FLOW,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(spacing / 2))
+                    FavoriteButton(
+                        isFavorite = uiState.isFavorite,
+                        onToggleFavorite = {
+                            uiState.currentAudioFile?.let {
+                                if (uiState.isFavorite) {
+                                    onEvent(PlayerEvent.RemoveFromFavorites(it.id))
+                                } else {
+                                    onEvent(PlayerEvent.AddToFavorites(it))
+                                }
+                            }
+                            view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+                        },
+                        playerLayout = PlayerLayout.ETHEREAL_FLOW
+                    )
+                    Spacer(modifier = Modifier.height(spacing))
+                    SeekBarSection(
+                        sliderValue = uiState.playbackPositionMs.toFloat(),
+                        totalDurationMs = uiState.totalDurationMs,
+                        playbackPositionMs = uiState.playbackPositionMs,
+                        onSliderValueChange = { newValue ->
+                            onEvent(PlayerEvent.SetSeeking(true))
+                            onEvent(PlayerEvent.SeekTo(newValue.toLong()))
+                        },
+                        onSliderValueChangeFinished = {
+                            onEvent(PlayerEvent.SetSeeking(false))
+                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                        },
+                        playerLayout = PlayerLayout.ETHEREAL_FLOW,
+                        modifier = Modifier.padding(horizontal = 24.dp)
+                    )
+                    Spacer(modifier = Modifier.height(spacing))
+                    ControlBar(
+                        shuffleMode = shuffleMode,
+                        isPlaying = uiState.isPlaying,
+                        repeatMode = repeatMode,
+                        onPlayPauseClick = {
+                            onEvent(PlayerEvent.PlayPause)
+                            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                        },
+                        onSkipPreviousClick = {
+                            onEvent(PlayerEvent.SkipToPrevious)
+                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                        },
+                        onSkipNextClick = {
+                            onEvent(PlayerEvent.SkipToNext)
+                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                        },
+                        onSetShuffleMode = { newMode -> onEvent(PlayerEvent.SetShuffleMode(newMode)) },
+                        onSetRepeatMode = { newMode -> onEvent(PlayerEvent.SetRepeatMode(newMode)) },
+                        playerLayout = PlayerLayout.ETHEREAL_FLOW,
+                        windowWidthSizeClass = WindowWidthSizeClass.Compact, // Unused but passed
+                        windowHeightSizeClass = WindowHeightSizeClass.Medium, // Unused but passed
+                        modifier = Modifier.padding(horizontal = 24.dp).navigationBarsPadding()
+                    )
+                }
+            } else {
+                // Landscape layout
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 10.dp)
+                        .padding(bottom = 16.dp)
+                        .semantics {
+                            customActions = listOf(
+                                CustomAccessibilityAction(
+                                    label = "Skip to previous song",
+                                    action = {
+                                        onEvent(PlayerEvent.SkipToPrevious)
+                                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                        true
+                                    }
+                                ),
+                                CustomAccessibilityAction(
+                                    label = "Skip to next song",
+                                    action = {
+                                        onEvent(PlayerEvent.SkipToNext)
+                                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                        true
+                                    }
+                                )
+                            )
+                        }
+                        .pointerInput(Unit) {
+                            var dragAmountCumulative = 0f
+                            detectHorizontalDragGestures(
+                                onDragEnd = {
+                                    val dragThreshold = 100f
+                                    if (dragAmountCumulative > dragThreshold) {
+                                        onEvent(PlayerEvent.SkipToPrevious)
+                                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                    } else if (dragAmountCumulative < -dragThreshold) {
+                                        onEvent(PlayerEvent.SkipToNext)
+                                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                    }
+                                    dragAmountCumulative = 0f
+                                },
+                                onHorizontalDrag = { _, dragAmount ->
+                                    dragAmountCumulative += dragAmount
+                                }
+                            )
+                        },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Album art section
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        AlbumArtDisplay(
+                            albumArtUri = uiState.currentAudioFile?.albumArtUri,
+                            isPlaying = uiState.isPlaying,
+                            windowWidthSizeClass = WindowWidthSizeClass.Expanded, // Unused but passed
+                            playerLayout = PlayerLayout.ETHEREAL_FLOW
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(horizontalPadding))
+                    // Controls and info section
+                    Column(
+                        modifier = Modifier
+                            .weight(1.5f)
+                            .fillMaxHeight(),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -246,178 +406,22 @@ fun EtherealFlowLayout(
                             onNavigateUp = onNavigateUp,
                             currentSongIndex = currentSongIndex,
                             totalQueueSize = playingQueue.size,
-                            onOpenQueue = {
-                                coroutineScope.launch { sheetState.show() }
-                                showQueueBottomSheet = true
-                            },
-                            windowWidthSizeClass = windowWidthSizeClass,
+                            onOpenQueue = { /* No-op for landscape, queue is visible */ },
+                            windowWidthSizeClass = WindowWidthSizeClass.Expanded, // Unused but passed
                             selectedLayout = selectedLayout,
                             onLayoutSelected = onLayoutSelected,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .statusBarsPadding(),
                             onShareAudio = {
                                 uiState.currentAudioFile?.let {
                                     shareAudioFile(context, it)
                                 }
                             }
                         )
-                        AlbumArtDisplay(
-                            albumArtUri = uiState.currentAudioFile?.albumArtUri,
-                            isPlaying = uiState.isPlaying,
-                            windowWidthSizeClass = windowWidthSizeClass,
-                            playerLayout = PlayerLayout.ETHEREAL_FLOW
-                        )
-                        TrackInfo(
-                            title = uiState.currentAudioFile?.title,
-                            artist = uiState.currentAudioFile?.artist,
-                            playerLayout = PlayerLayout.ETHEREAL_FLOW,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(modifier = Modifier.height(spacing / 2))
-                        FavoriteButton(
-                            isFavorite = uiState.isFavorite,
-                            onToggleFavorite = {
-                                uiState.currentAudioFile?.let {
-                                    if (uiState.isFavorite) {
-                                        onEvent(PlayerEvent.RemoveFromFavorites(it.id))
-                                    } else {
-                                        onEvent(PlayerEvent.AddToFavorites(it))
-                                    }
-                                }
-                                view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-                            },
-                            playerLayout = PlayerLayout.ETHEREAL_FLOW
-                        )
-                        Spacer(modifier = Modifier.height(spacing))
-                        SeekBarSection(
-                            sliderValue = uiState.playbackPositionMs.toFloat(),
-                            totalDurationMs = uiState.totalDurationMs,
-                            playbackPositionMs = uiState.playbackPositionMs,
-                            onSliderValueChange = { newValue ->
-                                onEvent(PlayerEvent.SetSeeking(true))
-                                onEvent(PlayerEvent.SeekTo(newValue.toLong()))
-                            },
-                            onSliderValueChangeFinished = {
-                                onEvent(PlayerEvent.SetSeeking(false))
-                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                            },
-                            playerLayout = PlayerLayout.ETHEREAL_FLOW,
-                            modifier = Modifier.padding(horizontal = 24.dp)
-                        )
-                        Spacer(modifier = Modifier.height(spacing))
-                        ControlBar(
-                            shuffleMode = shuffleMode,
-                            isPlaying = uiState.isPlaying,
-                            repeatMode = repeatMode,
-                            onPlayPauseClick = {
-                                onEvent(PlayerEvent.PlayPause)
-                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                            },
-                            onSkipPreviousClick = {
-                                onEvent(PlayerEvent.SkipToPrevious)
-                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                            },
-                            onSkipNextClick = {
-                                onEvent(PlayerEvent.SkipToNext)
-                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                            },
-                            onSetShuffleMode = { newMode -> onEvent(PlayerEvent.SetShuffleMode(newMode)) },
-                            onSetRepeatMode = { newMode -> onEvent(PlayerEvent.SetRepeatMode(newMode)) },
-                            playerLayout = PlayerLayout.ETHEREAL_FLOW,
-                            windowWidthSizeClass = windowWidthSizeClass,
-                            windowHeightSizeClass = windowHeightSizeClass,
-                            modifier = Modifier.padding(horizontal = 24.dp).navigationBarsPadding()
-                        )
-                    }
-                }
-                WindowWidthSizeClass.Medium -> {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = horizontalPadding, vertical = verticalPadding)
-                            .semantics {
-                                customActions = listOf(
-                                    CustomAccessibilityAction(
-                                        label = "Skip to previous song",
-                                        action = {
-                                            onEvent(PlayerEvent.SkipToPrevious)
-                                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                            true
-                                        }
-                                    ),
-                                    CustomAccessibilityAction(
-                                        label = "Skip to next song",
-                                        action = {
-                                            onEvent(PlayerEvent.SkipToNext)
-                                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                            true
-                                        }
-                                    )
-                                )
-                            }
-                            .pointerInput(Unit) {
-                                var dragAmountCumulative = 0f
-                                detectHorizontalDragGestures(
-                                    onDragEnd = {
-                                        val dragThreshold = 100f
-                                        if (dragAmountCumulative > dragThreshold) {
-                                            onEvent(PlayerEvent.SkipToPrevious)
-                                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                        } else if (dragAmountCumulative < -dragThreshold) {
-                                            onEvent(PlayerEvent.SkipToNext)
-                                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                        }
-                                        dragAmountCumulative = 0f
-                                    },
-                                    onHorizontalDrag = { _, dragAmount ->
-                                        dragAmountCumulative += dragAmount
-                                    }
-                                )
-                            },
-                        horizontalArrangement = Arrangement.SpaceAround,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+//                        Spacer(modifier = Modifier.height(spacing))
                         Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            AlbumArtDisplay(
-                                albumArtUri = uiState.currentAudioFile?.albumArtUri,
-                                isPlaying = uiState.isPlaying,
-                                windowWidthSizeClass = windowWidthSizeClass,
-                                playerLayout = PlayerLayout.ETHEREAL_FLOW
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(horizontalPadding))
-                        Column(
-                            modifier = Modifier
-                                .weight(1.5f)
-                                .fillMaxHeight(),
+                            Modifier.verticalScroll(rememberScrollState()),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.SpaceBetween
                         ) {
-                            TopBar(
-                                onNavigateUp = onNavigateUp,
-                                currentSongIndex = currentSongIndex,
-                                totalQueueSize = playingQueue.size,
-                                onOpenQueue = {
-                                    coroutineScope.launch { sheetState.show() }
-                                    showQueueBottomSheet = true
-                                },
-                                windowWidthSizeClass = windowWidthSizeClass,
-                                selectedLayout = selectedLayout,
-                                onLayoutSelected = onLayoutSelected,
-                                onShareAudio = {
-                                    uiState.currentAudioFile?.let {
-                                        shareAudioFile(context, it)
-                                    }
-                                }
-                            )
-                            Spacer(modifier = Modifier.height(spacing))
                             TrackInfo(
                                 title = uiState.currentAudioFile?.title,
                                 artist = uiState.currentAudioFile?.artist,
@@ -474,173 +478,29 @@ fun EtherealFlowLayout(
                                 onSetShuffleMode = { newMode -> onEvent(PlayerEvent.SetShuffleMode(newMode)) },
                                 onSetRepeatMode = { newMode -> onEvent(PlayerEvent.SetRepeatMode(newMode)) },
                                 playerLayout = PlayerLayout.ETHEREAL_FLOW,
-                                windowWidthSizeClass = windowWidthSizeClass,
-                                windowHeightSizeClass = windowHeightSizeClass
+                                windowWidthSizeClass = WindowWidthSizeClass.Expanded, // Unused but passed
+                                windowHeightSizeClass = WindowHeightSizeClass.Medium // Unused but passed
                             )
                         }
-                    }
-                }
-                WindowWidthSizeClass.Expanded -> {
-                    Row(
+                        }
+                    Spacer(modifier = Modifier.width(horizontalPadding))
+                    // Queue section in landscape
+                    Column(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = horizontalPadding, vertical = verticalPadding)
-                            .semantics {
-                                customActions = listOf(
-                                    CustomAccessibilityAction(
-                                        label = "Skip to previous song",
-                                        action = {
-                                            onEvent(PlayerEvent.SkipToPrevious)
-                                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                            true
-                                        }
-                                    ),
-                                    CustomAccessibilityAction(
-                                        label = "Skip to next song",
-                                        action = {
-                                            onEvent(PlayerEvent.SkipToNext)
-                                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                            true
-                                        }
-                                    )
-                                )
-                            }
-                            .pointerInput(Unit) {
-                                var dragAmountCumulative = 0f
-                                detectHorizontalDragGestures(
-                                    onDragEnd = {
-                                        val dragThreshold = 100f
-                                        if (dragAmountCumulative > dragThreshold) {
-                                            onEvent(PlayerEvent.SkipToPrevious)
-                                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                        } else if (dragAmountCumulative < -dragThreshold) {
-                                            onEvent(PlayerEvent.SkipToNext)
-                                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                        }
-                                        dragAmountCumulative = 0f
-                                    },
-                                    onHorizontalDrag = { _, dragAmount ->
-                                        dragAmountCumulative += dragAmount
-                                    }
-                                )
-                            },
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .navigationBarsPadding(),
+                        horizontalAlignment = Alignment.Start,
+                        verticalArrangement = Arrangement.Top
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            AlbumArtDisplay(
-                                albumArtUri = uiState.currentAudioFile?.albumArtUri,
-                                isPlaying = uiState.isPlaying,
-                                windowWidthSizeClass = windowWidthSizeClass,
-                                playerLayout = PlayerLayout.ETHEREAL_FLOW
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(horizontalPadding))
-                        Column(
-                            modifier = Modifier
-                                .weight(1.5f)
-                                .fillMaxHeight(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            TopBar(
-                                onNavigateUp = onNavigateUp,
-                                currentSongIndex = currentSongIndex,
-                                totalQueueSize = playingQueue.size,
-                                onOpenQueue = { /* No-op for expanded, queue is visible */ },
-                                windowWidthSizeClass = windowWidthSizeClass,
-                                selectedLayout = selectedLayout,
-                                onLayoutSelected = onLayoutSelected,
-                                onShareAudio = {
-                                    uiState.currentAudioFile?.let {
-                                        shareAudioFile(context, it)
-                                    }
-                                }
-                            )
-                            Spacer(modifier = Modifier.height(spacing))
-                            TrackInfo(
-                                title = uiState.currentAudioFile?.title,
-                                artist = uiState.currentAudioFile?.artist,
-                                playerLayout = PlayerLayout.ETHEREAL_FLOW,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            Spacer(modifier = Modifier.height(spacing / 2))
-                            FavoriteButton(
-                                isFavorite = uiState.isFavorite,
-                                onToggleFavorite = {
-                                    uiState.currentAudioFile?.let {
-                                        if (uiState.isFavorite) {
-                                            onEvent(PlayerEvent.RemoveFromFavorites(it.id))
-                                        } else {
-                                            onEvent(PlayerEvent.AddToFavorites(it))
-                                        }
-                                    }
-                                    view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-                                },
-                                playerLayout = PlayerLayout.ETHEREAL_FLOW
-                            )
-                            Spacer(modifier = Modifier.height(spacing))
-                            SeekBarSection(
-                                sliderValue = uiState.playbackPositionMs.toFloat(),
-                                totalDurationMs = uiState.totalDurationMs,
-                                playbackPositionMs = uiState.playbackPositionMs,
-                                onSliderValueChange = { newValue ->
-                                    onEvent(PlayerEvent.SetSeeking(true))
-                                    onEvent(PlayerEvent.SeekTo(newValue.toLong()))
-                                },
-                                onSliderValueChangeFinished = {
-                                    onEvent(PlayerEvent.SetSeeking(false))
-                                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                },
-                                playerLayout = PlayerLayout.ETHEREAL_FLOW
-                            )
-                            Spacer(modifier = Modifier.height(spacing))
-                            ControlBar(
-                                shuffleMode = shuffleMode,
-                                isPlaying = uiState.isPlaying,
-                                repeatMode = repeatMode,
-                                onPlayPauseClick = {
-                                    onEvent(PlayerEvent.PlayPause)
-                                    view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                                },
-                                onSkipPreviousClick = {
-                                    onEvent(PlayerEvent.SkipToPrevious)
-                                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                },
-                                onSkipNextClick = {
-                                    onEvent(PlayerEvent.SkipToNext)
-                                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                },
-                                onSetShuffleMode = { newMode -> onEvent(PlayerEvent.SetShuffleMode(newMode)) },
-                                onSetRepeatMode = { newMode -> onEvent(PlayerEvent.SetRepeatMode(newMode)) },
-                                playerLayout = PlayerLayout.ETHEREAL_FLOW,
-                                windowWidthSizeClass = windowWidthSizeClass,
-                                windowHeightSizeClass = windowHeightSizeClass
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(horizontalPadding))
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .navigationBarsPadding(),
-                            horizontalAlignment = Alignment.Start,
-                            verticalArrangement = Arrangement.Top
-                        ) {
-                            PlayingQueueSection(
-                                playingQueue = playingQueue,
-                                playingAudio = uiState.currentAudioFile,
-                                onPlayItem = onPlayQueueItem,
-                                onRemoveItem = onRemoveQueueItem,
-                                isCompact = false
-                            )
-                        }
+                        PlayingQueueSection(
+                            modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(Color.DarkGray).padding(bottom = 7.dp),
+                            playingQueue = playingQueue,
+                            playingAudio = uiState.currentAudioFile,
+                            onPlayItem = onPlayQueueItem,
+                            onRemoveItem = onRemoveQueueItem,
+                            isCompact = false
+                        )
                     }
                 }
             }

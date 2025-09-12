@@ -40,6 +40,7 @@ import com.skydoves.landscapist.coil.CoilImage
 
 @Composable
 fun PlayingQueueSection(
+    modifier: Modifier = Modifier,
     playingQueue: List<AudioFile>,
     playingAudio: AudioFile?,
     onPlayItem: (AudioFile) -> Unit,
@@ -56,10 +57,8 @@ fun PlayingQueueSection(
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .clip(RoundedCornerShape(16.dp))
-            .background(LocalContentColor.current.copy(alpha = 0.05f)),
+        modifier = modifier
+            .fillMaxSize(),
         horizontalAlignment = Alignment.Start
     ) {
         Text(
@@ -93,7 +92,6 @@ fun PlayingQueueSection(
     }
 }
 
-// Reusable Queue Item Composable (used by both bottom sheet and embedded queue)
 @Composable
 fun QueueItem(
     audioFile: AudioFile,

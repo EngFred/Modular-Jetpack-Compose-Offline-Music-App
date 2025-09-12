@@ -19,11 +19,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.util.UnstableApi
 import com.engfred.musicplayer.core.common.Resource
@@ -141,7 +139,7 @@ class MainActivity : ComponentActivity() {
             // Safely observe audio list as Compose state once
             val audioItems by sharedAudioDataSource.deviceAudioFiles.collectAsState(initial = emptyList())
 
-            val selectedTheme = initialAppSettings?.selectedTheme ?: AppThemeType.DEEP_BLUE
+            val selectedTheme = initialAppSettings?.selectedTheme ?: AppThemeType.BLUE
 
             MusicPlayerAppTheme(selectedTheme = selectedTheme) {
                 val navController = androidx.navigation.compose.rememberNavController()

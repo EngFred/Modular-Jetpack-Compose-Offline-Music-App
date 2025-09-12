@@ -9,7 +9,6 @@ import androidx.media3.session.MediaController
 import com.engfred.musicplayer.core.domain.repository.PlaylistRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import androidx.media3.common.util.UnstableApi
@@ -31,7 +30,6 @@ interface PlayEventRecorder {
 class ControllerCallback(
     private val repositoryScope: CoroutineScope,
     private val playlistRepository: PlaylistRepository,
-    private val progressFlow: StateFlow<CurrentAudioFilePlaybackProgress>,
     private val stateUpdater: PlaybackStateUpdater,
     private val progressTracker: PlaybackProgressTracker,
     private val pendingPlayNextMediaId: MutableStateFlow<String?>,

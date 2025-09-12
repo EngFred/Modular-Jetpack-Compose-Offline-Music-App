@@ -2,6 +2,7 @@ package com.engfred.musicplayer.feature_settings.data.repository
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -33,6 +34,7 @@ class SettingsRepositoryImpl @Inject constructor(
         private val SELECTED_THEME = stringPreferencesKey("selected_theme")
         private val SELECTED_PLAYER_LAYOUT = stringPreferencesKey("selected_player_layout")
         private val PLAYLIST_LAYOUT_TYPE = stringPreferencesKey("playlist_layout_type")
+        private val CROSSFADE_ENABLED = booleanPreferencesKey("crossfade_enabled")
         private val SELECTED_FILTER_OPTION = stringPreferencesKey("selected_filter_option")
         private val REPEAT_MODE = stringPreferencesKey("repeat_mode")
         private val SHUFFLE_MODE = stringPreferencesKey("shuffle_mode")
@@ -49,7 +51,7 @@ class SettingsRepositoryImpl @Inject constructor(
             }
             .map { preferences ->
                 val selectedTheme = AppThemeType.valueOf(
-                    preferences[SELECTED_THEME] ?: AppThemeType.DEEP_BLUE.name
+                    preferences[SELECTED_THEME] ?: AppThemeType.BLUE.name
                 )
                 val selectedPlayerLayout = PlayerLayout.valueOf(
                     preferences[SELECTED_PLAYER_LAYOUT] ?: PlayerLayout.ETHEREAL_FLOW.name
@@ -57,6 +59,7 @@ class SettingsRepositoryImpl @Inject constructor(
                 val playlistLayoutType = PlaylistLayoutType.valueOf(
                     preferences[PLAYLIST_LAYOUT_TYPE] ?: PlaylistLayoutType.LIST.name
                 )
+                val crossfadeEnabled = preferences[CROSSFADE_ENABLED] ?: false
                 val repeatMode = RepeatMode.valueOf(
                     preferences[REPEAT_MODE] ?: RepeatMode.OFF.name
                 )
@@ -67,6 +70,7 @@ class SettingsRepositoryImpl @Inject constructor(
                     selectedTheme = selectedTheme,
                     selectedPlayerLayout = selectedPlayerLayout,
                     playlistLayoutType = playlistLayoutType,
+                    crossfadeEnabled = crossfadeEnabled,
                     repeatMode = repeatMode,
                     shuffleMode = shuffleMode
                 )
@@ -104,6 +108,12 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun updatePlaylistLayout(layout: PlaylistLayoutType) {
         dataStore.edit { preferences ->
             preferences[PLAYLIST_LAYOUT_TYPE] = layout.name
+        }
+    }
+
+    override suspend fun updateCrossfadeEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[CROSSFADE_ENABLED] = enabled
         }
     }
 

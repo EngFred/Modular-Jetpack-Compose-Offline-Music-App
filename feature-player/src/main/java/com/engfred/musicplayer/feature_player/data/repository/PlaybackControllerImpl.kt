@@ -58,7 +58,15 @@ class PlaybackControllerImpl @Inject constructor(
     // Helpers
     private val stateUpdater = PlaybackStateUpdater(_playbackState, mediaController, sharedAudioDataSource, audioFileMapper)
     private val progressTracker = PlaybackProgressTracker(mediaController, stateUpdater)
-    private val controllerCallback = ControllerCallback(repositoryScope, playlistRepository, progressTracker.currentAudioFilePlaybackProgress, stateUpdater, progressTracker, pendingPlayNextMediaId, sharedAudioDataSource, _playbackState)
+    private val controllerCallback = ControllerCallback(
+        repositoryScope,
+        playlistRepository,
+        stateUpdater,
+        progressTracker,
+        pendingPlayNextMediaId,
+        sharedAudioDataSource,
+        _playbackState
+    )
     private val mediaControllerBuilder = MediaControllerBuilder(context, sessionToken, mediaController, _playbackState)
     private val queueManager = QueueManager(
         sharedAudioDataSource,

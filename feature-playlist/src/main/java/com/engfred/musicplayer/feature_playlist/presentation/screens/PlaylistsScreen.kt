@@ -52,10 +52,6 @@ import com.engfred.musicplayer.feature_playlist.presentation.components.list.Pla
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.list.PlaylistEvent
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.list.PlaylistViewModel
 
-/**
- * Composable for the Playlists screen, displaying automatic playlists as a top scrollable row
- * and user-created playlists below (user can toggle list/grid for their own playlists only).
- */
 @Composable
 fun PlaylistsScreen(
     viewModel: PlaylistViewModel = hiltViewModel(),
@@ -116,7 +112,6 @@ fun PlaylistsScreen(
                         )
                     }
                 }
-                // If both lists are empty show the general info state
                 uiState.automaticPlaylists.isEmpty() && uiState.userPlaylists.isEmpty() -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         InfoIndicator(
@@ -161,13 +156,16 @@ fun PlaylistsScreen(
                     // Main area: user playlists (list or grid) — automatic playlists were surfaced above.
                     if (uiState.userPlaylists.isNotEmpty()) {
                         if (uiState.currentLayout == PlaylistLayoutType.LIST) {
+                            // Use weight(1f) so this list gets the remaining height and can scroll properly on rotation
                             LazyColumn(
                                 contentPadding = PaddingValues(
                                     horizontal = contentHorizontalPadding,
                                     vertical = 8.dp
                                 ),
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.fillMaxSize()
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth()
                             ) {
                                 item {
                                     Text(
@@ -191,14 +189,16 @@ fun PlaylistsScreen(
                                 }
                             }
                         } else {
-                            // GRID for user playlists
+                            // GRID for user playlists — give it weight(1f) so it occupies remaining height and scrolls
                             LazyVerticalGrid(
                                 columns = gridCellsForUserPlaylists,
                                 contentPadding = PaddingValues(
                                     horizontal = contentHorizontalPadding,
                                     vertical = 8.dp
                                 ),
-                                modifier = Modifier.fillMaxSize()
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth()
                             ) {
                                 item(span = { GridItemSpan(maxLineSpan) }) {
                                     Text(
@@ -222,8 +222,13 @@ fun PlaylistsScreen(
                             }
                         }
                     } else {
-                        // No user playlists — show hint while keeping automatic row visible above
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        // No user playlists — keep automatic row visible above and let this area use remaining space
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
                             Text(
                                 text = "Your own playlists will show up here. Create some!",
                                 fontWeight = FontWeight.Bold,
@@ -245,7 +250,7 @@ fun PlaylistsScreen(
             horizontalAlignment = Alignment.End,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 16.dp)
+                .padding(end = 16.dp, bottom = 16.dp) // added bottom padding for comfortable spacing
         ) {
             FloatingActionButton(
                 onClick = { viewModel.onEvent(PlaylistEvent.ShowCreatePlaylistDialog) },
@@ -260,7 +265,6 @@ fun PlaylistsScreen(
             }
             FloatingActionButton(
                 onClick = { viewModel.onEvent(PlaylistEvent.ToggleLayout) },
-                // this FAB now toggles layout for user playlists only (automatic playlists stay in top row)
             ) {
                 Icon(
                     modifier = Modifier.size(if (uiState.currentLayout == PlaylistLayoutType.LIST) 24.dp else 30.dp),

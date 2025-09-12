@@ -24,9 +24,6 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     getAppSettingsUseCase: GetAppSettingsUseCase,
     private val updateThemeUseCase: UpdateThemeUseCase,
-    // ---------------------------------------------
-    // NEW: Inject use cases for updating additional settings
-    // ---------------------------------------------
     private val updatePlayerLayoutUseCase: UpdatePlayerLayoutUseCase,
     private val updatePlaylistLayoutUseCase: UpdatePlaylistLayoutUseCase
 ) : ViewModel() {
@@ -41,9 +38,6 @@ class SettingsViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     selectedTheme = appSettings.selectedTheme,
-                    // ---------------------------------------------
-                    // NEW: Map additional settings to UI state, excluding repeatMode and shuffleMode
-                    // ---------------------------------------------
                     selectedPlayerLayout = appSettings.selectedPlayerLayout,
                     playlistLayoutType = appSettings.playlistLayoutType,
                     isLoading = false, // Settings loaded, so not loading
@@ -73,9 +67,6 @@ class SettingsViewModel @Inject constructor(
                         }
                     }
                 }
-                // ---------------------------------------------
-                // NEW: Handle events for updating player layout
-                // ---------------------------------------------
                 is SettingsEvent.UpdatePlayerLayout -> {
                     _uiState.update { it.copy(isLoading = true, error = null) }
                     try {
@@ -89,9 +80,6 @@ class SettingsViewModel @Inject constructor(
                         }
                     }
                 }
-                // ---------------------------------------------
-                // NEW: Handle events for updating playlist layout
-                // ---------------------------------------------
                 is SettingsEvent.UpdatePlaylistLayout -> {
                     _uiState.update { it.copy(isLoading = true, error = null) }
                     try {

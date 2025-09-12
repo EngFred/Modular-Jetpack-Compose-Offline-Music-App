@@ -12,7 +12,6 @@ import androidx.activity.result.ActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,26 +23,31 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -56,7 +60,7 @@ import com.engfred.musicplayer.feature_library.presentation.viewmodel.EditSongVi
 import kotlinx.coroutines.flow.collectLatest
 
 @Composable
-fun EditSongScreenContainer(
+fun EditAudioInfoScreenContainer(
     audioId: Long,
     onFinish: () -> Unit,
     viewModel: EditSongViewModel = hiltViewModel()
@@ -182,7 +186,6 @@ fun EditSongScreenContainer(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditSongScreen(
     uiState: EditSongUiState,
@@ -194,7 +197,7 @@ fun EditSongScreen(
 ) {
     Scaffold(
         topBar = {
-            CustomTopBar("Edit Song", showNavigationIcon = true, onNavigateBack = {
+            CustomTopBar("Edit Audio Info", showNavigationIcon = true, onNavigateBack = {
                 onCancel()
             }, modifier = Modifier.statusBarsPadding())
         }
@@ -204,56 +207,80 @@ fun EditSongScreen(
                 .padding(innerPadding)
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
-                .padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Top
         ) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Box(
-                modifier = Modifier
-                    .size(160.dp)
-                    .clip(CircleShape)
-                    .border(2.dp, MaterialTheme.colorScheme.outline, CircleShape),
-                contentAlignment = Alignment.Center
+            Spacer(modifier = Modifier.height(16.dp))
+            Surface(
+                modifier = Modifier.size(200.dp),
+                shape = CircleShape,
+                shadowElevation = 4.dp
             ) {
-                val imageUri = uiState.albumArtPreviewUri
-                if (imageUri != null) {
-                    AsyncImage(
-                        model = imageUri,
-                        contentDescription = "Album art preview",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Icon(
-                        Icons.Rounded.Image,
-                        contentDescription = "No album art",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(64.dp)
-                    )
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val imageUri = uiState.albumArtPreviewUri
+                    if (imageUri != null) {
+                        AsyncImage(
+                            model = imageUri,
+                            contentDescription = "Album art preview",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Icon(
+                            Icons.Rounded.Image,
+                            contentDescription = "No album art",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(80.dp)
+                        )
+                    }
                 }
             }
-            Spacer(modifier = Modifier.height(12.dp))
-            FilledTonalButton(onClick = onPickImage, modifier = Modifier.fillMaxWidth(0.8f)) {
+            Spacer(modifier = Modifier.height(16.dp))
+            TextButton(onClick = onPickImage) {
                 Text(text = "Change Album Art")
             }
-            Spacer(modifier = Modifier.height(20.dp))
-            OutlinedTextField(
+            Spacer(modifier = Modifier.height(24.dp))
+            TextField(
                 value = uiState.title,
                 onValueChange = onTitleChange,
                 label = { Text("Song Title") },
+                leadingIcon = { Icon(Icons.Rounded.MusicNote, contentDescription = null) },
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(modifier = Modifier.height(12.dp))
-            OutlinedTextField(
+            Spacer(modifier = Modifier.height(16.dp))
+            TextField(
                 value = uiState.artist,
                 onValueChange = onArtistChange,
                 label = { Text("Artist") },
+                leadingIcon = { Icon(Icons.Rounded.Person, contentDescription = null) },
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(modifier = Modifier.height(20.dp))
-            if (uiState.isSaving) CircularProgressIndicator() else Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(onClick = onSave) { Text("Save changes") }
-                OutlinedButton(onClick = onCancel) { Text("Cancel") }
+            Spacer(modifier = Modifier.height(24.dp))
+            if (uiState.isSaving) {
+                CircularProgressIndicator()
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onCancel,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Cancel")
+                    }
+                    Button(
+                        onClick = onSave,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Save changes")
+                    }
+                }
             }
             Spacer(modifier = Modifier.weight(1f))
             Text(

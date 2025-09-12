@@ -34,6 +34,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QueueBottomSheet(
+    modifier: Modifier = Modifier,
     onDismissRequest: () -> Unit,
     sheetState: SheetState,
     playingQueue: List<AudioFile>,
@@ -80,7 +81,7 @@ fun QueueBottomSheet(
         contentColor = MaterialTheme.colorScheme.onSurface
     ) {
         Column(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxWidth()
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally

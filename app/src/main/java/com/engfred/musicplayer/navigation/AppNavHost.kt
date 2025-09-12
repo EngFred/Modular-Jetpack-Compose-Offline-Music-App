@@ -3,8 +3,11 @@ package com.engfred.musicplayer.navigation
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
+import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.material3.MaterialTheme
@@ -22,8 +25,9 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.engfred.musicplayer.R
 import com.engfred.musicplayer.core.domain.model.AudioFile
-import com.engfred.musicplayer.feature_library.presentation.screens.EditSongScreenContainer
+import com.engfred.musicplayer.feature_library.presentation.screens.EditAudioInfoScreenContainer
 import com.engfred.musicplayer.feature_player.presentation.screens.NowPlayingScreen
 import com.engfred.musicplayer.feature_playlist.presentation.screens.PlaylistDetailScreen
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.detail.PlaylistDetailArgs
@@ -52,7 +56,7 @@ fun AppNavHost(
     isPlayingExternalUri: Boolean,
     onPlayAll: () -> Unit,
     onShuffleAll: () -> Unit,
-    audioItems: List<AudioFile>
+    audioItems: List<AudioFile>,
 ) {
 
     // Set the start destination based on the condition
@@ -107,7 +111,7 @@ fun AppNavHost(
                 playingAudioFile = playingAudioFile,
                 windowWidthSizeClass = windowWidthSizeClass,
                 onEditSong = { audioFile ->
-                    rootNavController.navigate(AppDestinations.EditSong.createRoute(audioFile.id))
+                    rootNavController.navigate(AppDestinations.EditAudioInfo.createRoute(audioFile.id))
                 },
                 onPlayAll = onPlayAll,
                 onShuffleAll = onShuffleAll,
@@ -115,7 +119,7 @@ fun AppNavHost(
             )
         }
 
-        // Player screen
+        // Now playing screen
         composable(
             route = AppDestinations.NowPlaying.route,
             enterTransition = {
@@ -166,7 +170,7 @@ fun AppNavHost(
                 onNavigateToNowPlaying = onNavigateToNowPlaying,
                 windowWidthSizeClass = windowWidthSizeClass,
                 onEditInfo = {
-                    rootNavController.navigate(AppDestinations.EditSong.createRoute(it.id))
+                    rootNavController.navigate(AppDestinations.EditAudioInfo.createRoute(it.id))
                 }
             )
         }
@@ -174,28 +178,53 @@ fun AppNavHost(
         // Settings
         composable(AppDestinations.Settings.route) {
             SettingsScreen(
+                githubIconRes = R.drawable.github,
+                linkedInIconRes = R.drawable.linked_in,
+                emailIconRes = R.drawable.gmail,
+                developerAvatarRes = R.drawable.developer_avatar,
                 onNavigateBack = { rootNavController.navigateUp() }
             )
         }
 
         composable(
-            route = AppDestinations.EditSong.route,
-            arguments = listOf(navArgument("audioId") { type = NavType.LongType })
+            route = AppDestinations.EditAudioInfo.route,
+            arguments = listOf(navArgument("audioId") { type = NavType.LongType }),
+            enterTransition = {
+                // Navigate -> EditSong: slide in from right to left
+                slideInHorizontally(
+                    initialOffsetX = { fullWidth -> fullWidth },
+                    animationSpec = tween(durationMillis = 400)
+                )
+            },
+            exitTransition = {
+                // Navigate away from EditSong: slide out to the left
+                slideOutHorizontally(
+                    targetOffsetX = { fullWidth -> -fullWidth },
+                    animationSpec = tween(durationMillis = 400)
+                )
+            },
+            popEnterTransition = {
+                // When popping back to the previous screen, the previous screen should slide in from the left
+                slideInHorizontally(
+                    initialOffsetX = { fullWidth -> -fullWidth },
+                    animationSpec = tween(durationMillis = 400)
+                )
+            },
+            popExitTransition = {
+                // Back press from EditSong -> previous: EditSong slides out to the right
+                slideOutHorizontally(
+                    targetOffsetX = { fullWidth -> fullWidth },
+                    animationSpec = tween(durationMillis = 400)
+                )
+            }
         ) { backStackEntry ->
             val audioId = backStackEntry.arguments?.getLong("audioId") ?: -1L
-            // Compose screen that handles editing (ViewModel handles loading/saving)
-            EditSongScreenContainer(
+            EditAudioInfoScreenContainer(
                 audioId = audioId,
                 onFinish = { rootNavController.navigateUp() }
             )
         }
 
-        // About
-//        composable(AppDestinations.About.route) {
-//            AboutScreen(
-//                onNavigateBack = { rootNavController.navigateUp() }
-//            )
-//        }
     }
 }
 

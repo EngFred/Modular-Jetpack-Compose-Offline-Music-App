@@ -15,7 +15,7 @@ sealed class AppDestinations(val route: String) {
         fun createRoute(playlistId: Long) = "playlist_detail/$playlistId"
     }
 
-    data object EditSong : AppDestinations("edit_song/{audioId}") {
+    data object EditAudioInfo : AppDestinations("edit_song/{audioId}") {
         fun createRoute(audioId: Long) = "edit_song/$audioId"
     }
 

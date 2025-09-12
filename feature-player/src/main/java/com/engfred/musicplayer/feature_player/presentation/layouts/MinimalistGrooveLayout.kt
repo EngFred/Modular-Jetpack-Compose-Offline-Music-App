@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.feature_player.presentation.layouts
 
+import android.content.res.Configuration
 import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -38,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
@@ -75,6 +77,9 @@ fun MinimalistGrooveLayout(
     repeatMode: RepeatMode,
     shuffleMode: ShuffleMode
 ) {
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
     val view = LocalView.current
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -90,7 +95,6 @@ fun MinimalistGrooveLayout(
             playingAudio = uiState.currentAudioFile,
         )
     }
-    val useTwoPane = windowWidthSizeClass == WindowWidthSizeClass.Expanded
     var verticalDragCumulative by remember { mutableFloatStateOf(0f) }
     val dragThreshold = 100f // Adjust as needed for sensitivity
     Surface(
@@ -130,7 +134,7 @@ fun MinimalistGrooveLayout(
                 currentSongIndex = currentSongIndex + 1,
                 totalQueueSize = totalSongsInQueue,
                 onOpenQueue = { },
-                windowWidthSizeClass = windowWidthSizeClass,
+                windowWidthSizeClass = WindowWidthSizeClass.Compact, // Unused but passed
                 selectedLayout = selectedLayout,
                 onLayoutSelected = onLayoutSelected,
                 isFavorite = uiState.isFavorite,
@@ -151,7 +155,8 @@ fun MinimalistGrooveLayout(
                     }
                 }
             )
-            if (useTwoPane) {
+            if (isLandscape) {
+                // Landscape layout (organized based on previous two-pane implementation)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -214,13 +219,14 @@ fun MinimalistGrooveLayout(
                             onSetShuffleMode = { newMode -> onEvent(PlayerEvent.SetShuffleMode(newMode)) },
                             onSetRepeatMode = { newMode -> onEvent(PlayerEvent.SetRepeatMode(newMode)) },
                             playerLayout = PlayerLayout.MINIMALIST_GROOVE,
-                            windowWidthSizeClass = windowWidthSizeClass,
-                            windowHeightSizeClass = windowHeightSizeClass,
+                            windowWidthSizeClass = WindowWidthSizeClass.Expanded, // Unused but passed
+                            windowHeightSizeClass = WindowHeightSizeClass.Medium, // Unused but passed
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
             } else {
+                // Portrait layout
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -282,15 +288,15 @@ fun MinimalistGrooveLayout(
                                 onSetShuffleMode = { newMode -> onEvent(PlayerEvent.SetShuffleMode(newMode)) },
                                 onSetRepeatMode = { newMode -> onEvent(PlayerEvent.SetRepeatMode(newMode)) },
                                 playerLayout = PlayerLayout.MINIMALIST_GROOVE,
-                                windowWidthSizeClass = windowWidthSizeClass,
-                                windowHeightSizeClass = windowHeightSizeClass,
+                                windowWidthSizeClass = WindowWidthSizeClass.Compact, // Unused but passed
+                                windowHeightSizeClass = WindowHeightSizeClass.Medium, // Unused but passed
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
 
                     }
                 }
-                    }
+            }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -307,7 +313,7 @@ fun MinimalistGrooveLayout(
                     }
             ) {
                 val currentSongI = currentSongIndex + 1
-                val currentSongNumText = if(currentSongI > totalSongsInQueue) "" else currentSongI.toString()
+                val currentSongNumText = if (currentSongI > totalSongsInQueue) "" else currentSongI.toString()
                 Text(
                     text = "${currentSongNumText}/${totalSongsInQueue}",
                     style = MaterialTheme.typography.labelLarge,

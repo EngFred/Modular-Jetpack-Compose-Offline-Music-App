@@ -9,10 +9,7 @@ import com.engfred.musicplayer.core.domain.model.FilterOption
  * Data class representing the complete UI state for the Settings Screen.
  */
 data class SettingsScreenState(
-    val selectedTheme: AppThemeType = AppThemeType.FROSTBYTE, // The currently selected theme
-    // ---------------------------------------------
-    // NEW: Add fields for additional settings, excluding repeatMode and shuffleMode
-    // ---------------------------------------------
+    val selectedTheme: AppThemeType = AppThemeType.BLUE,
     val selectedPlayerLayout: PlayerLayout = PlayerLayout.ETHEREAL_FLOW,
     val playlistLayoutType: PlaylistLayoutType = PlaylistLayoutType.LIST,
     val selectedFilterOption: FilterOption = FilterOption.DATE_ADDED_DESC,

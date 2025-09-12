@@ -9,9 +9,10 @@ import com.engfred.musicplayer.core.ui.theme.AppThemeType
  * This is a pure domain model.
  */
 data class AppSettings(
-    val selectedTheme: AppThemeType = AppThemeType.FROSTBYTE,
+    val selectedTheme: AppThemeType = AppThemeType.LIGHT,
     val selectedPlayerLayout: PlayerLayout,
     val playlistLayoutType: PlaylistLayoutType,
     val repeatMode: RepeatMode = RepeatMode.OFF,
-    val shuffleMode: ShuffleMode = ShuffleMode.OFF
+    val shuffleMode: ShuffleMode = ShuffleMode.OFF,
+    val crossfadeEnabled: Boolean = false
 )

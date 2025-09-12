@@ -26,4 +26,6 @@ interface SettingsRepository {
     suspend fun updateRepeatMode(repeatMode: RepeatMode)
 
     suspend fun updateShuffleMode(shuffleMode: ShuffleMode)
+
+    suspend fun updateCrossfadeEnabled(enabled: Boolean)
 }

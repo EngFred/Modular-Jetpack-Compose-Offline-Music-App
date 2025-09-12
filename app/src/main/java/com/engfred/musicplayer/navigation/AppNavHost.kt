@@ -49,7 +49,10 @@ fun AppNavHost(
     context: Context,
     onNavigateToNowPlaying: () -> Unit,
     isPlayerActive: Boolean,
-    isPlayingExternalUri: Boolean
+    isPlayingExternalUri: Boolean,
+    onPlayAll: () -> Unit,
+    onShuffleAll: () -> Unit,
+    audioItems: List<AudioFile>
 ) {
 
     // Set the start destination based on the condition
@@ -87,7 +90,6 @@ fun AppNavHost(
         // Main Graph (with bottom nav)
         composable(AppDestinations.MainGraph.route) {
             MainScreen(
-
                 onNavigateToNowPlaying = onNavigateToNowPlaying,
                 onPlaylistClick = { playlistId ->
                     rootNavController.navigate(AppDestinations.PlaylistDetail.createRoute(playlistId))
@@ -106,7 +108,10 @@ fun AppNavHost(
                 windowWidthSizeClass = windowWidthSizeClass,
                 onEditSong = { audioFile ->
                     rootNavController.navigate(AppDestinations.EditSong.createRoute(audioFile.id))
-                }
+                },
+                onPlayAll = onPlayAll,
+                onShuffleAll = onShuffleAll,
+                audioItems = audioItems
             )
         }
 

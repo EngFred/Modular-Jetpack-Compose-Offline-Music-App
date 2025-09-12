@@ -17,9 +17,13 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Download
@@ -34,13 +38,16 @@ import androidx.compose.material3.windowsizeclass.WindowHeightSizeClass
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -52,6 +59,8 @@ import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.domain.repository.PlaybackState
 import com.engfred.musicplayer.core.util.shareAudioFile
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
+import com.engfred.musicplayer.core.domain.repository.RepeatMode
+import com.engfred.musicplayer.core.domain.repository.ShuffleMode
 import com.engfred.musicplayer.feature_player.presentation.components.AlbumArtDisplay
 import com.engfred.musicplayer.feature_player.presentation.components.ControlBar
 import com.engfred.musicplayer.feature_player.presentation.components.FavoriteButton
@@ -60,20 +69,13 @@ import com.engfred.musicplayer.feature_player.presentation.components.QueueBotto
 import com.engfred.musicplayer.feature_player.presentation.components.SeekBarSection
 import com.engfred.musicplayer.feature_player.presentation.components.TopBar
 import com.engfred.musicplayer.feature_player.presentation.components.TrackInfo
-import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerEvent
 import com.engfred.musicplayer.feature_player.utils.getContentColorForAlbumArt
 import com.engfred.musicplayer.feature_player.utils.loadBitmapFromUri
 import com.engfred.musicplayer.feature_player.utils.saveBitmapToPictures
 import kotlinx.coroutines.launch
 import android.widget.Toast
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.size
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.core.view.WindowInsetsControllerCompat
-import androidx.compose.ui.graphics.luminance
-import com.engfred.musicplayer.core.domain.repository.RepeatMode
-import com.engfred.musicplayer.core.domain.repository.ShuffleMode
+import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerEvent
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -105,23 +107,18 @@ fun ImmersiveCanvasLayout(
     } else {
         defaultContentColor
     }
-// Handle status bar color and icon appearance
+    // Handle status bar color and icon appearance
     DisposableEffect(windowWidthSizeClass, dynamicContentColor, selectedLayout) {
         val window = (context as? Activity)?.window
         val insetsController = window?.let { WindowInsetsControllerCompat(it, view) }
-// Set status bar for compact mode in ImmersiveCanvasLayout
+        // Set status bar for compact mode in ImmersiveCanvasLayout
         if (selectedLayout == PlayerLayout.IMMERSIVE_CANVAS && windowWidthSizeClass == WindowWidthSizeClass.Compact) {
-//            window?.statusBarColor = dynamicContentColor.toArgb()
-// Adjust status bar icon appearance based on luminance
             insetsController?.isAppearanceLightStatusBars = (dynamicContentColor.luminance() > 0.5f).not()
         } else {
-// Set to default theme status bar color
-//            window?.statusBarColor = colorScheme.background.toArgb()
             insetsController?.isAppearanceLightStatusBars = colorScheme.background.luminance() > 0.5f
         }
-// Cleanup: Revert to default theme status bar settings on dispose
+        // Cleanup: Revert to default theme status bar settings on dispose
         onDispose {
-//            window?.statusBarColor = colorScheme.background.toArgb()
             insetsController?.isAppearanceLightStatusBars = colorScheme.background.luminance() > 0.5f
         }
     }
@@ -137,6 +134,8 @@ fun ImmersiveCanvasLayout(
             playingAudio = playingAudio
         )
     }
+    var verticalDragCumulative by remember { mutableStateOf(0f) }
+    val dragThreshold = 100f
     CompositionLocalProvider(LocalContentColor provides defaultContentColor) {
         Box(
             modifier = Modifier
@@ -163,32 +162,40 @@ fun ImmersiveCanvasLayout(
                     )
                 }
                 .pointerInput(Unit) {
-                    var dragAmountCumulative = 0f
+                    var horizontalDragCumulative = 0f
+                    val horizontalThreshold = 100f
                     detectHorizontalDragGestures(
                         onDragEnd = {
-                            val dragThreshold = 100f
-                            if (dragAmountCumulative > dragThreshold) {
+                            if (horizontalDragCumulative > horizontalThreshold) {
                                 onEvent(PlayerEvent.SkipToPrevious)
                                 view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                            } else if (dragAmountCumulative < -dragThreshold) {
+                            } else if (horizontalDragCumulative < -horizontalThreshold) {
                                 onEvent(PlayerEvent.SkipToNext)
                                 view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                             }
-                            dragAmountCumulative = 0f
+                            horizontalDragCumulative = 0f
                         },
                         onHorizontalDrag = { _, dragAmount ->
-                            dragAmountCumulative += dragAmount
+                            horizontalDragCumulative += dragAmount
+                            true
                         }
                     )
                 }
                 .pointerInput(Unit) {
-                    detectVerticalDragGestures { _, dragAmount ->
-                        if (dragAmount > 20f) {
-// Drag down to exit the screen
-                            onNavigateUp()
-                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                    detectVerticalDragGestures(
+                        onDragEnd = {
+                            if (verticalDragCumulative > dragThreshold) {
+                                // Drag down to exit
+                                onNavigateUp()
+                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                            }
+                            verticalDragCumulative = 0f
+                        },
+                        onVerticalDrag = { _, dragAmount ->
+                            verticalDragCumulative += dragAmount
+                            true
                         }
-                    }
+                    )
                 }
                 .pointerInput(Unit) {
                     detectTapGestures(
@@ -205,7 +212,7 @@ fun ImmersiveCanvasLayout(
                     )
                 }
         ) {
-// Responsive padding based on width and height
+            // Responsive padding based on width and height
             val sectionHorizontalPadding = when {
                 windowWidthSizeClass == WindowWidthSizeClass.Expanded || windowHeightSizeClass == WindowHeightSizeClass.Expanded -> 32.dp
                 windowWidthSizeClass == WindowWidthSizeClass.Medium || windowHeightSizeClass == WindowHeightSizeClass.Medium -> 28.dp
@@ -264,7 +271,8 @@ fun ImmersiveCanvasLayout(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
-                            .background(backgroundColor),
+                            .background(backgroundColor)
+                            .verticalScroll(rememberScrollState()),
                         horizontalAlignment = Alignment.Start,
                         verticalArrangement = Arrangement.SpaceAround
                     ) {
@@ -396,7 +404,6 @@ fun ImmersiveCanvasLayout(
                             windowWidthSizeClass = windowWidthSizeClass,
                             windowHeightSizeClass = windowHeightSizeClass
                         )
-//                        Spacer(modifier = Modifier.height(contentVerticalPadding))
                     }
                 }
             } else {
@@ -405,7 +412,7 @@ fun ImmersiveCanvasLayout(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-// Album art section
+                    // Album art section
                     Column(
                         modifier = Modifier
                             .weight(1f)
@@ -425,12 +432,13 @@ fun ImmersiveCanvasLayout(
                         )
                     }
                     Spacer(modifier = Modifier.width(32.dp))
-// Info section
+                    // Info section
                     Column(
                         modifier = Modifier
                             .weight(1.5f)
                             .fillMaxHeight()
-                            .statusBarsPadding(),
+                            .statusBarsPadding()
+                            .verticalScroll(rememberScrollState()),
                         horizontalAlignment = Alignment.Start,
                         verticalArrangement = Arrangement.SpaceAround
                     ) {

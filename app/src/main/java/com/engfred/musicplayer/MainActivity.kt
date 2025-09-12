@@ -13,11 +13,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -27,21 +29,32 @@ import androidx.media3.common.util.UnstableApi
 import com.engfred.musicplayer.core.common.Resource
 import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
 import com.engfred.musicplayer.core.domain.model.AppSettings
+import com.engfred.musicplayer.core.domain.model.AudioFile
+import com.engfred.musicplayer.core.domain.model.FilterOption
 import com.engfred.musicplayer.core.domain.repository.LibraryRepository
 import com.engfred.musicplayer.core.domain.repository.PlaybackController
 import com.engfred.musicplayer.core.domain.repository.PlaybackState
+import com.engfred.musicplayer.core.domain.repository.SettingsRepository
 import com.engfred.musicplayer.core.ui.theme.AppThemeType
 import com.engfred.musicplayer.core.ui.theme.MusicPlayerAppTheme
 import com.engfred.musicplayer.feature_settings.domain.usecases.GetAppSettingsUseCase
 import com.engfred.musicplayer.navigation.AppDestinations
 import com.engfred.musicplayer.navigation.AppNavHost
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 private const val TAG = "MainActivity"
 
+/**
+ * Main activity that hosts the Compose UI for the music player.
+ * Improvements for production: safer DataStore handling, clearer permission flow,
+ * defensive intent handling, and clearer coroutine scoping.
+ */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
@@ -49,79 +62,98 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var playbackController: PlaybackController
     @Inject lateinit var libraryRepository: LibraryRepository
     @Inject lateinit var sharedAudioDataSource: SharedAudioDataSource
+    @Inject lateinit var settingsRepository: SettingsRepository
 
-    // State used to hold an incoming external playback URI so Compose can react and start playback
+    // Activity-level mutable state (observable by Compose)
     private var externalPlaybackUri by mutableStateOf<Uri?>(null)
-
-    // Pending URI for cases where permission is required
     private var pendingPlaybackUri: Uri? = null
-
-    // Will hold the last intent data handled so we don't process same URI multiple times
     private var lastHandledUriString: String? = null
-
-    // Permission launcher, initialized in onCreate
     private lateinit var permissionLauncher: ActivityResultLauncher<String>
 
     private var playbackState by mutableStateOf(PlaybackState())
     private var initialAppSettings: AppSettings? by mutableStateOf(null)
     private var appSettingsLoaded by mutableStateOf(false)
 
+    private val uiScope get() = lifecycleScope
+
+    companion object {
+        private const val PERMISSION_READ_EXTERNAL = "PERMISSION_READ_EXTERNAL"
+    }
+
+    @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     @UnstableApi
-    @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Keep the platform splash screen behaviour
         installSplashScreen()
         super.onCreate(savedInstanceState)
         Log.d(TAG, "onCreate: start")
 
         enableEdgeToEdge()
 
-        // Register permission launcher before using it
-        permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        // Register permission callback early
+        permissionLauncher = registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { granted ->
             if (granted) {
-                Log.d(TAG, "Storage/read permission granted by the user.")
-                // Set the externalPlaybackUri to trigger playback now that permission is granted
+                Log.d(TAG, "Read permission granted by the user.")
                 externalPlaybackUri = pendingPlaybackUri
                 pendingPlaybackUri = null
             } else {
-                Toast.makeText(this, "Permission required to play external audio files.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    this,
+                    "Permission required to play external audio files.",
+                    Toast.LENGTH_SHORT
+                ).show()
                 pendingPlaybackUri = null
             }
         }
 
-        // Observe settings and playback state outside of Compose (keeps previous behavior)
-        lifecycleScope.launch {
-            getAppSettingsUseCase().collect { settings ->
-                initialAppSettings = settings
-                appSettingsLoaded = true
-                playbackController.setRepeatMode(settings.repeatMode)
-                playbackController.setShuffleMode(settings.shuffleMode)
-                Log.d(TAG, "App settings loaded. repeat=${settings.repeatMode}, shuffle=${settings.shuffleMode}")
+        // Observe initial settings and configure playback defaults
+        uiScope.launch {
+            try {
+                getAppSettingsUseCase().collect { settings ->
+                    initialAppSettings = settings
+                    appSettingsLoaded = true
+                    playbackController.setRepeatMode(settings.repeatMode)
+                    playbackController.setShuffleMode(settings.shuffleMode)
+                    Log.d(TAG, "App settings loaded. repeat=${settings.repeatMode}, shuffle=${settings.shuffleMode}")
+                }
+            } catch (t: Throwable) {
+                Log.w(TAG, "Failed to observe app settings: ${t.message}")
             }
         }
 
-        lifecycleScope.launch {
-            playbackController.getPlaybackState().collect {
-                playbackState = it
+        // Observe playback state updates and expose to Compose
+        uiScope.launch {
+            try {
+                playbackController.getPlaybackState().collect { state ->
+                    playbackState = state
+                }
+            } catch (t: Throwable) {
+                Log.w(TAG, "Failed to collect playback state: ${t.message}")
             }
         }
 
-        // Handle the initial intent (if app was opened via "Open with" chooser)
+        // Handle initial intent when launched via share/open-with
         handleIncomingIntent(intent)
 
-        // Compose UI: keep your existing navigation and now-playing workflow.
         setContent {
+            // Safely observe audio list as Compose state once
+            val audioItems by sharedAudioDataSource.deviceAudioFiles.collectAsState(initial = emptyList())
+
             val selectedTheme = initialAppSettings?.selectedTheme ?: AppThemeType.DEEP_BLUE
+
             MusicPlayerAppTheme(selectedTheme = selectedTheme) {
-                val windowSizeClass = calculateWindowSizeClass(this)
                 val navController = androidx.navigation.compose.rememberNavController()
+
                 AppNavHost(
                     rootNavController = navController,
                     isPlayerActive = playbackState.currentAudioFile != null,
-                    windowWidthSizeClass = windowSizeClass.widthSizeClass,
-                    windowHeightSizeClass = windowSizeClass.heightSizeClass,
-                    onPlayPause = { lifecycleScope.launch { playbackController.playPause() } },
-                    onPlayNext = { lifecycleScope.launch { playbackController.skipToNext() } },
-                    onPlayPrev = { lifecycleScope.launch { playbackController.skipToPrevious() } },
+                    windowWidthSizeClass = calculateWindowSizeClass(this).widthSizeClass,
+                    windowHeightSizeClass = calculateWindowSizeClass(this).heightSizeClass,
+                    onPlayPause = { uiScope.launch { playbackController.playPause() } },
+                    onPlayNext = { uiScope.launch { playbackController.skipToNext() } },
+                    onPlayPrev = { uiScope.launch { playbackController.skipToPrevious() } },
                     isPlaying = playbackState.isPlaying,
                     playingAudioFile = playbackState.currentAudioFile,
                     context = this,
@@ -130,20 +162,20 @@ class MainActivity : ComponentActivity() {
                         if (playbackState.currentAudioFile != null) {
                             navController.navigate(AppDestinations.NowPlaying.route)
                         } else {
-                            Toast.makeText(this, "Something is wrong!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this, "No active playback", Toast.LENGTH_SHORT).show()
                         }
-                    }
+                    },
+                    onPlayAll = { playAll() },
+                    onShuffleAll = { shuffleAll() },
+                    audioItems = audioItems
                 )
 
-                // If an external URI is set, initiate playback and navigate to NowPlaying if successful
-                androidx.compose.runtime.LaunchedEffect(externalPlaybackUri) {
+                // React to external playback URIs: attempt playback and navigate when successful
+                LaunchedEffect(externalPlaybackUri) {
                     val uri = externalPlaybackUri
                     if (uri != null) {
-                        val success = initiatePlaybackFromExternalUri(uri)
-                        if (success) {
-                            navController.navigate(AppDestinations.NowPlaying.route)
-                        } // else: toast already shown inside initiate
-                        // Clear to avoid replaying the same URI repeatedly
+                        val success = withContext(Dispatchers.IO) { initiatePlaybackFromExternalUri(uri) }
+                        if (success) navController.navigate(AppDestinations.NowPlaying.route)
                         externalPlaybackUri = null
                     }
                 }
@@ -158,68 +190,103 @@ class MainActivity : ComponentActivity() {
         handleIncomingIntent(intent)
     }
 
-    /**
-     * Inspect the incoming intent for ACTION_VIEW and pull out the data URI.
-     * If URI is present and not previously handled, set externalPlaybackUri (Compose will react) or
-     * ask for permissions if necessary.
-     */
+    // --- Helpers ---
+
+    private fun getRequiredReadPermission(): String {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.READ_MEDIA_AUDIO
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+    }
+
+    private suspend fun preparePlayback(audioFiles: List<AudioFile>): List<AudioFile> {
+        // Consolidate settings fetch to avoid repeated retrievals
+        val appSettings = settingsRepository.getAppSettings().first()
+        val filter = settingsRepository.getFilterOption().first()
+
+        val sortedAudios = when (filter) {
+            FilterOption.DATE_ADDED_ASC -> audioFiles.sortedBy { it.dateAdded }
+            FilterOption.DATE_ADDED_DESC -> audioFiles.sortedByDescending { it.dateAdded }
+            FilterOption.LENGTH_ASC -> audioFiles.sortedBy { it.duration }
+            FilterOption.LENGTH_DESC -> audioFiles.sortedByDescending { it.duration }
+            FilterOption.ALPHABETICAL_ASC -> audioFiles.sortedBy { it.title.lowercase() }
+            FilterOption.ALPHABETICAL_DESC -> audioFiles.sortedByDescending { it.title.lowercase() }
+        }
+
+        // Ensure controller reflects settings
+        playbackController.setRepeatMode(appSettings.repeatMode)
+        playbackController.setShuffleMode(appSettings.shuffleMode)
+        return sortedAudios
+    }
+
+    private fun playAll() {
+        uiScope.launch {
+            val audioFiles = sharedAudioDataSource.deviceAudioFiles.value
+            if (audioFiles.isNotEmpty()) {
+                val sorted = preparePlayback(audioFiles)
+                sharedAudioDataSource.setPlayingQueue(sorted)
+                playbackController.initiatePlayback(sorted.first().uri)
+            } else {
+                Toast.makeText(this@MainActivity, "No audio files found", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun shuffleAll() {
+        uiScope.launch {
+            val audioFiles = sharedAudioDataSource.deviceAudioFiles.value
+            if (audioFiles.isNotEmpty()) {
+                val sorted = preparePlayback(audioFiles)
+                playbackController.initiateShufflePlayback(sorted)
+            } else {
+                Toast.makeText(this@MainActivity, "No audio files found", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     private fun handleIncomingIntent(intent: Intent?) {
         try {
             if (intent == null) return
 
             if (intent.action == Intent.ACTION_VIEW) {
-                val uri = intent.data
-                if (uri != null) {
-                    val uriString = uri.toString()
-                    // Avoid handling the same URI multiple times
-                    if (uriString == lastHandledUriString) {
-                        Log.d(TAG, "Intent URI already handled: $uriString")
-                        return
-                    }
-                    lastHandledUriString = uriString
-                    Log.d(TAG, "Incoming ACTION_VIEW with URI: $uriString")
+                val uri = intent.data ?: return
+                val uriString = uri.toString()
 
-                    // If the sending app granted transient read permission, take persistable permission when available.
-                    if (intent.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0) {
-                        try {
-                            // FLAG_GRANT_PERSISTABLE_URI_PERMISSION may not always be present.
-                            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            Log.d(TAG, "Persistable URI permission taken.")
-                        } catch (e: SecurityException) {
-                            // Not all URIs permit persistable permission — ignore safely.
-                            Log.w(TAG, "Could not take persistable permission: ${e.message}")
-                        } catch (e: Exception) {
-                            Log.w(TAG, "takePersistableUriPermission failed: ${e.message}")
-                        }
-                    }
+                // Avoid processing the same URI repeatedly
+                if (uriString == lastHandledUriString) {
+                    Log.d(TAG, "Intent URI already handled: $uriString")
+                    return
+                }
 
-                    // Quick check: can we open the input stream right now? If so, no extra runtime permission needed.
-                    val canOpenNow = tryOpenUriStream(uri)
+                lastHandledUriString = uriString
+                Log.d(TAG, "Incoming ACTION_VIEW with URI: $uriString")
 
-                    if (canOpenNow) {
-                        // Compose's LaunchedEffect will see this and start playback.
-                        externalPlaybackUri = uri
-                    } else {
-                        // Check and request runtime permission (READ_MEDIA_AUDIO on API33+, READ_EXTERNAL_STORAGE otherwise).
-                        if (needsRuntimeReadPermission()) {
-                            val requiredPerm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                Manifest.permission.READ_MEDIA_AUDIO
-                            } else {
-                                Manifest.permission.READ_EXTERNAL_STORAGE
-                            }
-                            // If permission already granted, set URI. Otherwise, request permission and then playback in callback.
-                            if (ContextCompat.checkSelfPermission(this, requiredPerm) == PackageManager.PERMISSION_GRANTED) {
-                                externalPlaybackUri = uri
-                            } else {
-                                // Save URI to try playback immediately after permission result
-                                pendingPlaybackUri = uri
-                                permissionLauncher.launch(requiredPerm)
-                            }
-                        } else {
-                            // No runtime permission required (older devices with content/file URI accessible), try to play anyway.
-                            externalPlaybackUri = uri
-                        }
+                // Attempt to take persistable permission if the sending app allowed it
+                if (intent.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0) {
+                    try {
+                        contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        Log.d(TAG, "Persistable URI permission taken.")
+                    } catch (e: SecurityException) {
+                        Log.w(TAG, "Could not take persistable permission: ${e.message}")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "takePersistableUriPermission failed: ${e.message}")
                     }
+                }
+
+                val canOpenNow = tryOpenUriStream(uri)
+                if (canOpenNow) {
+                    externalPlaybackUri = uri
+                    return
+                }
+
+                // Request runtime permission if required
+                val requiredPerm = getRequiredReadPermission()
+                if (ContextCompat.checkSelfPermission(this, requiredPerm) == PackageManager.PERMISSION_GRANTED) {
+                    externalPlaybackUri = uri
+                } else {
+                    pendingPlaybackUri = uri
+                    permissionLauncher.launch(requiredPerm)
                 }
             }
         } catch (e: Exception) {
@@ -227,13 +294,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * Small helper that tries to open and close an InputStream for the URI to verify read access.
-     * Returns true if the stream can be opened.
-     */
     private fun tryOpenUriStream(uri: Uri): Boolean {
         return try {
-            contentResolver.openInputStream(uri)?.use { /* just open and close */ }
+            contentResolver.openInputStream(uri)?.use { }
             true
         } catch (e: SecurityException) {
             Log.w(TAG, "No permission to open URI: ${e.message}")
@@ -244,76 +307,75 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * Whether we should request runtime permission on this device.
-     */
     private fun needsRuntimeReadPermission(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 13+ requires READ_MEDIA_* for media (READ_MEDIA_AUDIO)
-            true
-        } else {
-            // On older devices, READ_EXTERNAL_STORAGE is required for many file URIs
-            true
-        }
+        // Modern Android versions always require runtime permission for external storage/media
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
     }
 
-    /**
-     * Attempt to initiate playback for the external uri using the PlaybackController.
-     * This runs on the lifecycleScope and navigates to NowPlaying if playback state updates.
-     */
     private suspend fun initiatePlaybackFromExternalUri(uri: Uri): Boolean {
         try {
             Log.d(TAG, "Attempt to initiate playback for external URI: $uri")
 
-            // Wait for the player to be ready
+            // Wait for player to become ready with a reasonable timeout handled inside controller
             if (!playbackController.waitUntilReady()) {
                 Log.e(TAG, "Player not ready in time for external playback.")
-                Toast.makeText(this, "Player not ready. Please try again.", Toast.LENGTH_LONG).show()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "Player not ready. Please try again.", Toast.LENGTH_LONG).show()
+                }
                 return false
             }
 
-            // Delegate to PlaybackController which already performs accessibility checks and queue setup.
             val audioFileFetchStatus = libraryRepository.getAudioFileByUri(uri)
-
             when (audioFileFetchStatus) {
                 is Resource.Error -> {
                     Log.e(TAG, "Failed to fetch audio file for external URI: ${audioFileFetchStatus.message}")
-                    Toast.makeText(this, "Failed to play selected file: ${audioFileFetchStatus.message}", Toast.LENGTH_LONG).show()
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@MainActivity, "Failed to play selected file: ${audioFileFetchStatus.message}", Toast.LENGTH_LONG).show()
+                    }
                     return false
                 }
                 is Resource.Loading -> {
-                    Toast.makeText(this, "Opening file in Music..", Toast.LENGTH_SHORT).show()
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@MainActivity, "Opening file in Music..", Toast.LENGTH_SHORT).show()
+                    }
                     return false
                 }
                 is Resource.Success -> {
-                    val audioFile = audioFileFetchStatus.data
-                    if (audioFile == null) {
+                    val audioFile = audioFileFetchStatus.data ?: run {
                         Log.e(TAG, "Audio File not found!")
-                        Toast.makeText(this, "Audio File not found!", Toast.LENGTH_LONG).show()
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@MainActivity, "Audio File not found!", Toast.LENGTH_LONG).show()
+                        }
                         return false
                     }
+
                     sharedAudioDataSource.setPlayingQueue(listOf(audioFile))
                     playbackController.initiatePlayback(uri)
 
-                    // Wait a short time to confirm playback has started successfully
+                    // Wait briefly for playback state update
                     val startTime = System.currentTimeMillis()
                     var success = false
-                    while (System.currentTimeMillis() - startTime < 3000 && !success) {
+                    while (System.currentTimeMillis() - startTime < 3_000 && !success) {
                         if (playbackState.currentAudioFile != null && (playbackState.isPlaying || playbackState.isLoading)) {
                             success = true
                         }
                         delay(200)
                     }
+
                     if (!success) {
                         Log.w(TAG, "Playback did not start successfully within timeout.")
-                        Toast.makeText(this, "Failed to start playback.", Toast.LENGTH_SHORT).show()
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@MainActivity, "Failed to start playback.", Toast.LENGTH_SHORT).show()
+                        }
                     }
                     return success
                 }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start playback for external URI: ${e.message}", e)
-            Toast.makeText(this, "Failed to play selected file: ${e.message}", Toast.LENGTH_LONG).show()
+            withContext(Dispatchers.Main) {
+                Toast.makeText(this@MainActivity, "Failed to play selected file: ${e.message}", Toast.LENGTH_LONG).show()
+            }
             return false
         }
     }

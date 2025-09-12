@@ -1,9 +1,7 @@
 package com.engfred.musicplayer.feature_player.presentation.layouts
 
 import android.app.Activity
-import android.os.Build
 import android.view.HapticFeedbackConstants
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -31,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -51,8 +50,11 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.engfred.musicplayer.core.domain.model.AudioFile
-import com.engfred.musicplayer.core.domain.repository.PlaybackState
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
+import com.engfred.musicplayer.core.domain.repository.PlaybackState
+import com.engfred.musicplayer.core.domain.repository.RepeatMode
+import com.engfred.musicplayer.core.domain.repository.ShuffleMode
+import com.engfred.musicplayer.core.util.shareAudioFile
 import com.engfred.musicplayer.feature_player.presentation.components.AlbumArtDisplay
 import com.engfred.musicplayer.feature_player.presentation.components.ControlBar
 import com.engfred.musicplayer.feature_player.presentation.components.FavoriteButton
@@ -64,9 +66,6 @@ import com.engfred.musicplayer.feature_player.presentation.components.TrackInfo
 import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerEvent
 import com.engfred.musicplayer.feature_player.utils.getDynamicGradientColors
 import kotlinx.coroutines.launch
-import com.engfred.musicplayer.core.domain.repository.RepeatMode
-import com.engfred.musicplayer.core.domain.repository.ShuffleMode
-import com.engfred.musicplayer.core.util.shareAudioFile
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -140,6 +139,9 @@ fun EtherealFlowLayout(
         )
     }
 
+    var verticalDragCumulative by remember { mutableFloatStateOf(0f) }
+    val dragThreshold = 100f
+
     CompositionLocalProvider(LocalContentColor provides dynamicContentColor) {
         Box(
             modifier = Modifier
@@ -160,13 +162,19 @@ fun EtherealFlowLayout(
                     )
                 }
                 .pointerInput(Unit) {
-                    detectVerticalDragGestures { _, dragAmount ->
-                        if (dragAmount > 20f) {
-// Drag down to exit the screen
-                            onNavigateUp()
-                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                    detectVerticalDragGestures(
+                        onDragEnd = {
+                            if (verticalDragCumulative > dragThreshold) {
+                                onNavigateUp()
+                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                            }
+                            verticalDragCumulative = 0f
+                        },
+                        onVerticalDrag = { _, dragAmount ->
+                            verticalDragCumulative += dragAmount
+                            true
                         }
-                    }
+                    )
                 }
         ) {
             // Responsive padding based on width and height

@@ -36,21 +36,6 @@ fun NowPlayingScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        /*
-        if (uiState.error != null) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Error: ${uiState.error}",
-                    color = MaterialTheme.colorScheme.error,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(16.dp)
-                )
-            }
-        } else {
-            */
         when (selectedLayout) {
             PlayerLayout.ETHEREAL_FLOW -> selectedLayout?.let {
                 EtherealFlowLayout(
@@ -133,5 +118,4 @@ fun NowPlayingScreen(
             null -> {}
         }
     }
-    //}
 }

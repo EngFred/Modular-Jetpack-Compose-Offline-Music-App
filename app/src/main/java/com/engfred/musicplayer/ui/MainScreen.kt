@@ -1,6 +1,5 @@
 package com.engfred.musicplayer.ui
 
-import MiniPlayer
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
@@ -17,8 +16,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.foundation.layout.systemGesturesPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -33,7 +30,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -43,13 +39,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -58,6 +51,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.ui.CustomTopBar
+import com.engfred.musicplayer.core.ui.MiniPlayer
 import com.engfred.musicplayer.core.util.restartApp
 import com.engfred.musicplayer.feature_favorites.presentation.screen.FavoritesScreen
 import com.engfred.musicplayer.feature_library.presentation.screens.LibraryScreen
@@ -80,7 +74,10 @@ fun MainScreen(
     playingAudioFile: AudioFile?,
     isPlaying: Boolean,
     windowWidthSizeClass: WindowWidthSizeClass,
-    onEditSong: (AudioFile) -> Unit
+    onEditSong: (AudioFile) -> Unit,
+    onPlayAll: () -> Unit,
+    onShuffleAll: () -> Unit,
+    audioItems: List<AudioFile>
 ) {
     val bottomNavController = rememberNavController()
     val bottomNavItems = listOf(
@@ -148,16 +145,25 @@ fun MainScreen(
                     .navigationBarsPadding()
                     .background(MaterialTheme.colorScheme.surface)
             ) {
-                MiniPlayer(
-                    onClick = onNavigateToNowPlaying,
-                    modifier = Modifier.fillMaxWidth(),
-                    onPlayPause = onPlayPause,
-                    onPlayNext = onPlayNext,
-                    onPlayPrev = onPlayPrev,
-                    isPlaying = isPlaying,
-                    playingAudioFile = playingAudioFile,
-                    windowWidthSizeClass = windowWidthSizeClass
-                )
+                if (playingAudioFile != null && audioItems.isNotEmpty()) {
+                    MiniPlayer(
+                        onClick = onNavigateToNowPlaying,
+                        modifier = Modifier.fillMaxWidth(),
+                        onPlayPause = onPlayPause,
+                        onPlayNext = onPlayNext,
+                        onPlayPrev = onPlayPrev,
+                        isPlaying = isPlaying,
+                        playingAudioFile = playingAudioFile,
+                        windowWidthSizeClass = windowWidthSizeClass
+                    )
+                } else {
+                    PlayShuffleBar(
+                        onPlayAll = onPlayAll,
+                        onShuffleAll = onShuffleAll,
+                        modifier = Modifier.fillMaxWidth(),
+                        windowWidthSizeClass = windowWidthSizeClass
+                    )
+                }
 
                 //removed bottom = 8.dp from the Row padding — navigationBarsPadding() already reserves safe area.
                 Row(

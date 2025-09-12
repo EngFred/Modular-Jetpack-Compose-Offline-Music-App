@@ -13,17 +13,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.ui.AddSongToPlaylistDialog
 import com.engfred.musicplayer.core.ui.ConfirmationDialog
@@ -48,6 +46,7 @@ fun LibraryScreen(
     val permissionState = rememberPermissionState(permission)
     val context = LocalContext.current
     val lazyListState = rememberLazyListState()
+    val owner = LocalLifecycleOwner.current
 
     // Track if permission has been requested at least once
     var hasRequestedPermission by rememberSaveable { mutableStateOf(false) }
@@ -72,15 +71,31 @@ fun LibraryScreen(
         }
     }
 
-    // React to permission state changes
+    // React to permission state changes:
+    // IMPORTANT: reset isPermissionDialogShowing whenever a response is observed (granted or denied)
     LaunchedEffect(permissionState.status) {
+        // user responded to permission dialog — hide the "dialog showing" UI
+        isPermissionDialogShowing = false
+
         if (permissionState.status.isGranted) {
             // Permission granted
             viewModel.onEvent(LibraryEvent.PermissionGranted)
-            isPermissionDialogShowing = false
         } else {
-            // Permission not granted - update ViewModel state
+            // Permission not granted - update ViewModel state (and optionally surface a message)
             viewModel.onEvent(LibraryEvent.CheckPermission)
+        }
+    }
+
+    DisposableEffect(key1 = Unit) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                // Re-evaluate permission state after returning from Settings
+                viewModel.onEvent(LibraryEvent.CheckPermission)
+            }
+        }
+        owner.lifecycle.addObserver(observer)
+        onDispose {
+            owner.lifecycle.removeObserver(observer)
         }
     }
 
@@ -127,6 +142,7 @@ fun LibraryScreen(
                     // Open the App settings page to allow user to manually grant permission
                     val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                         data = Uri.fromParts("package", context.packageName, null)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
                     context.startActivity(intent)
                 }
@@ -166,7 +182,7 @@ fun LibraryScreen(
         }
     }
 
-    // Dialogs & Floating flows
+    // Dialogs & Floating flows (unchanged)...
     if (uiState.showAddToPlaylistDialog) {
         AddSongToPlaylistDialog(
             onDismiss = { viewModel.onEvent(LibraryEvent.DismissAddToPlaylistDialog) },

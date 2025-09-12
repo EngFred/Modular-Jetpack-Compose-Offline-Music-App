@@ -43,7 +43,6 @@ fun CustomSplashScreen() {
         }
     }
 
-
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -76,10 +75,14 @@ fun CustomSplashScreen() {
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            // Professional copyright line with symbol
             Text(
-                text = "MADE BY ENGINEER FRED",
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, fontWeight = FontWeight.ExtraBold),
-                color = Color.White.copy(alpha = 0.8f)
+                text = "© 2025 Engineer Fred",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
+                ),
+                color = Color.White.copy(alpha = 0.75f)
             )
         }
     }

@@ -1,6 +1,5 @@
 package com.engfred.musicplayer.feature_playlist.presentation.screens
 
-import MiniPlayer
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -66,6 +65,7 @@ import com.engfred.musicplayer.core.ui.AddSongToPlaylistDialog
 import com.engfred.musicplayer.core.ui.ConfirmationDialog
 import com.engfred.musicplayer.feature_playlist.presentation.components.detail.PlaylistDetailTopBar
 import com.engfred.musicplayer.core.domain.model.AutomaticPlaylistType
+import com.engfred.musicplayer.core.ui.MiniPlayer
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

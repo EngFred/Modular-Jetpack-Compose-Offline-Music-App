@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.engfred.musicplayer.core.ui.theme.AppThemeType
 import com.engfred.musicplayer.core.domain.model.AppSettings
+import com.engfred.musicplayer.core.domain.model.AudioPreset
 import com.engfred.musicplayer.core.domain.model.FilterOption
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
 import com.engfred.musicplayer.core.domain.model.PlaylistLayoutType
@@ -38,6 +39,7 @@ class SettingsRepositoryImpl @Inject constructor(
         private val SELECTED_FILTER_OPTION = stringPreferencesKey("selected_filter_option")
         private val REPEAT_MODE = stringPreferencesKey("repeat_mode")
         private val SHUFFLE_MODE = stringPreferencesKey("shuffle_mode")
+        private val SELECTED_AUDIO_PRESET = stringPreferencesKey("selected_audio_preset")
     }
 
     override fun getAppSettings(): Flow<AppSettings> {
@@ -66,13 +68,17 @@ class SettingsRepositoryImpl @Inject constructor(
                 val shuffleMode = ShuffleMode.valueOf(
                     preferences[SHUFFLE_MODE] ?: ShuffleMode.OFF.name
                 )
+                val selectedAudioPreset = AudioPreset.valueOf(
+                    preferences[SELECTED_AUDIO_PRESET] ?: AudioPreset.NONE.name
+                )
                 AppSettings(
                     selectedTheme = selectedTheme,
                     selectedPlayerLayout = selectedPlayerLayout,
                     playlistLayoutType = playlistLayoutType,
                     crossfadeEnabled = crossfadeEnabled,
                     repeatMode = repeatMode,
-                    shuffleMode = shuffleMode
+                    shuffleMode = shuffleMode,
+                    audioPreset = selectedAudioPreset
                 )
             }
     }
@@ -132,6 +138,12 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun updateShuffleMode(shuffleMode: ShuffleMode) {
         dataStore.edit { preferences ->
             preferences[SHUFFLE_MODE] = shuffleMode.name
+        }
+    }
+
+    override suspend fun updateAudioPreset(preset: AudioPreset) {
+        dataStore.edit { preferences ->
+            preferences[SELECTED_AUDIO_PRESET] = preset.name
         }
     }
 }

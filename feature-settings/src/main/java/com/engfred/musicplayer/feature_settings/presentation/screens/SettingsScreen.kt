@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -28,6 +29,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Brush
 import androidx.compose.material.icons.rounded.Email
+import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.QueueMusic
@@ -42,6 +44,7 @@ import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -54,21 +57,24 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.engfred.musicplayer.core.ui.CustomTopBar
-import com.engfred.musicplayer.core.ui.theme.AppThemeType
+import com.engfred.musicplayer.core.domain.model.AudioFile
+import com.engfred.musicplayer.core.domain.model.AudioPreset
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
 import com.engfred.musicplayer.core.domain.model.PlaylistLayoutType
+import com.engfred.musicplayer.core.ui.theme.AppThemeType
+import com.engfred.musicplayer.core.ui.CustomTopBar
+import com.engfred.musicplayer.core.ui.MiniPlayer
 import com.engfred.musicplayer.feature_settings.presentation.viewmodel.SettingsEvent
 import com.engfred.musicplayer.feature_settings.presentation.viewmodel.SettingsViewModel
 import java.time.Year
-import androidx.core.net.toUri
 
 /**
  * SettingsScreen — accepts optional drawable resource IDs for social icons and an avatar drawable.
@@ -82,7 +88,14 @@ fun SettingsScreen(
     @DrawableRes githubIconRes: Int? = null,
     @DrawableRes linkedInIconRes: Int? = null,
     @DrawableRes emailIconRes: Int? = null,
-    @DrawableRes developerAvatarRes: Int? = null
+    @DrawableRes developerAvatarRes: Int? = null,
+    onMiniPlayerClick: () -> Unit,
+    onMiniPlayPauseClick: () -> Unit,
+    onMiniPlayNext: () -> Unit,
+    onMiniPlayPrevious: () -> Unit,
+    playingAudioFile: AudioFile?,
+    isPlaying: Boolean,
+    windowWidthSizeClass: WindowWidthSizeClass
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -94,6 +107,20 @@ fun SettingsScreen(
                 showNavigationIcon = true,
                 onNavigateBack = onNavigateBack
             )
+        },
+        bottomBar = {
+            if (playingAudioFile != null) {
+                MiniPlayer(
+                    modifier = Modifier.navigationBarsPadding(),
+                    onClick = onMiniPlayerClick,
+                    onPlayPause = onMiniPlayPauseClick,
+                    onPlayNext = onMiniPlayNext,
+                    onPlayPrev = onMiniPlayPrevious,
+                    playingAudioFile = playingAudioFile,
+                    windowWidthSizeClass = windowWidthSizeClass,
+                    isPlaying = isPlaying
+                )
+            }
         },
         containerColor = MaterialTheme.colorScheme.background,
         modifier = Modifier.fillMaxSize()
@@ -153,6 +180,16 @@ fun SettingsScreen(
                 onSelect = { viewModel.onEvent(SettingsEvent.UpdatePlaylistLayout(it)) }
             )
 
+            SettingsSection(
+                title = "Audio Preset",
+                subtitle = "Select an equalizer preset for playback",
+                icon = Icons.Rounded.Equalizer,
+                items = AudioPreset.entries,
+                selectedItem = uiState.audioPreset,
+                displayName = { it.name.replace("_", " ").lowercase().replaceFirstChar { c -> c.titlecase() } },
+                onSelect = { viewModel.onEvent(SettingsEvent.UpdateAudioPreset(it)) }
+            )
+
             Spacer(modifier = Modifier.width(8.dp))
 
             Text(
@@ -166,7 +203,7 @@ fun SettingsScreen(
             // Developer info: forward drawables and optional avatar
             DeveloperInfoSection(
                 developerName = "Engineer Fred",
-                developerRole = "Software Engineer",
+                developerRole = "Software Engineer | Software Developer",
                 email = "engfred88@gmail.com",
                 githubUrl = "https://github.com/EngFred",
                 linkedInUrl = "https://www.linkedin.com/in/fred-omongole-a5943b2b0/",
@@ -234,7 +271,7 @@ private fun <T> SettingsSection(
                     val isSelected = selectedItem == item
 
                     val backgroundColor by animateColorAsState(
-                        targetValue = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.06f) else androidx.compose.ui.graphics.Color.Transparent,
+                        targetValue = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.06f) else Color.Transparent,
                         animationSpec = androidx.compose.animation.core.tween(
                             durationMillis = 220,
                             easing = FastOutSlowInEasing
@@ -322,7 +359,7 @@ private fun DeveloperInfoSection(
 
     // safe painter loader, returns null if resource invalid
     @Composable
-    fun loadPainter(@DrawableRes res: Int?) = res?.let { painterResource(id = it) }
+    fun loadPainter(@DrawableRes res: Int?) = res?.let { androidx.compose.ui.res.painterResource(id = it) }
 
     val githubPainter = loadPainter(githubIconRes)
     val linkedInPainter = loadPainter(linkedInIconRes)
@@ -332,14 +369,14 @@ private fun DeveloperInfoSection(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(cardElevation, RoundedCornerShape(14.dp)),
+            .semantics { contentDescription = "Developer info card" },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = cardElevation),
-        shape = RoundedCornerShape(14.dp)
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.Top,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 // Avatar: if avatarPainter exists, show circular image; otherwise initials box
@@ -351,7 +388,7 @@ private fun DeveloperInfoSection(
                             .size(56.dp)
                             .clip(CircleShape)
                             .semantics { contentDescription = "Developer avatar" },
-                        contentScale = ContentScale.Crop
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
                     )
                 } else {
                     val initials = developerName
@@ -392,67 +429,89 @@ private fun DeveloperInfoSection(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                }
 
-                // Actions: use provided drawables or fallback icons
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    IconButton(
-                        onClick = { uriHandler.openUri(githubUrl) },
-                        modifier = Modifier.semantics { contentDescription = "Open GitHub profile" }
-                    ) {
-                        if (githubPainter != null) {
-                            Image(
-                                painter = githubPainter,
-                                contentDescription = "GitHub",
-                                modifier = Modifier.size(28.dp),
-                                contentScale = ContentScale.Fit,
-                                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary)
-                            )
-                        } else {
-                            Icon(imageVector = Icons.Rounded.Link, contentDescription = "GitHub")
-                        }
-                    }
-
-                    IconButton(
-                        onClick = { uriHandler.openUri(linkedInUrl) },
-                        modifier = Modifier.semantics { contentDescription = "Open LinkedIn profile" }
-                    ) {
-                        if (linkedInPainter != null) {
-                            Image(
-                                painter = linkedInPainter,
-                                contentDescription = "LinkedIn",
-                                modifier = Modifier.size(28.dp),
-                                contentScale = ContentScale.Fit
-                            )
-                        } else {
-                            Icon(imageVector = Icons.Rounded.Link, contentDescription = "LinkedIn")
-                        }
-                    }
-
-                    IconButton(
-                        onClick = {
-                            val intent = Intent(Intent.ACTION_SENDTO).apply {
-                                data = "mailto:$email".toUri()
-                            }
-                            context.startActivity(intent)
-                        },
-                        modifier = Modifier.semantics { contentDescription = "Send email" }
-                    ) {
-                        if (emailPainter != null) {
-                            Image(
-                                painter = emailPainter,
-                                contentDescription = "Email",
-                                modifier = Modifier.size(28.dp),
-                                contentScale = ContentScale.Fit
-                            )
-                        } else {
-                            Icon(imageVector = Icons.Rounded.Email, contentDescription = "Email")
-                        }
-                    }
                 }
             }
 
+            // Actions: each item is a clickable row (icon + label) to make click targets clear and accessible.
             Spacer(modifier = Modifier.height(12.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+
+                // Reusable small helper to render icon + label as a clickable button-like row
+                @Composable
+                fun ActionItem(
+                    painter: androidx.compose.ui.graphics.painter.Painter?,
+                    fallbackVector: androidx.compose.ui.graphics.vector.ImageVector,
+                    label: String,
+                    onClick: () -> Unit,
+                    tintIcon: Boolean = true
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clickable(onClick = onClick, role = Role.Button)
+                            .padding(horizontal = 8.dp, vertical = 6.dp)
+                            .semantics { contentDescription = label }
+                    ) {
+                        if (painter != null) {
+                            Image(
+                                painter = painter,
+                                contentDescription = label,
+                                modifier = Modifier.size(28.dp),
+                                contentScale = ContentScale.Fit,
+                                colorFilter = if (tintIcon) ColorFilter.tint(MaterialTheme.colorScheme.primary) else null
+                            )
+                        } else {
+                            Icon(
+                                imageVector = fallbackVector,
+                                contentDescription = label,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+
+                ActionItem(
+                    painter = githubPainter,
+                    fallbackVector = Icons.Rounded.Link,
+                    label = "GitHub",
+                    onClick = { uriHandler.openUri(githubUrl) },
+                    tintIcon = true
+                )
+
+                ActionItem(
+                    painter = linkedInPainter,
+                    fallbackVector = Icons.Rounded.Link,
+                    label = "LinkedIn",
+                    onClick = { uriHandler.openUri(linkedInUrl) },
+                    tintIcon = false
+                )
+
+                ActionItem(
+                    painter = emailPainter,
+                    fallbackVector = Icons.Rounded.Email,
+                    label = "Email",
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_SENDTO).apply {
+                            data = "mailto:$email".toUri()
+                        }
+                        context.startActivity(intent)
+                    },
+                    tintIcon = false
+                )
+
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
 
             Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.08f))
 

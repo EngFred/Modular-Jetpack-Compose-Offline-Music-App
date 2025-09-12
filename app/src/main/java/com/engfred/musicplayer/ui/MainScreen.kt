@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -77,7 +78,8 @@ fun MainScreen(
     onEditSong: (AudioFile) -> Unit,
     onPlayAll: () -> Unit,
     onShuffleAll: () -> Unit,
-    audioItems: List<AudioFile>
+    audioItems: List<AudioFile>,
+    onReleasePlayer: () -> Unit,
 ) {
     val bottomNavController = rememberNavController()
     val bottomNavItems = listOf(
@@ -126,7 +128,7 @@ fun MainScreen(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Restart Player", color = MaterialTheme.colorScheme.onSurface) },
+                                text = { Text("Restart Music", color = MaterialTheme.colorScheme.onSurface) },
                                 onClick = {
                                     showDropdownMenu = false
                                     showRestartDialog = true
@@ -223,13 +225,34 @@ fun MainScreen(
     if (showRestartDialog) {
         AlertDialog(
             onDismissRequest = { showRestartDialog = false },
-            title = { Text("Restart Application") },
-            text = { Text("Are you sure you want to restart the music player? This will stop current playback.") },
+            title = { Text("Restart Music") },
+            text = {
+                Column {
+                    Text(
+                        "Are you sure you want to restart Music? This will stop current playback."
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        // brief, non-technical explanation
+                        "Note: On some phones the system may stop the app from starting again (battery or system settings). If that happens the app will close — just open it again manually.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
             confirmButton = {
                 Button(
                     onClick = {
                         showRestartDialog = false
-                        restartApp(context, "Restarting music player...")
+                        restartApp(
+                            context = context.applicationContext ?: context,
+                            delayMs = 300,
+                            toastMessage = "Restarting music player...",
+                            onBeforeRestart = {
+                                // release player / stop services before kill
+                                onReleasePlayer()
+                            }
+                        )
                     }
                 ) {
                     Text("Restart")
@@ -242,6 +265,7 @@ fun MainScreen(
             },
             containerColor = MaterialTheme.colorScheme.surface
         )
+
     }
 }
 

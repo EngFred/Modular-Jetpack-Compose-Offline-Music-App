@@ -16,6 +16,7 @@ import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
+import android.media.audiofx.Equalizer
 import android.net.Uri
 import android.os.Build
 import android.util.Log
@@ -33,6 +34,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
+import com.engfred.musicplayer.core.domain.model.AudioPreset
 import com.engfred.musicplayer.core.domain.model.FilterOption
 import com.engfred.musicplayer.core.domain.repository.LibraryRepository
 import com.engfred.musicplayer.core.domain.repository.PlaybackController
@@ -76,6 +78,7 @@ class PlaybackService : MediaSessionService() {
 
     private var mediaSession: MediaSession? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var equalizer: Equalizer? = null
 
     companion object {
         // NOTE: we use string actions that match your app module's PlayerWidgetProvider actions.
@@ -119,6 +122,7 @@ class PlaybackService : MediaSessionService() {
                 .build()
             exoPlayer.setAudioAttributes(audioAttributes, true)
             exoPlayer.setHandleAudioBecomingNoisy(true)
+//            exoPlayer.skipSilenceEnabled = true
 
             // Create PendingIntent to launch MainActivity when notification is clicked
             val intent = Intent().setClassName(this, "${packageName}.MainActivity")
@@ -164,9 +168,45 @@ class PlaybackService : MediaSessionService() {
                     }
                 }
             }
+
+            // Set up equalizer
+            val audioSessionId = exoPlayer.audioSessionId
+            equalizer = Equalizer(0, audioSessionId)
+
+            // Observe app settings and apply audio preset
+            serviceScope.launch {
+                settingsRepository.getAppSettings().collect { settings ->
+                    applyAudioPreset(settings.audioPreset)
+                }
+            }
         } catch (e: Exception) {
             Log.e(TAG, "onCreate error: ${e.message}", e)
             stopSelf()
+        }
+    }
+
+    private fun applyAudioPreset(preset: AudioPreset) {
+        try {
+            equalizer?.let { eq ->
+                eq.enabled = preset != AudioPreset.NONE
+                if (preset != AudioPreset.NONE) {
+                    val presetIndex = when (preset) {
+                        AudioPreset.ROCK -> 9
+                        AudioPreset.JAZZ -> 7
+                        AudioPreset.POP -> 8
+                        AudioPreset.CLASSICAL -> 1
+                        AudioPreset.DANCE -> 2
+                        AudioPreset.HIP_HOP -> 6
+                        else -> 0 // Normal/Fallback
+                    }.toShort()
+                    eq.usePreset(presetIndex)
+                    Log.d(TAG, "Applied audio preset: $preset (index: $presetIndex)")
+                } else {
+                    Log.d(TAG, "Disabled equalizer for preset: NONE")
+                }
+            } ?: Log.w(TAG, "Equalizer not initialized when applying preset.")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error applying audio preset: ${e.message}", e)
         }
     }
 
@@ -291,6 +331,8 @@ class PlaybackService : MediaSessionService() {
                 release()
                 mediaSession = null
             }
+            equalizer?.release()
+            equalizer = null
         } catch (_: Exception) {
         }
         super.onDestroy()
@@ -398,9 +440,20 @@ class PlaybackService : MediaSessionService() {
             if (idNext != 0) baseViews.setInt(idNext, "setColorFilter", Color.WHITE)
 
             // Repeat icon
+            // Repeat icon
             val repeatMode = exoPlayer.repeatMode
-            val repeatDrawableResName = if (repeatMode == Player.REPEAT_MODE_ONE) "ic_repeat_one_24" else "ic_repeat_24"
-            val repeatDrawableId = resources.getIdentifier(repeatDrawableResName, "drawable", packageName)
+            // Use a dedicated drawable for REPEAT_MODE_ALL (ic_repeat_on_24) and a separate drawable for REPEAT_MODE_ONE.
+            // Fallback to ic_repeat_24 if the new resource is not found at runtime.
+            val repeatDrawableResName = when (repeatMode) {
+                Player.REPEAT_MODE_ONE -> "ic_repeat_one_24"
+                Player.REPEAT_MODE_ALL -> "ic_repeat_on_24" // <-- NEW: use your new drawable for "all"
+                else -> "ic_repeat_24"
+            }
+            var repeatDrawableId = resources.getIdentifier(repeatDrawableResName, "drawable", packageName)
+            // Defensive fallback: if ic_repeat_on_24 isn't found, fall back to ic_repeat_24
+            if (repeatDrawableId == 0 && repeatMode == Player.REPEAT_MODE_ALL) {
+                repeatDrawableId = resources.getIdentifier("ic_repeat_24", "drawable", packageName)
+            }
             if (idRepeat != 0 && repeatDrawableId != 0) {
                 baseViews.setImageViewResource(idRepeat, repeatDrawableId)
                 val tintColor = when (repeatMode) {
@@ -409,6 +462,7 @@ class PlaybackService : MediaSessionService() {
                 }
                 baseViews.setInt(idRepeat, "setColorFilter", tintColor)
             }
+
 
             // For each widget id create a copy of RemoteViews and set per-widget unique PendingIntents
             ids.forEach { appWidgetId ->

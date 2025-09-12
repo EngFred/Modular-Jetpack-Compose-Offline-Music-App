@@ -54,9 +54,9 @@ fun CustomSplashScreen() {
             painter = painterResource(id = R.drawable.logo),
             contentDescription = "App Logo",
             modifier = Modifier
-                .size(190.dp)
+                .size(274.dp)
                 .align(Alignment.Center)
-                .clip(RoundedCornerShape(68.dp)),
+                .clip(RoundedCornerShape(100.dp)),
             contentScale = ContentScale.Crop
         )
 

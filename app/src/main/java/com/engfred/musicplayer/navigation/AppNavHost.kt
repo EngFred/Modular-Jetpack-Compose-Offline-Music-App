@@ -57,6 +57,7 @@ fun AppNavHost(
     onPlayAll: () -> Unit,
     onShuffleAll: () -> Unit,
     audioItems: List<AudioFile>,
+    onReleasePlayer: () -> Unit,
 ) {
 
     // Set the start destination based on the condition
@@ -115,7 +116,8 @@ fun AppNavHost(
                 },
                 onPlayAll = onPlayAll,
                 onShuffleAll = onShuffleAll,
-                audioItems = audioItems
+                audioItems = audioItems,
+                onReleasePlayer = onReleasePlayer
             )
         }
 
@@ -176,13 +178,50 @@ fun AppNavHost(
         }
 
         // Settings
-        composable(AppDestinations.Settings.route) {
+        composable(
+            route = AppDestinations.Settings.route,
+            enterTransition = {
+                // Navigate -> EditSong: slide in from right to left
+                slideInHorizontally(
+                    initialOffsetX = { fullWidth -> fullWidth },
+                    animationSpec = tween(durationMillis = 400)
+                )
+            },
+            exitTransition = {
+                // Navigate away from EditSong: slide out to the left
+                slideOutHorizontally(
+                    targetOffsetX = { fullWidth -> -fullWidth },
+                    animationSpec = tween(durationMillis = 400)
+                )
+            },
+            popEnterTransition = {
+                // When popping back to the previous screen, the previous screen should slide in from the left
+                slideInHorizontally(
+                    initialOffsetX = { fullWidth -> -fullWidth },
+                    animationSpec = tween(durationMillis = 400)
+                )
+            },
+            popExitTransition = {
+                // Back press from EditSong -> previous: EditSong slides out to the right
+                slideOutHorizontally(
+                    targetOffsetX = { fullWidth -> fullWidth },
+                    animationSpec = tween(durationMillis = 400)
+                )
+            }
+        ) {
             SettingsScreen(
                 githubIconRes = R.drawable.github,
                 linkedInIconRes = R.drawable.linked_in,
                 emailIconRes = R.drawable.gmail,
                 developerAvatarRes = R.drawable.developer_avatar,
-                onNavigateBack = { rootNavController.navigateUp() }
+                onNavigateBack = { rootNavController.navigateUp() },
+                onMiniPlayerClick = onNavigateToNowPlaying,
+                onMiniPlayPauseClick = onPlayPause,
+                onMiniPlayNext = onPlayNext,
+                onMiniPlayPrevious = onPlayPrev,
+                playingAudioFile = playingAudioFile,
+                isPlaying = isPlaying,
+                windowWidthSizeClass = windowWidthSizeClass
             )
         }
 
@@ -221,7 +260,14 @@ fun AppNavHost(
             val audioId = backStackEntry.arguments?.getLong("audioId") ?: -1L
             EditAudioInfoScreenContainer(
                 audioId = audioId,
-                onFinish = { rootNavController.navigateUp() }
+                onFinish = { rootNavController.navigateUp() },
+                onMiniPlayerClick = onNavigateToNowPlaying,
+                onMiniPlayPauseClick = onPlayPause,
+                onMiniPlayNext = onPlayNext,
+                onMiniPlayPrevious = onPlayPrev,
+                playingAudioFile = playingAudioFile,
+                isPlaying = isPlaying,
+                windowWidthSizeClass = windowWidthSizeClass
             )
         }
 

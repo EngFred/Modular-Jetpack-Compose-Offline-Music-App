@@ -147,7 +147,8 @@ fun EtherealFlowLayout(
             onPlayQueueItem = onPlayQueueItem,
             onRemoveQueueItem = onRemoveQueueItem,
             playingAudio = playingAudio,
-            modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+            modifier = Modifier.background(MaterialTheme.colorScheme.surface),
+            isPlaying = uiState.isPlaying
         )
     }
 
@@ -499,7 +500,8 @@ fun EtherealFlowLayout(
                             playingAudio = uiState.currentAudioFile,
                             onPlayItem = onPlayQueueItem,
                             onRemoveItem = onRemoveQueueItem,
-                            isCompact = false
+                            isCompact = false,
+                            isPlaying = uiState.isPlaying
                         )
                     }
                 }

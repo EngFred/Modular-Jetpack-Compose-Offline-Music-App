@@ -209,7 +209,7 @@ fun ControlBar(
                     tint = LocalContentColor.current,
                     size = controlSizes.shuffleRepeatIconSize,
                     buttonSize = smallIconBgSize,
-                    backgroundColor = if (shuffleMode == ShuffleMode.ON) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
+                    backgroundColor = if (shuffleMode == ShuffleMode.ON) MaterialTheme.colorScheme.primary else Color.Transparent
                 )
 
                 PlaybackControlIconButton(
@@ -261,7 +261,7 @@ fun ControlBar(
                     tint = LocalContentColor.current,
                     size = controlSizes.shuffleRepeatIconSize,
                     buttonSize = smallIconBgSize,
-                    backgroundColor = if(repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
+                    backgroundColor = if(repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.primary else Color.Transparent
                 )
             }
         }

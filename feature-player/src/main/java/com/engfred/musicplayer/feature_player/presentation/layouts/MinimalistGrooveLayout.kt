@@ -93,6 +93,7 @@ fun MinimalistGrooveLayout(
             onPlayQueueItem = onPlayQueueItem,
             onRemoveQueueItem = onRemoveQueueItem,
             playingAudio = uiState.currentAudioFile,
+            isPlaying = uiState.isPlaying
         )
     }
     var verticalDragCumulative by remember { mutableFloatStateOf(0f) }

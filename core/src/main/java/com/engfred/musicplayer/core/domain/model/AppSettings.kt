@@ -14,5 +14,6 @@ data class AppSettings(
     val playlistLayoutType: PlaylistLayoutType,
     val repeatMode: RepeatMode = RepeatMode.OFF,
     val shuffleMode: ShuffleMode = ShuffleMode.OFF,
-    val crossfadeEnabled: Boolean = false
+    val crossfadeEnabled: Boolean = false,
+    val audioPreset: AudioPreset = AudioPreset.NONE
 )

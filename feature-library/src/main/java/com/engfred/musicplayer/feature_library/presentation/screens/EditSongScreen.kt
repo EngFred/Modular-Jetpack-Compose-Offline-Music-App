@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -32,16 +33,15 @@ import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -50,11 +50,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.ui.CustomTopBar
+import com.engfred.musicplayer.core.ui.MiniPlayer
 import com.engfred.musicplayer.feature_library.presentation.viewmodel.EditSongUiState
 import com.engfred.musicplayer.feature_library.presentation.viewmodel.EditSongViewModel
 import kotlinx.coroutines.flow.collectLatest
@@ -63,6 +66,13 @@ import kotlinx.coroutines.flow.collectLatest
 fun EditAudioInfoScreenContainer(
     audioId: Long,
     onFinish: () -> Unit,
+    onMiniPlayerClick: () -> Unit,
+    onMiniPlayPauseClick: () -> Unit,
+    onMiniPlayNext: () -> Unit,
+    onMiniPlayPrevious: () -> Unit,
+    playingAudioFile: AudioFile?,
+    isPlaying: Boolean,
+    windowWidthSizeClass: WindowWidthSizeClass,
     viewModel: EditSongViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -182,7 +192,14 @@ fun EditAudioInfoScreenContainer(
         onTitleChange = viewModel::updateTitle,
         onArtistChange = viewModel::updateArtist,
         onSave = { viewModel.saveChanges(audioId, context) },
-        onCancel = onFinish
+        onCancel = onFinish,
+        onMiniPlayerClick = onMiniPlayerClick,
+        onMiniPlayPauseClick = onMiniPlayPauseClick,
+        onMiniPlayNext = onMiniPlayNext,
+        onMiniPlayPrevious = onMiniPlayPrevious,
+        playingAudioFile = playingAudioFile,
+        isPlaying = isPlaying,
+        windowWidthSizeClass = windowWidthSizeClass
     )
 }
 
@@ -193,13 +210,34 @@ fun EditSongScreen(
     onTitleChange: (String) -> Unit,
     onArtistChange: (String) -> Unit,
     onSave: () -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    onMiniPlayerClick: () -> Unit,
+    onMiniPlayPauseClick: () -> Unit,
+    onMiniPlayNext: () -> Unit,
+    onMiniPlayPrevious: () -> Unit,
+    playingAudioFile: AudioFile?,
+    isPlaying: Boolean,
+    windowWidthSizeClass: WindowWidthSizeClass
 ) {
     Scaffold(
         topBar = {
             CustomTopBar("Edit Audio Info", showNavigationIcon = true, onNavigateBack = {
                 onCancel()
             }, modifier = Modifier.statusBarsPadding())
+        },
+        bottomBar = {
+            if (playingAudioFile != null) {
+                MiniPlayer(
+                    modifier = Modifier.navigationBarsPadding(),
+                    onClick = onMiniPlayerClick,
+                    onPlayPause = onMiniPlayPauseClick,
+                    onPlayNext = onMiniPlayNext,
+                    onPlayPrev = onMiniPlayPrevious,
+                    playingAudioFile = playingAudioFile,
+                    windowWidthSizeClass = windowWidthSizeClass,
+                    isPlaying = isPlaying
+                )
+            }
         }
     ) { innerPadding ->
         Column(
@@ -278,13 +316,13 @@ fun EditSongScreen(
                         onClick = onSave,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("Save changes")
+                        Text("Save changes", maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
             Spacer(modifier = Modifier.weight(1f))
             Text(
-                text = "Editing metadata in Music. Title & artist changes will be applied system-wide. Album art is stored and used by Music.",
+                text = "The changes will be applied system-wide even across other applications that have access to this file.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(8.dp)

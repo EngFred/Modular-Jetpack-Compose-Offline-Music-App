@@ -137,7 +137,8 @@ fun ImmersiveCanvasLayout(
             playingQueue = playingQueue,
             onPlayQueueItem = onPlayQueueItem,
             onRemoveQueueItem = onRemoveQueueItem,
-            playingAudio = playingAudio
+            playingAudio = playingAudio,
+            isPlaying = uiState.isPlaying
         )
     }
     var verticalDragCumulative by remember { mutableStateOf(0f) }
@@ -442,7 +443,7 @@ fun ImmersiveCanvasLayout(
                             onLayoutSelected = onLayoutSelected,
                             dynamicContentColor = defaultContentColor // Use default for landscape
                         )
-                        Spacer(modifier = Modifier.height(spacingInfoToButtons))
+//                        Spacer(modifier = Modifier.height(spacingInfoToButtons))
                         Column(
                             modifier = Modifier
                                 .verticalScroll(rememberScrollState()),
@@ -581,7 +582,8 @@ fun ImmersiveCanvasLayout(
                             playingAudio = playingAudio,
                             onPlayItem = onPlayQueueItem,
                             onRemoveItem = onRemoveQueueItem,
-                            isCompact = false
+                            isCompact = false,
+                            isPlaying = uiState.isPlaying
                         )
                     }
                 }

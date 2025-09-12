@@ -165,7 +165,10 @@ class MainActivity : ComponentActivity() {
                     },
                     onPlayAll = { playAll() },
                     onShuffleAll = { shuffleAll() },
-                    audioItems = audioItems
+                    audioItems = audioItems,
+                    onReleasePlayer = {
+                        uiScope.launch { playbackController.releasePlayer() }
+                    }
                 )
 
                 // React to external playback URIs: attempt playback and navigate when successful

@@ -133,16 +133,26 @@ fun AudioFileItem(
                         .clickable { onClick(audioFile) },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = playCount.toString(),
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        fontSize = 11.sp
-                    )
+                    // If playCount is greater than 30 show a small dot instead of the number
+                    if (playCount > 9) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.onPrimary)
+                        )
+                    } else {
+                        Text(
+                            text = playCount.toString(),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            fontSize = 11.sp
+                        )
+                    }
                 }
             }
         }

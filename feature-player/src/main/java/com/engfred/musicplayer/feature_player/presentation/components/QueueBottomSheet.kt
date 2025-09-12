@@ -40,7 +40,8 @@ fun QueueBottomSheet(
     playingQueue: List<AudioFile>,
     onPlayQueueItem: (AudioFile) -> Unit,
     onRemoveQueueItem: (AudioFile) -> Unit,
-    playingAudio: AudioFile?
+    playingAudio: AudioFile?,
+    isPlaying: Boolean
 ) {
     val lazyListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -128,7 +129,8 @@ fun QueueBottomSheet(
                             audioFile = audioFile,
                             isCurrentlyPlaying = audioFile.id == playingAudio?.id,
                             onPlayClick = { onPlayQueueItem(audioFile) },
-                            onRemoveClick = { onRemoveQueueItem(audioFile) }
+                            onRemoveClick = { onRemoveQueueItem(audioFile) },
+                            isPlaying = isPlaying
                         )
                     }
                 }

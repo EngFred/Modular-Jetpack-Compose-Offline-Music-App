@@ -5,16 +5,18 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.engfred.musicplayer.core.ui.theme.AppThemeType
 import com.engfred.musicplayer.core.domain.model.AppSettings
 import com.engfred.musicplayer.core.domain.model.AudioPreset
 import com.engfred.musicplayer.core.domain.model.FilterOption
+import com.engfred.musicplayer.core.domain.model.LastPlaybackState
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
 import com.engfred.musicplayer.core.domain.model.PlaylistLayoutType
 import com.engfred.musicplayer.core.domain.repository.RepeatMode
-import com.engfred.musicplayer.core.domain.repository.ShuffleMode
 import com.engfred.musicplayer.core.domain.repository.SettingsRepository
+import com.engfred.musicplayer.core.domain.repository.ShuffleMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -40,6 +42,13 @@ class SettingsRepositoryImpl @Inject constructor(
         private val REPEAT_MODE = stringPreferencesKey("repeat_mode")
         private val SHUFFLE_MODE = stringPreferencesKey("shuffle_mode")
         private val SELECTED_AUDIO_PRESET = stringPreferencesKey("selected_audio_preset")
+
+        /**
+         * NEW: Keys for transient last playback state (audio ID and position).
+         * Stored as Long for efficiency; null ID clears the state.
+         */
+        private val LAST_PLAYED_AUDIO_ID = longPreferencesKey("last_played_audio_id")
+        private val LAST_POSITION_MS = longPreferencesKey("last_position_ms")
     }
 
     override fun getAppSettings(): Flow<AppSettings> {
@@ -97,6 +106,44 @@ class SettingsRepositoryImpl @Inject constructor(
                     preferences[SELECTED_FILTER_OPTION] ?: FilterOption.DATE_ADDED_DESC.name
                 )
             }
+    }
+
+    /**
+     * NEW: Flow for last playback state, with error handling (emits default null state on IO error).
+     * This enables resumption: if audioId is non-null, rebuild queue and seek to positionMs.
+     */
+    override fun getLastPlaybackState(): Flow<LastPlaybackState> {
+        return dataStore.data
+            .catch { exception ->
+                if (exception is IOException) {
+                    emit(emptyPreferences())
+                } else {
+                    throw exception
+                }
+            }
+            .map { preferences ->
+                LastPlaybackState(
+                    audioId = preferences[LAST_PLAYED_AUDIO_ID],
+                    positionMs = preferences[LAST_POSITION_MS] ?: 0L
+                )
+            }
+    }
+
+    /**
+     * NEW: Suspend func to save last state (or clear if audioId null).
+     * Async IO via DataStore; called from service onDestroy for best-effort persistence.
+     */
+    override suspend fun saveLastPlaybackState(state: LastPlaybackState) {
+        dataStore.edit { preferences ->
+            if (state.audioId != null) {
+                preferences[LAST_PLAYED_AUDIO_ID] = state.audioId!!
+                preferences[LAST_POSITION_MS] = state.positionMs
+            } else {
+                // Clear stale state (e.g., file deleted)
+                preferences.remove(LAST_PLAYED_AUDIO_ID)
+                preferences.remove(LAST_POSITION_MS)
+            }
+        }
     }
 
     override suspend fun updateTheme(theme: AppThemeType) {

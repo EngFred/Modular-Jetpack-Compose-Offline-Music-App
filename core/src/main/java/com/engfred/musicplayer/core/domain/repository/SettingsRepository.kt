@@ -3,6 +3,7 @@ package com.engfred.musicplayer.core.domain.repository
 import com.engfred.musicplayer.core.domain.model.AppSettings
 import com.engfred.musicplayer.core.domain.model.AudioPreset
 import com.engfred.musicplayer.core.domain.model.FilterOption
+import com.engfred.musicplayer.core.domain.model.LastPlaybackState
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
 import com.engfred.musicplayer.core.domain.model.PlaylistLayoutType
 import com.engfred.musicplayer.core.ui.theme.AppThemeType
@@ -31,4 +32,6 @@ interface SettingsRepository {
     suspend fun updateCrossfadeEnabled(enabled: Boolean)
 
     suspend fun updateAudioPreset(preset: AudioPreset)
+    fun getLastPlaybackState(): Flow<LastPlaybackState>
+    suspend fun saveLastPlaybackState(state: LastPlaybackState)
 }

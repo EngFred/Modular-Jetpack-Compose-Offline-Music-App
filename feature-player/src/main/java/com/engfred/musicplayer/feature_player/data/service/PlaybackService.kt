@@ -20,6 +20,7 @@ import android.media.audiofx.Equalizer
 import android.net.Uri
 import android.os.Build
 import android.util.Log
+import android.view.View
 import android.widget.RemoteViews
 import androidx.annotation.OptIn
 import androidx.annotation.RequiresApi
@@ -27,15 +28,16 @@ import androidx.core.app.NotificationCompat
 import androidx.core.graphics.createBitmap
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
-import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
+import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.domain.model.AudioPreset
 import com.engfred.musicplayer.core.domain.model.FilterOption
+import com.engfred.musicplayer.core.domain.model.LastPlaybackState
 import com.engfred.musicplayer.core.domain.repository.LibraryRepository
 import com.engfred.musicplayer.core.domain.repository.PlaybackController
 import com.engfred.musicplayer.core.domain.repository.RepeatMode
@@ -48,6 +50,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import androidx.core.net.toUri
 
@@ -249,17 +252,32 @@ class PlaybackService : MediaSessionService() {
         return START_STICKY
     }
 
+    /**
+     * UPDATED: Fixed sort application for fresh starts and resumptions.
+     * - Sort deviceAudios into sortedAudios FIRST, based on current filter (ensures last sort order applied).
+     * - For resumption: Find target in sortedAudios by ID (unique); if not found, clear state.
+     * - For fresh: Use sortedAudios.first() (ensures plays from sorted order, not raw deviceAudios order).
+     * - Then set queue (sorted), apply repeat/shuffle modes BEFORE initiatePlayback (guarantees modes active on start).
+     * - Initiate with audioToPlay.uri (from sorted, so indexOf finds correct position in sorted queue).
+     * - Seek after ready for resumption.
+     * - This restores original behavior (sorted.first() for fresh) while supporting resumption in sorted context.
+     * - Modes applied before playback, as before.
+     */
     @RequiresApi(Build.VERSION_CODES.P)
     private fun handlePlayPauseFromWidget() {
         try {
             serviceScope.launch {
                 if (exoPlayer.mediaItemCount == 0) {
-                    // No media loaded; fetch all songs and start playback (non-shuffled, from first)
-                    val deviceAudios = libRepo.getAllAudioFiles().first()
+                    // Fetch last state for potential resumption
+                    val lastState = settingsRepository.getLastPlaybackState().first()
+                    val deviceAudios = libRepo.getAllAudioFiles().first() // Accessible files only (from repo)
+
                     if (deviceAudios.isNotEmpty()) {
+                        //Apply sort FIRST to ensure last sort order is used for queue and start position
                         val filter = settingsRepository.getFilterOption().first()
-                        val repeatMode = settingsRepository.getAppSettings().first().repeatMode
-                        val shuffleMode = settingsRepository.getAppSettings().first().shuffleMode
+                        val appSettings = settingsRepository.getAppSettings().first()
+                        val repeatMode = appSettings.repeatMode
+                        val shuffleMode = appSettings.shuffleMode
                         val sortedAudios = when (filter) {
                             FilterOption.DATE_ADDED_ASC -> deviceAudios.sortedBy { it.dateAdded }
                             FilterOption.DATE_ADDED_DESC -> deviceAudios.sortedByDescending { it.dateAdded }
@@ -268,18 +286,63 @@ class PlaybackService : MediaSessionService() {
                             FilterOption.ALPHABETICAL_ASC -> deviceAudios.sortedBy { it.title.lowercase() }
                             FilterOption.ALPHABETICAL_DESC -> deviceAudios.sortedByDescending { it.title.lowercase() }
                         }
+                        Log.d(TAG, "Applied sort order: $filter to create queue of ${sortedAudios.size} items")
+
+                        val isResuming = lastState.audioId != null
+                        var audioToPlay: AudioFile? = null
+                        var resumePositionMs = 0L
+
+                        if (isResuming) {
+                            // FIXED: Search for target in SORTED audios (ensures resumption respects current sort)
+                            val targetAudio = sortedAudios.find { it.id == lastState.audioId }
+                            if (targetAudio != null) {
+                                // Target found in sorted queue; proceed to resume
+                                audioToPlay = targetAudio
+                                resumePositionMs = lastState.positionMs
+                                Log.d(TAG, "Resuming playback for audio ID ${lastState.audioId} at ${lastState.positionMs}ms in sorted queue")
+                            } else {
+                                // Target not found (deleted/moved); clear stale state and fallback to sorted first
+                                settingsRepository.saveLastPlaybackState(LastPlaybackState(null))
+                                Log.w(TAG, "Last audio ID ${lastState.audioId} not found in sorted queue; cleared state and falling back to first sorted song")
+                            }
+                        }
+
+                        // Fallback/default: Use first in SORTED if no valid target (fixes fresh start to respect sort)
+                        if (audioToPlay == null) {
+                            audioToPlay = sortedAudios.first()
+                            Log.d(TAG, "Starting fresh playback from first sorted song")
+                        }
+
+                        // FIXED: Set queue and modes BEFORE initiation (ensures repeat/shuffle applied before playback starts)
                         sharedAudioDataSource.setPlayingQueue(sortedAudios)
                         playbackController.setRepeatMode(repeatMode)
                         playbackController.setShuffleMode(shuffleMode)
-                        playbackController.initiatePlayback(sortedAudios.first().uri) // Delegates to controller (no duplication)
+                        Log.d(TAG, "Set repeat: $repeatMode, shuffle: $shuffleMode for playback")
+
+                        playbackController.initiatePlayback(audioToPlay.uri) // Starts at correct index in sorted queue, plays from 0
+
+                        // NEW: For resumption, seek to saved position after player is ready
+                        if (isResuming && audioToPlay.id == lastState.audioId) {
+                            if (playbackController.waitUntilReady(3000L)) { // 3s timeout for prepare/seek
+                                withContext(Dispatchers.Main) {
+                                    playbackController.seekTo(resumePositionMs)
+                                }
+                                Log.d(TAG, "Seeked to resume position ${resumePositionMs}ms")
+                            } else {
+                                Log.w(TAG, "Player not ready in time for resume seek; continuing from start")
+                            }
+                        }
+                        // If no songs or error, do nothing (widget remains "No song playing" until user adds songs via app)
+                    } else {
+                        Log.w(TAG, "No device audios available; cannot start playback")
                     }
-                    // If no songs or error, do nothing (widget remains "No song playing" until user adds songs via app)
                 } else {
                     playbackController.playPause() // Use controller for consistency
                 }
             }
         } catch (e: Exception) {
             // Ignore errors to prevent crashes
+            Log.e(TAG, "Error in handlePlayPauseFromWidget: ${e.message}", e)
         }
         updateWidget() // Explicit update after toggle (listeners will handle further changes)
     }
@@ -323,8 +386,38 @@ class PlaybackService : MediaSessionService() {
         return output
     }
 
+    /**
+     * Save last playback state before cleanup.
+     * - Async launch to avoid blocking onDestroy (fire-and-forget; best-effort).
+     * - Extracts audio ID from currentMediaItem.mediaId (String to Long).
+     * - Saves position only if valid item; clears if none (e.g., stopped cleanly).
+     * - Moved serviceScope.cancel() after save launch for execution.
+     */
     override fun onDestroy() {
         try {
+            // NEW: Save last state asynchronously before cleanup
+            serviceScope.launch {
+                val currentItem = exoPlayer.currentMediaItem
+                val state = if (currentItem != null) {
+                    val idStr = currentItem.mediaId
+                    val id = idStr.toLongOrNull() // mediaId is id.toString()
+                    if (id != null) {
+                        LastPlaybackState(id, exoPlayer.currentPosition.coerceAtLeast(0L))
+                    } else {
+                        null
+                    }
+                } else {
+                    null
+                }
+                if (state != null) {
+                    settingsRepository.saveLastPlaybackState(state)
+                    Log.d(TAG, "Saved last playback state: ID=${state.audioId}, pos=${state.positionMs}ms")
+                } else {
+                    settingsRepository.saveLastPlaybackState(LastPlaybackState(null))
+                    Log.d(TAG, "Cleared last playback state (no current item)")
+                }
+            }
+
             serviceScope.cancel()
             mediaSession?.run {
                 exoPlayer.release()
@@ -363,9 +456,14 @@ class PlaybackService : MediaSessionService() {
     }
 
     /**
-     * Update widget UI without having a compile-time dependency on the app module.
-     * Use resource name lookups (resources.getIdentifier) and target the widget via
-     * ComponentName(packageName, WIDGET_PROVIDER_CLASS).
+     * Enhanced for idle state (no song loaded).
+     * - If no current media item: Use minimal idle layout (widget_player_idle) with centered play button only.
+     *   - Loads layout dynamically; sets play icon and unique pending intent.
+     *   - Ignores small widget sizing (single element).
+     * - Else: Full layout as before (with song details).
+     * - Fallback: If idle layout missing, hide non-play elements in full layout (no centering, but functional).
+     * - Ensures play always shows play icon in idle (not playing).
+     * - Per-widget uniqueness preserved.
      */
     @SuppressLint("UseKtx")
     @RequiresApi(Build.VERSION_CODES.P)
@@ -376,27 +474,64 @@ class PlaybackService : MediaSessionService() {
             val ids = appWidgetManager.getAppWidgetIds(providerComponent)
             if (ids.isEmpty()) return
 
-            val layoutId = resources.getIdentifier("widget_player", "layout", packageName)
-            if (layoutId == 0) return
+            val fullLayoutId = resources.getIdentifier("widget_player", "layout", packageName)
+            val idleLayoutId = resources.getIdentifier("widget_player_idle", "layout", packageName)
+            if (fullLayoutId == 0) return
 
-            val baseViews = RemoteViews(packageName, layoutId)
-            val isPlaying = exoPlayer.isPlaying
             val current = exoPlayer.currentMediaItem
-            val metadata: MediaMetadata? = current?.mediaMetadata
-            val title = metadata?.title?.toString() ?: if (current != null) getStringSafe("app_name") else "Click Play"
-            val artist = metadata?.artist?.toString() ?: if (current != null) getStringSafe("app_name") else "No song playing"
-            val currentPositionMs = exoPlayer.currentPosition
-            val totalDurationMs = exoPlayer.duration
-            val durationText = "${formatDuration(currentPositionMs)} / ${formatDuration(totalDurationMs)}"
+            val isIdle = current == null
+            val isPlaying = exoPlayer.isPlaying
 
-            val idTitle = resources.getIdentifier("widget_title", "id", packageName)
-            val idArtist = resources.getIdentifier("widget_artist", "id", packageName)
-            val idDuration = resources.getIdentifier("widget_duration", "id", packageName)
+            // FIXED: Declare common vars early (with defaults for idle) to resolve references in fallback call
+            val metadata = current?.mediaMetadata
+            val currentPositionMs = if (isIdle) 0L else exoPlayer.currentPosition
+            val totalDurationMs = if (isIdle) 0L else exoPlayer.duration
+            val durationText = if (isIdle) "00:00 / 00:00" else "${formatDuration(currentPositionMs)} / ${formatDuration(totalDurationMs)}"
+
+            // Common IDs (shared across layouts)
             val idPlayPause = resources.getIdentifier("widget_play_pause", "id", packageName)
             val idNext = resources.getIdentifier("widget_next", "id", packageName)
             val idPrev = resources.getIdentifier("widget_prev", "id", packageName)
-            val idAlbumArt = resources.getIdentifier("widget_album_art", "id", packageName)
             val idRepeat = resources.getIdentifier("widget_repeat", "id", packageName)
+            val idAlbumArt = resources.getIdentifier("widget_album_art", "id", packageName)
+            val idTitle = resources.getIdentifier("widget_title", "id", packageName)
+            val idArtist = resources.getIdentifier("widget_artist", "id", packageName)
+            val idDuration = resources.getIdentifier("widget_duration", "id", packageName)
+
+            if (isIdle) {
+                // NEW: Idle state - minimal centered play button
+                if (idleLayoutId == 0) {
+                    Log.w(TAG, "widget_player_idle layout missing; falling back to full with hides")
+                    // Fallback: Use full layout, hide everything except play
+                    // FIXED: Simplified call - removed unused params (function now only needs baseViews and idPlayPause)
+                    buildFullWidgetWithHides(RemoteViews(packageName, fullLayoutId), idPlayPause)
+                } else {
+                    val baseViews = RemoteViews(packageName, idleLayoutId)
+                    // Set play icon (always play in idle)
+                    val playDrawableId = resources.getIdentifier("ic_play_arrow_24", "drawable", packageName)
+                    if (idPlayPause != 0 && playDrawableId != 0) {
+                        baseViews.setImageViewResource(idPlayPause, playDrawableId)
+                    }
+                    // Update per-widget with unique play intent (no other buttons)
+                    ids.forEach { appWidgetId ->
+                        try {
+                            val viewsCopy = RemoteViews(baseViews)
+                            val playReq = ACTION_WIDGET_PLAY_PAUSE.hashCode() xor appWidgetId
+                            viewsCopy.setOnClickPendingIntent(idPlayPause, perWidgetBroadcast(ACTION_WIDGET_PLAY_PAUSE, playReq, appWidgetId))
+                            appWidgetManager.updateAppWidget(appWidgetId, viewsCopy)
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Error updating idle widget id=$appWidgetId: ${e.message}")
+                        }
+                    }
+                    return // Early return for idle
+                }
+            }
+
+            // Full state (song loaded) - original logic
+            val title = metadata?.title?.toString() ?: getStringSafe("app_name")
+            val artist = metadata?.artist?.toString() ?: getStringSafe("app_name")
+
+            val baseViews = RemoteViews(packageName, fullLayoutId)
 
             if (idTitle != 0) baseViews.setTextViewText(idTitle, title)
             if (idArtist != 0) baseViews.setTextViewText(idArtist, artist)
@@ -431,7 +566,7 @@ class PlaybackService : MediaSessionService() {
                 }
             }
             if (artBitmap != null && idAlbumArt != 0) {
-                val circularBitmap = createCircularBitmap(artBitmap!!)
+                val circularBitmap = createCircularBitmap(artBitmap)
                 baseViews.setImageViewBitmap(idAlbumArt, circularBitmap)
             }
 
@@ -440,17 +575,13 @@ class PlaybackService : MediaSessionService() {
             if (idNext != 0) baseViews.setInt(idNext, "setColorFilter", Color.WHITE)
 
             // Repeat icon
-            // Repeat icon
             val repeatMode = exoPlayer.repeatMode
-            // Use a dedicated drawable for REPEAT_MODE_ALL (ic_repeat_on_24) and a separate drawable for REPEAT_MODE_ONE.
-            // Fallback to ic_repeat_24 if the new resource is not found at runtime.
             val repeatDrawableResName = when (repeatMode) {
                 Player.REPEAT_MODE_ONE -> "ic_repeat_one_24"
-                Player.REPEAT_MODE_ALL -> "ic_repeat_on_24" // <-- NEW: use your new drawable for "all"
+                Player.REPEAT_MODE_ALL -> "ic_repeat_on_24"
                 else -> "ic_repeat_24"
             }
             var repeatDrawableId = resources.getIdentifier(repeatDrawableResName, "drawable", packageName)
-            // Defensive fallback: if ic_repeat_on_24 isn't found, fall back to ic_repeat_24
             if (repeatDrawableId == 0 && repeatMode == Player.REPEAT_MODE_ALL) {
                 repeatDrawableId = resources.getIdentifier("ic_repeat_24", "drawable", packageName)
             }
@@ -462,7 +593,6 @@ class PlaybackService : MediaSessionService() {
                 }
                 baseViews.setInt(idRepeat, "setColorFilter", tintColor)
             }
-
 
             // For each widget id create a copy of RemoteViews and set per-widget unique PendingIntents
             ids.forEach { appWidgetId ->
@@ -506,11 +636,11 @@ class PlaybackService : MediaSessionService() {
                     }
 
                     if (minWidth < 250) { // Small widget, hide prev and artist
-                        if (idPrev != 0) viewsCopy.setViewVisibility(idPrev, android.view.View.GONE)
-                        if (idArtist != 0) viewsCopy.setViewVisibility(idArtist, android.view.View.GONE)
+                        if (idPrev != 0) viewsCopy.setViewVisibility(idPrev, View.GONE)
+                        if (idArtist != 0) viewsCopy.setViewVisibility(idArtist, View.GONE)
                     } else {
-                        if (idPrev != 0) viewsCopy.setViewVisibility(idPrev, android.view.View.VISIBLE)
-                        if (idArtist != 0) viewsCopy.setViewVisibility(idArtist, android.view.View.VISIBLE)
+                        if (idPrev != 0) viewsCopy.setViewVisibility(idPrev, View.VISIBLE)
+                        if (idArtist != 0) viewsCopy.setViewVisibility(idArtist, View.VISIBLE)
                     }
 
                     appWidgetManager.updateAppWidget(appWidgetId, viewsCopy)
@@ -520,6 +650,53 @@ class PlaybackService : MediaSessionService() {
             }
         } catch (e: Exception) {
             // ignore widget update errors so service won't crash
+        }
+    }
+
+    /**
+     * Simplified fallback helper for idle state if widget_player_idle missing.
+     * - Now only takes baseViews and idPlayPause (unused params removed - hides all non-play elements).
+     * - Hides all non-play elements in full layout (no centering, but clean).
+     * - Sets play icon and per-widget play intent.
+     */
+    @SuppressLint("UseKtx")
+    @RequiresApi(Build.VERSION_CODES.P)
+    private fun buildFullWidgetWithHides(baseViews: RemoteViews, idPlayPause: Int) {
+        // Hide non-play elements
+        val idAlbumArt = resources.getIdentifier("widget_album_art", "id", packageName)
+        val idTitle = resources.getIdentifier("widget_title", "id", packageName)
+        val idArtist = resources.getIdentifier("widget_artist", "id", packageName)
+        val idDuration = resources.getIdentifier("widget_duration", "id", packageName)
+        val idNext = resources.getIdentifier("widget_next", "id", packageName)
+        val idPrev = resources.getIdentifier("widget_prev", "id", packageName)
+        val idRepeat = resources.getIdentifier("widget_repeat", "id", packageName)
+
+        if (idAlbumArt != 0) baseViews.setViewVisibility(idAlbumArt, View.GONE)
+        if (idTitle != 0) baseViews.setViewVisibility(idTitle, View.GONE)
+        if (idArtist != 0) baseViews.setViewVisibility(idArtist, View.GONE)
+        if (idDuration != 0) baseViews.setViewVisibility(idDuration, View.GONE)
+        if (idNext != 0) baseViews.setViewVisibility(idNext, View.GONE)
+        if (idPrev != 0) baseViews.setViewVisibility(idPrev, View.GONE)
+        if (idRepeat != 0) baseViews.setViewVisibility(idRepeat, View.GONE)
+
+        // Set play icon (always play in fallback idle)
+        val playDrawableId = resources.getIdentifier("ic_play_arrow_24", "drawable", packageName)
+        if (idPlayPause != 0 && playDrawableId != 0) {
+            baseViews.setImageViewResource(idPlayPause, playDrawableId)
+        }
+
+        // Per-widget play intent (as in idle)
+        val appWidgetManager = AppWidgetManager.getInstance(this)
+        val ids = appWidgetManager.getAppWidgetIds(ComponentName(packageName, WIDGET_PROVIDER_CLASS))
+        ids.forEach { appWidgetId ->
+            try {
+                val viewsCopy = RemoteViews(baseViews)
+                val playReq = ACTION_WIDGET_PLAY_PAUSE.hashCode() xor appWidgetId
+                viewsCopy.setOnClickPendingIntent(idPlayPause, perWidgetBroadcast(ACTION_WIDGET_PLAY_PAUSE, playReq, appWidgetId))
+                appWidgetManager.updateAppWidget(appWidgetId, viewsCopy)
+            } catch (e: Exception) {
+                Log.w(TAG, "Error in fallback idle update for id=$appWidgetId: ${e.message}")
+            }
         }
     }
 

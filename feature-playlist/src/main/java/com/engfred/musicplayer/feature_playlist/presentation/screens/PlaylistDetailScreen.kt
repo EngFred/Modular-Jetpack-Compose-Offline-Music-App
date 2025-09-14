@@ -43,7 +43,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.engfred.musicplayer.core.ui.ErrorIndicator
 import com.engfred.musicplayer.core.ui.InfoIndicator
 import com.engfred.musicplayer.core.ui.LoadingIndicator
-import com.engfred.musicplayer.feature_playlist.domain.model.PlaylistSortOrder
 import com.engfred.musicplayer.feature_playlist.presentation.components.detail.AddSongsBottomSheet
 import com.engfred.musicplayer.feature_playlist.presentation.components.detail.PlaylistActionButtons
 import com.engfred.musicplayer.feature_playlist.presentation.components.detail.PlaylistDetailHeaderSection
@@ -218,14 +217,19 @@ fun PlaylistDetailScreen(
                                     // Use the upgraded action buttons
                                     PlaylistActionButtons(
                                         onPlayClick = {
-                                            uiState.playlist?.songs?.let {
-                                                val firstSong = uiState.sortedSongs.first()
-                                                viewModel.onEvent(PlaylistDetailEvent.PlaySong(firstSong))
+                                            uiState.playlist?.songs?.let { songs ->
+                                                if (songs.isNotEmpty()) {
+                                                    viewModel.onEvent(PlaylistDetailEvent.PlaySong(songs.first()))
+                                                } else {
+                                                    Toast.makeText(context, "Playlist is empty, cannot play.", Toast.LENGTH_SHORT).show()
+                                                }
                                             }
                                         },
                                         onShuffleClick = {
                                             if (uiState.playlist?.songs?.isNotEmpty() == true) {
                                                 viewModel.onEvent(PlaylistDetailEvent.ShufflePlay)
+                                            } else {
+                                                Toast.makeText(context, "Playlist is empty, cannot shuffle play.", Toast.LENGTH_SHORT).show()
                                             }
                                         },
                                         isCompact = true

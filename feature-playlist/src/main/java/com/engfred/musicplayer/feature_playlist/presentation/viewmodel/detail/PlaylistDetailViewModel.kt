@@ -202,8 +202,14 @@ class PlaylistDetailViewModel @Inject constructor(
                 }
 
                 is PlaylistDetailEvent.PlaySong -> {
-                    playbackController.setShuffleMode(ShuffleMode.OFF)
-                    startAudioPlayback(event.audioFile)
+                    uiState.value.playlist?.songs?.let { songs ->
+                        if(songs.isNotEmpty()) {
+                            playbackController.setShuffleMode(ShuffleMode.OFF)
+                            startAudioPlayback(event.audioFile)
+                        } else {
+                            _uiEvent.emit("Playlist is empty, cannot play.")
+                        }
+                    }
                 }
 
                 PlaylistDetailEvent.ShufflePlay -> {

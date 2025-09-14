@@ -438,7 +438,7 @@ fun ImmersiveCanvasLayout(
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(if (isTablet) 40.dp else 32.dp))
+                    Spacer(modifier = Modifier.width(if (isTablet) 16.dp else 10.dp))
 
                     // Controls and info section (middle)
                     Column(
@@ -584,7 +584,7 @@ fun ImmersiveCanvasLayout(
                         }
                     }
 
-                    Spacer(modifier = Modifier.width(if (isTablet) 40.dp else 32.dp))
+                    Spacer(modifier = Modifier.width(if (isTablet) 16.dp else 10.dp))
 
                     // Queue section (right)
                     Column(

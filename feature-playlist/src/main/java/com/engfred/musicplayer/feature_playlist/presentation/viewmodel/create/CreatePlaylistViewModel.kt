@@ -134,6 +134,11 @@ class CreatePlaylistViewModel @Inject constructor(
                         return@launch
                     }
 
+                    if (name.equals("Favorites", ignoreCase = true) || name.equals("Favorite", ignoreCase = true)) {
+                        _uiEventInternal.emit("Cannot create playlist! Use another name.")
+                        return@launch
+                    }
+
                     val existingPlaylists = playlistRepository.getPlaylists().first().filter { !it.isAutomatic }
                     if (existingPlaylists.any { it.name.equals(name, ignoreCase = true) }) {
                         _uiState.update { it.copy(error = "Playlist with this name already exists.") }

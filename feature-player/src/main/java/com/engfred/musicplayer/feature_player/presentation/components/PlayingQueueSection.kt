@@ -73,7 +73,7 @@ fun PlayingQueueSection(
             }
             LaunchedEffect(currentSongIndex) {
                 if (currentSongIndex >= 0) {
-                    listState.animateScrollToItem(currentSongIndex)
+                    listState.scrollToItem(currentSongIndex)
                 }
             }
         }

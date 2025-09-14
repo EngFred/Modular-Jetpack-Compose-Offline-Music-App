@@ -5,6 +5,7 @@ import android.content.res.Configuration
 import android.os.Build
 import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -152,6 +153,9 @@ fun EtherealFlowLayout(
     var verticalDragCumulative by remember { mutableFloatStateOf(0f) }
     val dragThreshold = 100f
 
+    var horizontalDragCumulative by remember { mutableFloatStateOf(0f) }
+    val horizontalThreshold = 100f
+
     CompositionLocalProvider(LocalContentColor provides dynamicContentColor) {
         Box(
             modifier = Modifier
@@ -184,6 +188,24 @@ fun EtherealFlowLayout(
                         },
                         onVerticalDrag = { _, dragAmount ->
                             verticalDragCumulative += dragAmount
+                            true
+                        }
+                    )
+                }
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            if (horizontalDragCumulative > horizontalThreshold) {
+                                onEvent(PlayerEvent.SkipToPrevious)
+                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                            } else if (horizontalDragCumulative < -horizontalThreshold) {
+                                onEvent(PlayerEvent.SkipToNext)
+                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                            }
+                            horizontalDragCumulative = 0f
+                        },
+                        onHorizontalDrag = { _, dragAmount ->
+                            horizontalDragCumulative += dragAmount
                             true
                         }
                     )

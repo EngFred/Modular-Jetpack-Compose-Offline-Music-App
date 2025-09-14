@@ -2,12 +2,11 @@ package com.engfred.musicplayer.feature_player.presentation.layouts
 
 import android.app.Activity
 import android.content.res.Configuration
+import android.os.Build
 import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,7 +18,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -29,8 +27,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.windowsizeclass.WindowHeightSizeClass
-import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -75,7 +71,6 @@ import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerEvent
 import com.engfred.musicplayer.feature_player.utils.getDynamicGradientColors
 import kotlinx.coroutines.launch
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EtherealFlowLayout(
@@ -86,8 +81,6 @@ fun EtherealFlowLayout(
     currentSongIndex: Int,
     onPlayQueueItem: (AudioFile) -> Unit,
     onRemoveQueueItem: (AudioFile) -> Unit = {},
-    windowWidthSizeClass: WindowWidthSizeClass,
-    windowHeightSizeClass: WindowHeightSizeClass,
     selectedLayout: PlayerLayout,
     onLayoutSelected: (PlayerLayout) -> Unit,
     playingAudio: AudioFile?,
@@ -96,12 +89,15 @@ fun EtherealFlowLayout(
 ) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val screenWidthDp = configuration.screenWidthDp
 
     val view = LocalView.current
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val colorScheme = MaterialTheme.colorScheme
 
+    // responsive breakpoint (same as other screens)
+    val isTablet = screenWidthDp >= 900
 
     // Handle status bar color and icon appearance
     DisposableEffect(isLandscape, selectedLayout) {
@@ -121,6 +117,7 @@ fun EtherealFlowLayout(
         }
     }
 
+    // Dynamic gradient based on album art
     val gradientColors by produceState(
         initialValue = listOf(Color(0xFF1E1E1E), Color(0xFF333333)),
         uiState.currentAudioFile?.albumArtUri
@@ -170,7 +167,9 @@ fun EtherealFlowLayout(
                                     onEvent(PlayerEvent.AddToFavorites(it))
                                 }
                             }
-                            view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+                            }
                         }
                     )
                 }
@@ -188,57 +187,52 @@ fun EtherealFlowLayout(
                             true
                         }
                     )
-                }.systemBarsPadding()
+                }
+                .systemBarsPadding()
+                .semantics {
+                    customActions = listOf(
+                        CustomAccessibilityAction(
+                            label = "Skip to previous song",
+                            action = {
+                                onEvent(PlayerEvent.SkipToPrevious)
+                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                true
+                            }
+                        ),
+                        CustomAccessibilityAction(
+                            label = "Skip to next song",
+                            action = {
+                                onEvent(PlayerEvent.SkipToNext)
+                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                true
+                            }
+                        )
+                    )
+                }
         ) {
-            val horizontalPadding = if (isLandscape) 32.dp else 24.dp
-            val verticalPadding = if (isLandscape) 36.dp else 28.dp
-            val spacing = if (isLandscape) 24.dp else 16.dp
+            // responsive paddings & spacing
+            val horizontalPadding = when {
+                isTablet -> 40.dp
+                isLandscape -> 32.dp
+                else -> 0.dp
+            }
+            val verticalPadding = when {
+                isTablet -> 36.dp
+                isLandscape -> 0.dp
+                else -> 0.dp
+            }
+            val spacing = when {
+                isTablet -> 24.dp
+                isLandscape -> 20.dp
+                else -> 16.dp
+            }
 
             if (!isLandscape) {
-                // Portrait layout
+                // Portrait — enlarge hit targets / art on tablets
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(bottom = verticalPadding)
-                        .semantics {
-                            customActions = listOf(
-                                CustomAccessibilityAction(
-                                    label = "Skip to previous song",
-                                    action = {
-                                        onEvent(PlayerEvent.SkipToPrevious)
-                                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                        true
-                                    }
-                                ),
-                                CustomAccessibilityAction(
-                                    label = "Skip to next song",
-                                    action = {
-                                        onEvent(PlayerEvent.SkipToNext)
-                                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                        true
-                                    }
-                                )
-                            )
-                        }
-                        .pointerInput(Unit) {
-                            var dragAmountCumulative = 0f
-                            detectHorizontalDragGestures(
-                                onDragEnd = {
-                                    val dragThreshold = 100f
-                                    if (dragAmountCumulative > dragThreshold) {
-                                        onEvent(PlayerEvent.SkipToPrevious)
-                                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                    } else if (dragAmountCumulative < -dragThreshold) {
-                                        onEvent(PlayerEvent.SkipToNext)
-                                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                    }
-                                    dragAmountCumulative = 0f
-                                },
-                                onHorizontalDrag = { _, dragAmount ->
-                                    dragAmountCumulative += dragAmount
-                                }
-                            )
-                        },
+                        .padding(horizontal = horizontalPadding, vertical = verticalPadding),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -250,46 +244,48 @@ fun EtherealFlowLayout(
                             coroutineScope.launch { sheetState.show() }
                             showQueueBottomSheet = true
                         },
-                        windowWidthSizeClass = WindowWidthSizeClass.Compact, // Unused but passed
                         selectedLayout = selectedLayout,
                         onLayoutSelected = onLayoutSelected,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .statusBarsPadding(),
+                        modifier = Modifier.fillMaxWidth(),
                         onShareAudio = {
-                            uiState.currentAudioFile?.let {
-                                shareAudioFile(context, it)
-                            }
+                            uiState.currentAudioFile?.let { shareAudioFile(context, it) }
                         }
                     )
+
+                    // Album art — larger on tablet
                     AlbumArtDisplay(
                         albumArtUri = uiState.currentAudioFile?.albumArtUri,
                         isPlaying = uiState.isPlaying,
-                        windowWidthSizeClass = WindowWidthSizeClass.Compact, // Unused but passed
-                        playerLayout = PlayerLayout.ETHEREAL_FLOW
+                        playerLayout = PlayerLayout.ETHEREAL_FLOW,
+                        modifier = Modifier
+                            .fillMaxWidth()
                     )
+
                     TrackInfo(
                         title = uiState.currentAudioFile?.title,
                         artist = uiState.currentAudioFile?.artist,
                         playerLayout = PlayerLayout.ETHEREAL_FLOW,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Spacer(modifier = Modifier.height(spacing / 2))
+
+                    Spacer(modifier = Modifier.height(spacing))
+
                     FavoriteButton(
                         isFavorite = uiState.isFavorite,
                         onToggleFavorite = {
                             uiState.currentAudioFile?.let {
-                                if (uiState.isFavorite) {
-                                    onEvent(PlayerEvent.RemoveFromFavorites(it.id))
-                                } else {
-                                    onEvent(PlayerEvent.AddToFavorites(it))
-                                }
+                                if (uiState.isFavorite) onEvent(PlayerEvent.RemoveFromFavorites(it.id))
+                                else onEvent(PlayerEvent.AddToFavorites(it))
                             }
-                            view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+                            }
                         },
                         playerLayout = PlayerLayout.ETHEREAL_FLOW
                     )
+
                     Spacer(modifier = Modifier.height(spacing))
+
                     SeekBarSection(
                         sliderValue = uiState.playbackPositionMs.toFloat(),
                         totalDurationMs = uiState.totalDurationMs,
@@ -303,9 +299,11 @@ fun EtherealFlowLayout(
                             view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                         },
                         playerLayout = PlayerLayout.ETHEREAL_FLOW,
-                        modifier = Modifier.padding(horizontal = 24.dp)
+                        modifier = Modifier.padding(horizontal = if (isTablet) 28.dp else 24.dp)
                     )
+
                     Spacer(modifier = Modifier.height(spacing))
+
                     ControlBar(
                         shuffleMode = shuffleMode,
                         isPlaying = uiState.isPlaying,
@@ -325,64 +323,25 @@ fun EtherealFlowLayout(
                         onSetShuffleMode = { newMode -> onEvent(PlayerEvent.SetShuffleMode(newMode)) },
                         onSetRepeatMode = { newMode -> onEvent(PlayerEvent.SetRepeatMode(newMode)) },
                         playerLayout = PlayerLayout.ETHEREAL_FLOW,
-                        windowWidthSizeClass = WindowWidthSizeClass.Compact, // Unused but passed
-                        windowHeightSizeClass = WindowHeightSizeClass.Medium, // Unused but passed
-                        modifier = Modifier.padding(horizontal = 24.dp).navigationBarsPadding()
+                        modifier = Modifier.navigationBarsPadding().padding(horizontal = if (isTablet) 28.dp else 24.dp).padding(bottom = 16.dp, top = 8.dp)
                     )
                 }
             } else {
-                // Landscape layout
+                // Landscape — three-column arrangement (left: art, middle: controls, right: queue)
+                val leftWeight = if (isTablet) 1.2f else 1f
+                val middleWeight = if (isTablet) 1.6f else 1.5f
+                val rightWeight = if (isTablet) 1.2f else 1f
+
                 Row(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 10.dp)
-                        .padding(bottom = 16.dp)
-                        .semantics {
-                            customActions = listOf(
-                                CustomAccessibilityAction(
-                                    label = "Skip to previous song",
-                                    action = {
-                                        onEvent(PlayerEvent.SkipToPrevious)
-                                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                        true
-                                    }
-                                ),
-                                CustomAccessibilityAction(
-                                    label = "Skip to next song",
-                                    action = {
-                                        onEvent(PlayerEvent.SkipToNext)
-                                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                        true
-                                    }
-                                )
-                            )
-                        }
-                        .pointerInput(Unit) {
-                            var dragAmountCumulative = 0f
-                            detectHorizontalDragGestures(
-                                onDragEnd = {
-                                    val dragThreshold = 100f
-                                    if (dragAmountCumulative > dragThreshold) {
-                                        onEvent(PlayerEvent.SkipToPrevious)
-                                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                    } else if (dragAmountCumulative < -dragThreshold) {
-                                        onEvent(PlayerEvent.SkipToNext)
-                                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                    }
-                                    dragAmountCumulative = 0f
-                                },
-                                onHorizontalDrag = { _, dragAmount ->
-                                    dragAmountCumulative += dragAmount
-                                }
-                            )
-                        },
+                        .fillMaxSize(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Album art section
+                    // Left: album art
                     Column(
                         modifier = Modifier
-                            .weight(1f)
+                            .weight(leftWeight)
                             .fillMaxHeight(),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
@@ -390,112 +349,124 @@ fun EtherealFlowLayout(
                         AlbumArtDisplay(
                             albumArtUri = uiState.currentAudioFile?.albumArtUri,
                             isPlaying = uiState.isPlaying,
-                            windowWidthSizeClass = WindowWidthSizeClass.Expanded, // Unused but passed
-                            playerLayout = PlayerLayout.ETHEREAL_FLOW
+                            playerLayout = PlayerLayout.ETHEREAL_FLOW,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .padding(start = if (isTablet) 24.dp else 12.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.width(horizontalPadding))
-                    // Controls and info section
+
+                    Spacer(modifier = Modifier.width(24.dp))
+
+                    // Middle: controls & info
                     Column(
                         modifier = Modifier
-                            .weight(1.5f)
-                            .fillMaxHeight(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
+                            .weight(middleWeight)
+                            .fillMaxHeight()
+                            .verticalScroll(rememberScrollState()),
+                        horizontalAlignment = Alignment.Start,
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
                         TopBar(
                             onNavigateUp = onNavigateUp,
                             currentSongIndex = currentSongIndex,
                             totalQueueSize = playingQueue.size,
-                            onOpenQueue = { /* No-op for landscape, queue is visible */ },
-                            windowWidthSizeClass = WindowWidthSizeClass.Expanded, // Unused but passed
+                            onOpenQueue = { /* no-op in wide */ },
                             selectedLayout = selectedLayout,
                             onLayoutSelected = onLayoutSelected,
+                            modifier = Modifier.fillMaxWidth(),
                             onShareAudio = {
-                                uiState.currentAudioFile?.let {
-                                    shareAudioFile(context, it)
-                                }
+                                uiState.currentAudioFile?.let { shareAudioFile(context, it) }
                             }
                         )
-//                        Spacer(modifier = Modifier.height(spacing))
-                        Column(
-                            Modifier.verticalScroll(rememberScrollState()),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.SpaceBetween
+
+                        TrackInfo(
+                            title = uiState.currentAudioFile?.title,
+                            artist = uiState.currentAudioFile?.artist,
+                            playerLayout = PlayerLayout.ETHEREAL_FLOW,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(spacing))
+
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            TrackInfo(
-                                title = uiState.currentAudioFile?.title,
-                                artist = uiState.currentAudioFile?.artist,
-                                playerLayout = PlayerLayout.ETHEREAL_FLOW,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            Spacer(modifier = Modifier.height(spacing / 2))
                             FavoriteButton(
                                 isFavorite = uiState.isFavorite,
                                 onToggleFavorite = {
                                     uiState.currentAudioFile?.let {
-                                        if (uiState.isFavorite) {
-                                            onEvent(PlayerEvent.RemoveFromFavorites(it.id))
-                                        } else {
-                                            onEvent(PlayerEvent.AddToFavorites(it))
-                                        }
+                                        if (uiState.isFavorite) onEvent(PlayerEvent.RemoveFromFavorites(it.id))
+                                        else onEvent(PlayerEvent.AddToFavorites(it))
                                     }
-                                    view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                        view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+                                    }
                                 },
                                 playerLayout = PlayerLayout.ETHEREAL_FLOW
                             )
-                            Spacer(modifier = Modifier.height(spacing))
-                            SeekBarSection(
-                                sliderValue = uiState.playbackPositionMs.toFloat(),
-                                totalDurationMs = uiState.totalDurationMs,
-                                playbackPositionMs = uiState.playbackPositionMs,
-                                onSliderValueChange = { newValue ->
-                                    onEvent(PlayerEvent.SetSeeking(true))
-                                    onEvent(PlayerEvent.SeekTo(newValue.toLong()))
-                                },
-                                onSliderValueChangeFinished = {
-                                    onEvent(PlayerEvent.SetSeeking(false))
-                                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                },
-                                playerLayout = PlayerLayout.ETHEREAL_FLOW
-                            )
-                            Spacer(modifier = Modifier.height(spacing))
-                            ControlBar(
-                                shuffleMode = shuffleMode,
-                                isPlaying = uiState.isPlaying,
-                                repeatMode = repeatMode,
-                                onPlayPauseClick = {
-                                    onEvent(PlayerEvent.PlayPause)
-                                    view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                                },
-                                onSkipPreviousClick = {
-                                    onEvent(PlayerEvent.SkipToPrevious)
-                                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                },
-                                onSkipNextClick = {
-                                    onEvent(PlayerEvent.SkipToNext)
-                                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                },
-                                onSetShuffleMode = { newMode -> onEvent(PlayerEvent.SetShuffleMode(newMode)) },
-                                onSetRepeatMode = { newMode -> onEvent(PlayerEvent.SetRepeatMode(newMode)) },
-                                playerLayout = PlayerLayout.ETHEREAL_FLOW,
-                                windowWidthSizeClass = WindowWidthSizeClass.Expanded, // Unused but passed
-                                windowHeightSizeClass = WindowHeightSizeClass.Medium // Unused but passed
-                            )
                         }
-                        }
-                    Spacer(modifier = Modifier.width(horizontalPadding))
-                    // Queue section in landscape
+
+                        Spacer(modifier = Modifier.height(spacing))
+
+                        SeekBarSection(
+                            sliderValue = uiState.playbackPositionMs.toFloat(),
+                            totalDurationMs = uiState.totalDurationMs,
+                            playbackPositionMs = uiState.playbackPositionMs,
+                            onSliderValueChange = { newValue ->
+                                onEvent(PlayerEvent.SetSeeking(true))
+                                onEvent(PlayerEvent.SeekTo(newValue.toLong()))
+                            },
+                            onSliderValueChangeFinished = {
+                                onEvent(PlayerEvent.SetSeeking(false))
+                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                            },
+                            playerLayout = PlayerLayout.ETHEREAL_FLOW
+                        )
+
+                        Spacer(modifier = Modifier.height(spacing))
+
+                        ControlBar(
+                            shuffleMode = shuffleMode,
+                            isPlaying = uiState.isPlaying,
+                            repeatMode = repeatMode,
+                            onPlayPauseClick = {
+                                onEvent(PlayerEvent.PlayPause)
+                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                            },
+                            onSkipPreviousClick = {
+                                onEvent(PlayerEvent.SkipToPrevious)
+                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                            },
+                            onSkipNextClick = {
+                                onEvent(PlayerEvent.SkipToNext)
+                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                            },
+                            onSetShuffleMode = { newMode -> onEvent(PlayerEvent.SetShuffleMode(newMode)) },
+                            onSetRepeatMode = { newMode -> onEvent(PlayerEvent.SetRepeatMode(newMode)) },
+                            playerLayout = PlayerLayout.ETHEREAL_FLOW)
+
+                    }
+
+                    Spacer(modifier = Modifier.width(if (isTablet) 36.dp else 24.dp))
+
+                    // Right: queue
                     Column(
                         modifier = Modifier
-                            .weight(1f)
+                            .weight(rightWeight)
                             .fillMaxHeight()
-                            .navigationBarsPadding(),
+                            .navigationBarsPadding()
+                            .padding(end = if (isTablet) 12.dp else 8.dp),
                         horizontalAlignment = Alignment.Start,
                         verticalArrangement = Arrangement.Top
                     ) {
                         PlayingQueueSection(
-                            modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(Color.DarkGray).padding(bottom = 7.dp),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(LocalContentColor.current.copy(alpha = 0.06f))
+                                .padding(bottom = 7.dp),
                             playingQueue = playingQueue,
                             playingAudio = uiState.currentAudioFile,
                             onPlayItem = onPlayQueueItem,

@@ -9,7 +9,7 @@ import com.engfred.musicplayer.core.ui.theme.AppThemeType
  * This is a pure domain model.
  */
 data class AppSettings(
-    val selectedTheme: AppThemeType = AppThemeType.LIGHT,
+    val selectedTheme: AppThemeType = AppThemeType.CLASSIC_LIGHT,
     val selectedPlayerLayout: PlayerLayout,
     val playlistLayoutType: PlaylistLayoutType,
     val repeatMode: RepeatMode = RepeatMode.OFF,

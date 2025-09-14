@@ -48,7 +48,6 @@ class PlaylistDetailViewModel @Inject constructor(
     val uiEvent = _uiEvent.asSharedFlow()
 
     private var currentPlaylistId: Long? = null
-    private var isCleaningMissingSongs: Boolean = false
 
     init {
         sharedAudioDataSource.deviceAudioFiles.onEach {

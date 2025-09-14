@@ -2,6 +2,7 @@ package com.engfred.musicplayer.feature_player.presentation.components
 
 import android.app.Activity
 import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import android.widget.Toast
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
@@ -49,7 +50,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
-import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import android.view.HapticFeedbackConstants
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.material.icons.Icons
@@ -62,7 +62,6 @@ fun TopBar(
     currentSongIndex: Int,
     totalQueueSize: Int,
     onOpenQueue: () -> Unit,
-    windowWidthSizeClass: WindowWidthSizeClass,
     selectedLayout: PlayerLayout,
     onLayoutSelected: (PlayerLayout) -> Unit,
     isFavorite: Boolean = false,
@@ -75,6 +74,7 @@ fun TopBar(
     val view = LocalView.current
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val screenWidthDp = configuration.screenWidthDp
 
     val currentSongI = currentSongIndex + 1
     val currentSongNumText = if(currentSongI > totalQueueSize) "" else currentSongI.toString()
@@ -278,7 +278,7 @@ fun TopBar(
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (windowWidthSizeClass != WindowWidthSizeClass.Expanded) {
+                    if (isLandscape.not() || screenWidthDp < 900) {
                         IconButton(onClick = onOpenQueue) {
                             Icon(
                                 Icons.AutoMirrored.Rounded.QueueMusic,
@@ -286,8 +286,6 @@ fun TopBar(
                                 tint = contentColor
                             )
                         }
-                    } else {
-                        Spacer(modifier = Modifier.size(48.dp)) // Matches IconButton size
                     }
                     IconButton(
                         onClick = { toggleOrientation() },

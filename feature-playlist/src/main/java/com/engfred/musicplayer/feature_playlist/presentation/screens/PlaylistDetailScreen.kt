@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.feature_playlist.presentation.screens
 
+import android.content.res.Configuration
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -19,8 +20,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.LibraryMusic
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -28,15 +27,20 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -52,13 +56,9 @@ import com.engfred.musicplayer.feature_playlist.presentation.components.detail.P
 import com.engfred.musicplayer.feature_playlist.presentation.components.detail.RenamePlaylistDialog
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.detail.PlaylistDetailEvent
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.detail.PlaylistDetailViewModel
-import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.draw.clip
 import com.engfred.musicplayer.feature_playlist.presentation.components.detail.PlaylistSongs
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.ui.AddSongToPlaylistDialog
 import com.engfred.musicplayer.core.ui.ConfirmationDialog
@@ -72,12 +72,30 @@ fun PlaylistDetailScreen(
     viewModel: PlaylistDetailViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
     onNavigateToNowPlaying: () -> Unit,
-    windowWidthSizeClass: WindowWidthSizeClass,
     onEditInfo: (AudioFile) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val mainLazyListState = rememberLazyListState()
+    val mainLazyListState = rememberLazyListState() // used for portrait
+    val leftListState = rememberLazyListState()     // used for left pane in landscape/tablet
+    val rightListState = rememberLazyListState()    // used for songs list in landscape/tablet
+
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val screenWidthDp = configuration.screenWidthDp
+    val screenHeightDp = configuration.screenHeightDp
+    val density = LocalDensity.current
+
+    // responsive breakpoints
+    val isTablet = screenWidthDp >= 900
+
+    // left pane fraction: tablet vs landscape phone vs portrait (portrait uses single-column)
+    val leftPaneFraction = when {
+        isTablet -> 0.35f
+        isLandscape -> 0.40f
+        else -> 1f
+    }
+    val rightPaneFraction = 1f - leftPaneFraction
 
     var moreMenuExpanded by rememberSaveable { mutableStateOf(false) }
     var sortMenuExpanded by rememberSaveable { mutableStateOf(false) }
@@ -105,14 +123,15 @@ fun PlaylistDetailScreen(
         )
     }
 
-    val isCompactWidth = windowWidthSizeClass == WindowWidthSizeClass.Compact
+    // threshold based on screen height (12% of height) converted to pixels
+    val thresholdPx = with(density) { (screenHeightDp * 0.12f).dp.toPx().toInt() }
 
-    // Determine if scrolled past header to adjust top bar style
+    // scrolledPastHeader now uses the relevant list state depending on layout
     val scrolledPastHeader by remember {
         derivedStateOf {
-            val threshold = 350 // tune as needed
-            mainLazyListState.firstVisibleItemIndex > 0 ||
-                    (mainLazyListState.firstVisibleItemIndex == 0 && mainLazyListState.firstVisibleItemScrollOffset > threshold)
+            val state = if (!isLandscape) mainLazyListState else rightListState
+            state.firstVisibleItemIndex > 0 ||
+                    (state.firstVisibleItemIndex == 0 && state.firstVisibleItemScrollOffset > thresholdPx)
         }
     }
 
@@ -135,7 +154,6 @@ fun PlaylistDetailScreen(
                     },
                     isPlaying = uiState.isPlaying,
                     playingAudioFile = uiState.currentPlayingAudioFile,
-                    windowWidthSizeClass = windowWidthSizeClass
                 )
             }
         },
@@ -152,8 +170,8 @@ fun PlaylistDetailScreen(
             )
             .padding(paddingValues)
 
-        if (isCompactWidth) {
-            // Compact phone layout
+        if (!isLandscape) {
+            // Portrait / compact phone layout: single column (existing behavior)
             Box(modifier = Modifier.fillMaxSize()) {
                 PlaylistDetailTopBar(
                     playlistName = uiState.playlist?.name,
@@ -196,14 +214,12 @@ fun PlaylistDetailScreen(
                                     .fillMaxWidth()
                                     .height(200.dp)
                             )
-
                             uiState.error != null -> ErrorIndicator(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(200.dp),
                                 message = uiState.error!!
                             )
-
                             uiState.playlist == null -> InfoIndicator(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -211,10 +227,8 @@ fun PlaylistDetailScreen(
                                 message = "Playlist not found or could not be loaded.",
                                 icon = Icons.Outlined.LibraryMusic
                             )
-
                             else -> {
                                 Column(Modifier.fillMaxWidth()) {
-                                    // Use the upgraded action buttons
                                     PlaylistActionButtons(
                                         onPlayClick = {
                                             uiState.playlist?.songs?.let { songs ->
@@ -291,47 +305,53 @@ fun PlaylistDetailScreen(
                 }
             }
         } else {
-            // Expanded / tablet layout
-            Row(modifier = mainContentModifier.padding(horizontal = 48.dp)) {
-                Column(
+            // Landscape / wide layout: split into left details and right songs.
+            Row(modifier = mainContentModifier.padding(horizontal = if (isTablet) 40.dp else 28.dp)) {
+                // Left pane: header + actions. Use LazyColumn so it can scroll independently.
+                LazyColumn(
+                    state = leftListState,
                     modifier = Modifier
-                        .weight(0.4f)
+                        .weight(leftPaneFraction)
                         .fillMaxHeight()
-                        .background(Color.Transparent)
-                        .padding(end = 24.dp)
-                        .verticalScroll(rememberScrollState()),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .padding(end = if (isTablet) 28.dp else 24.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    PlaylistDetailHeaderSection(
-                        playlist = uiState.playlist,
-                        isCompact = false,
-                    )
+                    item {
+                        PlaylistDetailHeaderSection(
+                            playlist = uiState.playlist,
+                            isCompact = false,
+                        )
+                    }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    item {
+                        PlaylistActionButtons(
+                            onPlayClick = {
+                                uiState.playlist?.songs?.firstOrNull()?.let { firstSong ->
+                                    viewModel.onEvent(PlaylistDetailEvent.PlaySong(firstSong))
+                                }
+                            },
+                            onShuffleClick = {
+                                if (uiState.playlist?.songs?.isNotEmpty() == true) {
+                                    viewModel.onEvent(PlaylistDetailEvent.ShufflePlay)
+                                }
+                            },
+                            isCompact = false
+                        )
+                    }
 
-                    PlaylistActionButtons(
-                        onPlayClick = {
-                            uiState.playlist?.songs?.firstOrNull()?.let { firstSong ->
-                                viewModel.onEvent(PlaylistDetailEvent.PlaySong(firstSong))
-                            }
-                        },
-                        onShuffleClick = {
-                            if (uiState.playlist?.songs?.isNotEmpty() == true) {
-                                viewModel.onEvent(PlaylistDetailEvent.ShufflePlay)
-                            }
-                        },
-                        isCompact = false
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    // Extra spacing at bottom so content doesn't butt against the songs pane
+                    item { Spacer(modifier = Modifier.height(16.dp)) }
                 }
 
+                // Right pane: songs list and controls
                 Column(
                     modifier = Modifier
-                        .weight(0.6f)
+                        .weight(rightPaneFraction)
                         .fillMaxHeight()
                         .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.18f))
                         .clip(MaterialTheme.shapes.medium)
-                        .padding(start = 24.dp, end = 16.dp, top = 16.dp, bottom = 16.dp)
+                        .padding(start = if (isTablet) 28.dp else 24.dp, end = 16.dp, top = 16.dp, bottom = 16.dp)
                 ) {
                     when {
                         uiState.isLoading || uiState.isCleaningMissingSongs -> LoadingIndicator(modifier = Modifier.fillMaxSize())
@@ -359,7 +379,7 @@ fun PlaylistDetailScreen(
                                     currentPlayingId = uiState.currentPlayingAudioFile?.id,
                                     onSongClick = { clickedAudioFile -> viewModel.onEvent(PlaylistDetailEvent.PlaySong(clickedAudioFile)) },
                                     onSongRemove = { song -> viewModel.onEvent(PlaylistDetailEvent.ShowRemoveSongConfirmation(song)) },
-                                    listState = rememberLazyListState(),
+                                    listState = rightListState,
                                     isAudioPlaying = uiState.isPlaying,
                                     modifier = Modifier.fillMaxSize(),
                                     onAddToPlaylist = {

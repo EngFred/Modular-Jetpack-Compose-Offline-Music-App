@@ -1,4 +1,3 @@
-// file: navigation/AppDestinations.kt (update)
 package com.engfred.musicplayer.navigation
 
 import androidx.compose.material.icons.Icons
@@ -18,6 +17,8 @@ sealed class AppDestinations(val route: String) {
     data object EditAudioInfo : AppDestinations("edit_song/{audioId}") {
         fun createRoute(audioId: Long) = "edit_song/$audioId"
     }
+
+    data object CreatePlaylist : AppDestinations("create_playlist")
 
     sealed class BottomNavItem(val baseRoute: String, val icon: ImageVector, val label: String) {
         data object Library : BottomNavItem("library", Icons.Rounded.LibraryMusic, "Library")

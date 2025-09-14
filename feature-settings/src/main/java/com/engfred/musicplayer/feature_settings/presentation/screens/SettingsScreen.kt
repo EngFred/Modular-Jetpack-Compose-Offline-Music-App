@@ -2,6 +2,7 @@ package com.engfred.musicplayer.feature_settings.presentation.screens
 
 import android.content.Intent
 import android.os.Build
+import android.content.pm.PackageManager
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -37,14 +38,12 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -95,7 +94,6 @@ fun SettingsScreen(
     onMiniPlayPrevious: () -> Unit,
     playingAudioFile: AudioFile?,
     isPlaying: Boolean,
-    windowWidthSizeClass: WindowWidthSizeClass
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -117,7 +115,6 @@ fun SettingsScreen(
                     onPlayNext = onMiniPlayNext,
                     onPlayPrev = onMiniPlayPrevious,
                     playingAudioFile = playingAudioFile,
-                    windowWidthSizeClass = windowWidthSizeClass,
                     isPlaying = isPlaying
                 )
             }
@@ -201,16 +198,21 @@ fun SettingsScreen(
             )
 
             // Developer info: forward drawables and optional avatar
-            DeveloperInfoSection(
-                developerName = "Engineer Fred",
-                developerRole = "Software Engineer | Software Developer",
-                email = "engfred88@gmail.com",
-                githubUrl = "https://github.com/EngFred",
-                linkedInUrl = "https://www.linkedin.com/in/fred-omongole-a5943b2b0/",
-                githubIconRes = githubIconRes,
-                linkedInIconRes = linkedInIconRes,
-                emailIconRes = emailIconRes,
-                developerAvatarRes = developerAvatarRes // host provides avatar drawable id
+            // DeveloperInfoSection(
+            //     developerName = "Engineer Fred",
+            //     developerRole = "Software Engineer | Software Developer",
+            //     email = "engfred88@gmail.com",
+            //     githubUrl = "https://github.com/EngFred",
+            //     linkedInUrl = "https://www.linkedin.com/in/fred-omongole-a5943b2b0/",
+            //     githubIconRes = githubIconRes,
+            //     linkedInIconRes = linkedInIconRes,
+            //     emailIconRes = emailIconRes,
+            //     developerAvatarRes = developerAvatarRes // host provides avatar drawable id
+            // )
+
+            // REPLACED: simple app version + copyright section
+            AppVersionSection(
+                copyrightText = "© 2025 Engineer Fred",
             )
         }
     }
@@ -327,9 +329,103 @@ private fun <T> SettingsSection(
     }
 }
 
+@Composable
+private fun AppVersionSection(
+    copyrightText: String
+) {
+    val context = LocalContext.current
+    val cardElevation by animateDpAsState(targetValue = 6.dp)
+
+    // Safe package info retrieval with fallback values
+    val (versionName, versionCode) = try {
+        val pkgInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Use the new PackageInfoFlags API on Android T+
+            context.packageManager.getPackageInfo(
+                context.packageName,
+                PackageManager.PackageInfoFlags.of(0L)
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            context.packageManager.getPackageInfo(context.packageName, 0)
+        }
+
+        val name = pkgInfo.versionName ?: "1.0.0"
+        val code = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            pkgInfo.longVersionCode.toString()
+        } else {
+            @Suppress("DEPRECATION")
+            pkgInfo.versionCode.toString()
+        }
+        name to code
+    } catch (e: Exception) {
+        "1.0.0" to "1"
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { contentDescription = "App version card" },
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = cardElevation),
+        shape = RoundedCornerShape(14.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "App Version",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Version: v$versionName",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = "Build: $versionCode",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.08f))
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = copyrightText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                Text(
+                    text = "Made with love • v$versionName",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
 /**
  * Developer info / copyright section.
  * Accepts optional drawable resource ids; falls back to Material icons and initials if not provided.
+ *
+ * NOTE: The invocation of this composable in SettingsScreen is currently commented out.
+ * Keep this function if you want to re-enable the full developer card later.
  */
 @Composable
 private fun DeveloperInfoSection(
@@ -388,7 +484,7 @@ private fun DeveloperInfoSection(
                             .size(56.dp)
                             .clip(CircleShape)
                             .semantics { contentDescription = "Developer avatar" },
-                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                        contentScale = ContentScale.Crop
                     )
                 } else {
                     val initials = developerName

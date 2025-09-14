@@ -70,11 +70,13 @@ fun AddSongsBottomSheet(
 
     var searchQuery by remember { mutableStateOf("") }
 
-    val filteredSongs = remember(allAudioFiles, searchQuery) {
+    val sortedAudioFiles = remember(allAudioFiles) { allAudioFiles.sortedByDescending { it.dateAdded } }
+
+    val filteredSongs = remember(sortedAudioFiles, searchQuery) {
         if (searchQuery.isBlank()) {
-            allAudioFiles
+            sortedAudioFiles
         } else {
-            allAudioFiles.filter {
+            sortedAudioFiles.filter {
                 it.title.contains(searchQuery, ignoreCase = true) ||
                         (it.artist?.contains(searchQuery, ignoreCase = true) ?: false) ||
                         (it.album?.contains(searchQuery, ignoreCase = true) ?: false)

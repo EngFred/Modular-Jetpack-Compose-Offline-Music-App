@@ -12,8 +12,6 @@ data class PlaylistScreenState(
     val userPlaylists: List<Playlist> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
-    val showCreatePlaylistDialog: Boolean = false,
-    val dialogInputError: String? = null,
     val currentPlaybackAudioFile: AudioFile? = null,
     val currentLayout: PlaylistLayoutType = PlaylistLayoutType.LIST
 )

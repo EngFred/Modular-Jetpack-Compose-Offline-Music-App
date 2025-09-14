@@ -14,8 +14,8 @@ android {
         applicationId = "com.engfred.musicplayer"
         minSdk = 21
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -89,7 +89,7 @@ dependencies {
     implementation(libs.androidx.core.splashscreen)
 
     //
-    implementation(libs.androidx.material3.window.size.class1.android)
+//    implementation(libs.androidx.material3.window.size.class1.android)
 
     // Landscapist with Coil engine
     implementation(libs.landscapist.coil)

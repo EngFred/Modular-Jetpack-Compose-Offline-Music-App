@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.core.ui
 
+import android.content.res.Configuration
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
@@ -32,17 +33,16 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.surfaceColorAtElevation
-import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
 import com.engfred.musicplayer.core.domain.model.AudioFile
-import com.engfred.musicplayer.core.ui.RotatingAlbumArt
 
 /**
  * Composable for the mini-player bar displayed at the bottom of the main screens.
@@ -57,10 +57,10 @@ fun MiniPlayer(
     onPlayPrev: () -> Unit,
     playingAudioFile: AudioFile?,
     isPlaying: Boolean,
-    windowWidthSizeClass: WindowWidthSizeClass
 ) {
     // Determine compact status based on window width class
-    val isCompactWidth = windowWidthSizeClass == WindowWidthSizeClass.Compact
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     AnimatedVisibility(
         visible = playingAudioFile != null || isPlaying,
@@ -71,9 +71,9 @@ fun MiniPlayer(
         playingAudioFile?.let { audioFile ->
             Log.d("MiniPlayer", "MiniPlayer is showing for: ${audioFile.title}")
 
-            val cardHeight = if (isCompactWidth) 72.dp else 88.dp // Taller on larger screens
-            val horizontalCardPadding = if (isCompactWidth) 12.dp else 24.dp // More padding on sides for wider screens
-            val contentHorizontalPadding = if (isCompactWidth) 12.dp else 20.dp // Inner padding for row content
+            val cardHeight = if (isLandscape.not()) 72.dp else 88.dp // Taller on larger screens
+            val horizontalCardPadding = if (isLandscape.not()) 12.dp else 24.dp // More padding on sides for wider screens
+            val contentHorizontalPadding = if (isLandscape.not()) 12.dp else 20.dp // Inner padding for row content
 
             Card(
                 modifier = Modifier
@@ -102,11 +102,11 @@ fun MiniPlayer(
                         // Album Art or Placeholder
                         RotatingAlbumArt(
                             imageModel = audioFile.albumArtUri,
-                            size = if (isCompactWidth) 48.dp else 64.dp,
+                            size = if (isLandscape.not()) 48.dp else 64.dp,
                             trackId = audioFile.id,
                             isRotating = isPlaying // rotates while playback is active
                         )
-                        Spacer(modifier = Modifier.width(if (isCompactWidth) 12.dp else 16.dp))
+                        Spacer(modifier = Modifier.width(if (isLandscape.not()) 12.dp else 16.dp))
 
                         // Song Info
                         Column(
@@ -114,7 +114,7 @@ fun MiniPlayer(
                         ) {
                             Text(
                                 text = audioFile.title,
-                                style = if (isCompactWidth) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium, // Larger title on wider screens
+                                style = if (isLandscape.not()) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium, // Larger title on wider screens
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
@@ -123,7 +123,7 @@ fun MiniPlayer(
                             )
                             Text(
                                 text = audioFile.artist ?: "Unknown Artist",
-                                style = if (isCompactWidth) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium, // Larger artist text on wider screens
+                                style = if (isLandscape.not()) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium, // Larger artist text on wider screens
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -139,7 +139,7 @@ fun MiniPlayer(
                                     imageVector = Icons.Rounded.SkipPrevious,
                                     contentDescription = "Skip to previous track",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(if (isCompactWidth) 32.dp else 36.dp)
+                                    modifier = Modifier.size(if (isLandscape.not()) 32.dp else 36.dp)
                                 )
                             }
 
@@ -149,7 +149,7 @@ fun MiniPlayer(
                                     imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                                     contentDescription = if (isPlaying) "Pause playback" else "Play playback",
                                     tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(if (isCompactWidth) 36.dp else 40.dp) // Main action button slightly larger
+                                    modifier = Modifier.size(if (isLandscape.not()) 36.dp else 40.dp) // Main action button slightly larger
                                 )
                             }
 
@@ -159,7 +159,7 @@ fun MiniPlayer(
                                     imageVector = Icons.Rounded.SkipNext,
                                     contentDescription = "Skip to next track",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(if (isCompactWidth) 32.dp else 36.dp)
+                                    modifier = Modifier.size(if (isLandscape.not()) 32.dp else 36.dp)
                                 )
                             }
                         }

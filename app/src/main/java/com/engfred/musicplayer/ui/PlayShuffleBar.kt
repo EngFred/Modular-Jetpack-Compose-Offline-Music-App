@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.ui
 
+import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,11 +24,11 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.surfaceColorAtElevation
-import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -39,14 +40,15 @@ import androidx.compose.ui.unit.dp
 fun PlayShuffleBar(
     onPlayAll: () -> Unit,
     onShuffleAll: () -> Unit,
-    modifier: Modifier = Modifier,
-    windowWidthSizeClass: WindowWidthSizeClass
+    modifier: Modifier = Modifier
 ) {
-    val isCompactWidth = windowWidthSizeClass == WindowWidthSizeClass.Compact
 
-    val cardHeight = if (isCompactWidth) 72.dp else 88.dp
-    val horizontalCardPadding = if (isCompactWidth) 12.dp else 24.dp
-    val contentHorizontalPadding = if (isCompactWidth) 12.dp else 20.dp
+    val configuration = LocalConfiguration.current
+    val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
+
+    val cardHeight = if (isPortrait) 72.dp else 88.dp
+    val horizontalCardPadding = if (isPortrait) 12.dp else 24.dp
+    val contentHorizontalPadding = if (isPortrait) 12.dp else 20.dp
 
     Card(
         modifier = modifier
@@ -77,19 +79,19 @@ fun PlayShuffleBar(
                         imageVector = Icons.Default.Album, // Using Album icon as a placeholder for music theme
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(if (isCompactWidth) 48.dp else 64.dp)
+                        modifier = Modifier.size(if (isPortrait) 48.dp else 64.dp)
                     )
-                    Spacer(modifier = Modifier.width(if (isCompactWidth) 12.dp else 16.dp))
+                    Spacer(modifier = Modifier.width(if (isPortrait) 12.dp else 16.dp))
                     Column {
                         Text(
                             text = "Ready to listen?",
-                            style = if (isCompactWidth) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium,
+                            style = if (isPortrait) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = "Play your library",
-                            style = if (isCompactWidth) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium,
+                            style = if (isPortrait) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -109,7 +111,7 @@ fun PlayShuffleBar(
                             imageVector = Icons.Rounded.PlayArrow,
                             contentDescription = "Play all tracks",
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(if (isCompactWidth) 36.dp else 40.dp)
+                            modifier = Modifier.size(if (isPortrait) 36.dp else 40.dp)
                         )
                     }
                     IconButton(
@@ -122,7 +124,7 @@ fun PlayShuffleBar(
                             imageVector = Icons.Rounded.Shuffle,
                             contentDescription = "Shuffle all tracks",
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(if (isCompactWidth) 27.dp else 32.dp)
+                            modifier = Modifier.size(if (isPortrait) 27.dp else 32.dp)
                         )
                     }
                 }

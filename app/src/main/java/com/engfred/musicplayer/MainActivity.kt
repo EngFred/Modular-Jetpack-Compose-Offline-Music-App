@@ -13,8 +13,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
-import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -78,7 +76,6 @@ class MainActivity : ComponentActivity() {
         private const val PERMISSION_READ_EXTERNAL = "PERMISSION_READ_EXTERNAL"
     }
 
-    @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     @UnstableApi
     override fun onCreate(savedInstanceState: Bundle?) {
         // Keep the platform splash screen behaviour
@@ -139,7 +136,7 @@ class MainActivity : ComponentActivity() {
             // Safely observe audio list as Compose state once
             val audioItems by sharedAudioDataSource.deviceAudioFiles.collectAsState(initial = emptyList())
 
-            val selectedTheme = initialAppSettings?.selectedTheme ?: AppThemeType.BLUE
+            val selectedTheme = initialAppSettings?.selectedTheme ?: AppThemeType.CLASSIC_BLUE
 
             MusicPlayerAppTheme(selectedTheme = selectedTheme) {
                 val navController = androidx.navigation.compose.rememberNavController()
@@ -147,8 +144,6 @@ class MainActivity : ComponentActivity() {
                 AppNavHost(
                     rootNavController = navController,
                     isPlayerActive = playbackState.currentAudioFile != null,
-                    windowWidthSizeClass = calculateWindowSizeClass(this).widthSizeClass,
-                    windowHeightSizeClass = calculateWindowSizeClass(this).heightSizeClass,
                     onPlayPause = { uiScope.launch { playbackController.playPause() } },
                     onPlayNext = { uiScope.launch { playbackController.skipToNext() } },
                     onPlayPrev = { uiScope.launch { playbackController.skipToPrevious() } },

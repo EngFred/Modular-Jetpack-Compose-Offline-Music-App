@@ -25,8 +25,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.windowsizeclass.WindowHeightSizeClass
-import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -41,17 +39,6 @@ import com.engfred.musicplayer.core.domain.repository.RepeatMode
 import com.engfred.musicplayer.core.domain.repository.ShuffleMode
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
 
-// Data class for holding all control sizes
-private data class ControlSizes(
-    val playButtonSize: Dp,
-    val playIconSize: Dp,
-    val skipIconSize: Dp,
-    val shuffleRepeatIconSize: Dp,
-    val shuffleRepeatButtonSize: Dp,
-    val verticalPadding: Dp,
-    val horizontalSpacing: Dp
-)
-
 @Composable
 fun ControlBar(
     shuffleMode: ShuffleMode,
@@ -63,186 +50,57 @@ fun ControlBar(
     onSetShuffleMode: (ShuffleMode) -> Unit,
     onSetRepeatMode: (RepeatMode) -> Unit,
     playerLayout: PlayerLayout,
-    windowWidthSizeClass: WindowWidthSizeClass,
-    windowHeightSizeClass: WindowHeightSizeClass,
     modifier: Modifier = Modifier
 ) {
-    // Responsive sizes based on width and height, prioritizing height for compact screens
-    val controlSizes = when {
-        windowHeightSizeClass == WindowHeightSizeClass.Compact -> {
-            ControlSizes(
-                playButtonSize = 56.dp,
-                playIconSize = 40.dp,
-                skipIconSize = 40.dp,
-                shuffleRepeatIconSize = 24.dp,
-                shuffleRepeatButtonSize = 48.dp,
-                verticalPadding = 8.dp,
-                horizontalSpacing = 4.dp
-            )
-        }
-        windowWidthSizeClass == WindowWidthSizeClass.Expanded || windowHeightSizeClass == WindowHeightSizeClass.Expanded -> {
-            ControlSizes(
-                playButtonSize = 64.dp,
-                playIconSize = 44.dp,
-                skipIconSize = 44.dp,
-                shuffleRepeatIconSize = 28.dp,
-                shuffleRepeatButtonSize = 52.dp,
-                verticalPadding = 12.dp,
-                horizontalSpacing = 8.dp
-            )
-        }
-        windowWidthSizeClass == WindowWidthSizeClass.Medium || windowHeightSizeClass == WindowHeightSizeClass.Medium -> {
-            ControlSizes(
-                playButtonSize = 64.dp,
-                playIconSize = 44.dp,
-                skipIconSize = 44.dp,
-                shuffleRepeatIconSize = 28.dp,
-                shuffleRepeatButtonSize = 52.dp,
-                verticalPadding = 12.dp,
-                horizontalSpacing = 8.dp
-            )
-        }
-        else -> {
-            ControlSizes(
-                playButtonSize = 64.dp,
-                playIconSize = 48.dp,
-                skipIconSize = 44.dp,
-                shuffleRepeatIconSize = 28.dp,
-                shuffleRepeatButtonSize = 52.dp,
-                verticalPadding = 12.dp,
-                horizontalSpacing = 8.dp
-            )
-        }
-    }
 
-    if (playerLayout == PlayerLayout.IMMERSIVE_CANVAS || playerLayout == PlayerLayout.MINIMALIST_GROOVE) {
-        Row(
-            modifier = modifier
-                .fillMaxWidth()
-                .background(Color.Transparent)
-                .padding(vertical = controlSizes.verticalPadding),
-            horizontalArrangement = Arrangement.spacedBy(controlSizes.horizontalSpacing, Alignment.CenterHorizontally),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            PlaybackControlIconButton(
-                icon = Icons.Rounded.Shuffle,
-                contentDescription = "Toggle Shuffle Mode",
-                onClick = {
-                    val newMode = if (shuffleMode == ShuffleMode.ON) ShuffleMode.OFF else ShuffleMode.ON
-                    onSetShuffleMode(newMode)
-                },
-                tint = if (shuffleMode == ShuffleMode.ON) MaterialTheme.colorScheme.primary else LocalContentColor.current.copy(alpha = 0.7f),
-                size = controlSizes.shuffleRepeatIconSize,
-                buttonSize = controlSizes.shuffleRepeatButtonSize
-            )
-            PlaybackControlIconButton(
-                icon = Icons.Rounded.SkipPrevious,
-                contentDescription = "Skip Previous Song",
-                onClick = onSkipPreviousClick,
-                tint = LocalContentColor.current,
-                size = controlSizes.skipIconSize,
-                buttonSize = controlSizes.skipIconSize + 12.dp
-            )
-            PlaybackControlIconButton(
-                icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                contentDescription = if (isPlaying) "Pause Playback" else "Play Playback",
-                onClick = onPlayPauseClick,
-                tint = MaterialTheme.colorScheme.onPrimary,
-                size = controlSizes.playIconSize,
-                buttonSize = controlSizes.playButtonSize,
-                backgroundColor = MaterialTheme.colorScheme.primary,
-                scaleAnimation = true,
-                isPlaying = isPlaying
-            )
-            PlaybackControlIconButton(
-                icon = Icons.Rounded.SkipNext,
-                contentDescription = "Skip Next Song",
-                onClick = onSkipNextClick,
-                tint = LocalContentColor.current,
-                size = controlSizes.skipIconSize,
-                buttonSize = controlSizes.skipIconSize + 12.dp
-            )
-            PlaybackControlIconButton(
-                icon = when (repeatMode) {
-                    RepeatMode.OFF -> Icons.Rounded.Repeat
-                    RepeatMode.ALL -> Icons.Rounded.Repeat
-                    RepeatMode.ONE -> Icons.Rounded.RepeatOne
-                },
-                contentDescription = "Toggle Repeat Mode",
-                onClick = {
-                    val newMode = when (repeatMode) {
-                        RepeatMode.OFF -> RepeatMode.ALL
-                        RepeatMode.ALL -> RepeatMode.ONE
-                        RepeatMode.ONE -> RepeatMode.OFF
-                    }
-                    onSetRepeatMode(newMode)
-                },
-                tint = if (repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.primary else LocalContentColor.current.copy(alpha = 0.7f),
-                size = controlSizes.shuffleRepeatIconSize,
-                buttonSize = controlSizes.shuffleRepeatButtonSize
-            )
-        }
-    } else {
-        // Smaller circular background size for shuffle & repeat in this else layout
-        val smallIconBgSize = controlSizes.shuffleRepeatButtonSize * 0.78f
-
-        Box(
-            modifier = modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(32.dp))
-                .background(LocalContentColor.current.copy(alpha = 0.08f))
-                .padding(vertical = controlSizes.verticalPadding, horizontal = 4.dp)
-        ) {
+    when (playerLayout) {
+        PlayerLayout.IMMERSIVE_CANVAS -> {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(controlSizes.horizontalSpacing, Alignment.CenterHorizontally),
+                modifier = modifier
+                    .fillMaxWidth()
+                    .background(Color.Transparent)
+                    .padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Shuffle with smaller white circular background
                 PlaybackControlIconButton(
                     icon = Icons.Rounded.Shuffle,
                     contentDescription = "Toggle Shuffle Mode",
                     onClick = {
-                        val newShuffleMode = if (shuffleMode == ShuffleMode.ON) ShuffleMode.OFF else ShuffleMode.ON
-                        onSetShuffleMode(newShuffleMode)
+                        val newMode = if (shuffleMode == ShuffleMode.ON) ShuffleMode.OFF else ShuffleMode.ON
+                        onSetShuffleMode(newMode)
                     },
-                    tint = LocalContentColor.current,
-                    size = controlSizes.shuffleRepeatIconSize,
-                    buttonSize = smallIconBgSize,
-                    backgroundColor = if (shuffleMode == ShuffleMode.ON) MaterialTheme.colorScheme.primary else Color.Transparent
+                    tint = if (shuffleMode == ShuffleMode.ON) MaterialTheme.colorScheme.primary else LocalContentColor.current.copy(alpha = 0.7f),
+                    size = 35.dp,
+                    buttonSize = 48.dp
                 )
-
                 PlaybackControlIconButton(
                     icon = Icons.Rounded.SkipPrevious,
                     contentDescription = "Skip Previous Song",
                     onClick = onSkipPreviousClick,
                     tint = LocalContentColor.current,
-                    size = controlSizes.skipIconSize,
-                    buttonSize = controlSizes.skipIconSize + 12.dp
+                    size = 60.dp,
+                    buttonSize = 60.dp
                 )
-
                 PlaybackControlIconButton(
                     icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                     contentDescription = if (isPlaying) "Pause Playback" else "Play Playback",
                     onClick = onPlayPauseClick,
-                    tint = LocalContentColor.current,
-                    size = controlSizes.playIconSize,
-                    buttonSize = controlSizes.playButtonSize,
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    size = 45.dp,
+                    buttonSize = 60.dp,
                     backgroundColor = MaterialTheme.colorScheme.primary,
                     scaleAnimation = true,
                     isPlaying = isPlaying
                 )
-
                 PlaybackControlIconButton(
                     icon = Icons.Rounded.SkipNext,
                     contentDescription = "Skip Next Song",
                     onClick = onSkipNextClick,
                     tint = LocalContentColor.current,
-                    size = controlSizes.skipIconSize,
-                    buttonSize = controlSizes.skipIconSize + 12.dp
+                    size = 60.dp,
+                    buttonSize = 64.dp
                 )
-
-                // Repeat with smaller white circular background
                 PlaybackControlIconButton(
                     icon = when (repeatMode) {
                         RepeatMode.OFF -> Icons.Rounded.Repeat
@@ -251,18 +109,167 @@ fun ControlBar(
                     },
                     contentDescription = "Toggle Repeat Mode",
                     onClick = {
-                        val newRepeatMode = when (repeatMode) {
+                        val newMode = when (repeatMode) {
                             RepeatMode.OFF -> RepeatMode.ALL
                             RepeatMode.ALL -> RepeatMode.ONE
                             RepeatMode.ONE -> RepeatMode.OFF
                         }
-                        onSetRepeatMode(newRepeatMode)
+                        onSetRepeatMode(newMode)
                     },
-                    tint = LocalContentColor.current,
-                    size = controlSizes.shuffleRepeatIconSize,
-                    buttonSize = smallIconBgSize,
-                    backgroundColor = if(repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.primary else Color.Transparent
+                    tint = if (repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.primary else LocalContentColor.current.copy(alpha = 0.7f),
+                    size = 34.dp,
+                    buttonSize = 58.dp
                 )
+            }
+        }
+        PlayerLayout.MINIMALIST_GROOVE -> {
+            Row(
+                modifier = modifier
+                    .fillMaxWidth()
+                    .background(Color.Transparent)
+                    .padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                PlaybackControlIconButton(
+                    icon = Icons.Rounded.Shuffle,
+                    contentDescription = "Toggle Shuffle Mode",
+                    onClick = {
+                        val newMode = if (shuffleMode == ShuffleMode.ON) ShuffleMode.OFF else ShuffleMode.ON
+                        onSetShuffleMode(newMode)
+                    },
+                    tint = if (shuffleMode == ShuffleMode.ON) MaterialTheme.colorScheme.primary else LocalContentColor.current.copy(alpha = 0.7f),
+                    size = 24.dp,
+                    buttonSize = 40.dp,
+                )
+                PlaybackControlIconButton(
+                    icon = Icons.Rounded.SkipPrevious,
+                    contentDescription = "Skip Previous Song",
+                    onClick = onSkipPreviousClick,
+                    tint = LocalContentColor.current,
+                    size = 40.dp,
+                    buttonSize = 52.dp
+                )
+                PlaybackControlIconButton(
+                    icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                    contentDescription = if (isPlaying) "Pause Playback" else "Play Playback",
+                    onClick = onPlayPauseClick,
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    size = 40.dp,
+                    buttonSize = 50.dp,
+                    backgroundColor = MaterialTheme.colorScheme.primary,
+                    scaleAnimation = true,
+                    isPlaying = isPlaying
+                )
+                PlaybackControlIconButton(
+                    icon = Icons.Rounded.SkipNext,
+                    contentDescription = "Skip Next Song",
+                    onClick = onSkipNextClick,
+                    tint = LocalContentColor.current,
+                    size = 40.dp,
+                    buttonSize = 52.dp
+                )
+                PlaybackControlIconButton(
+                    icon = when (repeatMode) {
+                        RepeatMode.OFF -> Icons.Rounded.Repeat
+                        RepeatMode.ALL -> Icons.Rounded.Repeat
+                        RepeatMode.ONE -> Icons.Rounded.RepeatOne
+                    },
+                    contentDescription = "Toggle Repeat Mode",
+                    onClick = {
+                        val newMode = when (repeatMode) {
+                            RepeatMode.OFF -> RepeatMode.ALL
+                            RepeatMode.ALL -> RepeatMode.ONE
+                            RepeatMode.ONE -> RepeatMode.OFF
+                        }
+                        onSetRepeatMode(newMode)
+                    },
+                    tint = if (repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.primary else LocalContentColor.current.copy(alpha = 0.7f),
+                    size = 24.dp,
+                    buttonSize = 40.dp,
+                )
+            }
+        }
+        else -> {
+
+            Box(
+                modifier = modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(32.dp))
+                    .background(LocalContentColor.current.copy(alpha = 0.08f))
+                    .padding(vertical = 12.dp, horizontal = 4.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Shuffle with smaller white circular background
+                    PlaybackControlIconButton(
+                        icon = Icons.Rounded.Shuffle,
+                        contentDescription = "Toggle Shuffle Mode",
+                        onClick = {
+                            val newShuffleMode = if (shuffleMode == ShuffleMode.ON) ShuffleMode.OFF else ShuffleMode.ON
+                            onSetShuffleMode(newShuffleMode)
+                        },
+                        tint = LocalContentColor.current,
+                        size = 24.dp,
+                        buttonSize = 40.dp,
+                        backgroundColor = if (shuffleMode == ShuffleMode.ON) MaterialTheme.colorScheme.primary else Color.Transparent
+                    )
+
+                    PlaybackControlIconButton(
+                        icon = Icons.Rounded.SkipPrevious,
+                        contentDescription = "Skip Previous Song",
+                        onClick = onSkipPreviousClick,
+                        tint = LocalContentColor.current,
+                        size = 40.dp,
+                        buttonSize = 52.dp
+                    )
+
+                    PlaybackControlIconButton(
+                        icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        contentDescription = if (isPlaying) "Pause Playback" else "Play Playback",
+                        onClick = onPlayPauseClick,
+                        tint = LocalContentColor.current,
+                        size = 40.dp,
+                        buttonSize = 50.dp,
+                        backgroundColor = MaterialTheme.colorScheme.primary,
+                        scaleAnimation = true,
+                        isPlaying = isPlaying
+                    )
+
+                    PlaybackControlIconButton(
+                        icon = Icons.Rounded.SkipNext,
+                        contentDescription = "Skip Next Song",
+                        onClick = onSkipNextClick,
+                        tint = LocalContentColor.current,
+                        size = 40.dp,
+                        buttonSize = 52.dp
+                    )
+
+                    // Repeat with smaller white circular background
+                    PlaybackControlIconButton(
+                        icon = when (repeatMode) {
+                            RepeatMode.OFF -> Icons.Rounded.Repeat
+                            RepeatMode.ALL -> Icons.Rounded.Repeat
+                            RepeatMode.ONE -> Icons.Rounded.RepeatOne
+                        },
+                        contentDescription = "Toggle Repeat Mode",
+                        onClick = {
+                            val newRepeatMode = when (repeatMode) {
+                                RepeatMode.OFF -> RepeatMode.ALL
+                                RepeatMode.ALL -> RepeatMode.ONE
+                                RepeatMode.ONE -> RepeatMode.OFF
+                            }
+                            onSetRepeatMode(newRepeatMode)
+                        },
+                        tint = LocalContentColor.current,
+                        size = 24.dp,
+                        buttonSize = 40.dp,
+                        backgroundColor = if(repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.primary else Color.Transparent
+                    )
+                }
             }
         }
     }

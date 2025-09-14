@@ -4,10 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.windowsizeclass.WindowHeightSizeClass
-import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -25,8 +22,6 @@ import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerViewM
 @Composable
 fun NowPlayingScreen(
     viewModel: PlayerViewModel = hiltViewModel(),
-    windowWidthSizeClass: WindowWidthSizeClass,
-    windowHeightSizeClass: WindowHeightSizeClass,
     onNavigateUp: () -> Unit
 ) {
     val uiState: PlaybackState by viewModel.uiState.collectAsState()
@@ -42,8 +37,6 @@ fun NowPlayingScreen(
                 EtherealFlowLayout(
                     uiState = uiState,
                     onEvent = viewModel::onEvent,
-                    windowHeightSizeClass = windowHeightSizeClass,
-                    windowWidthSizeClass = windowWidthSizeClass,
                     onLayoutSelected = { newLayout ->
                         viewModel.onEvent(PlayerEvent.SelectPlayerLayout(newLayout))
                     },
@@ -68,8 +61,6 @@ fun NowPlayingScreen(
                 ImmersiveCanvasLayout(
                     uiState = uiState,
                     onEvent = viewModel::onEvent,
-                    windowHeightSizeClass = windowHeightSizeClass,
-                    windowWidthSizeClass = windowWidthSizeClass,
                     onLayoutSelected = { newLayout ->
                         viewModel.onEvent(PlayerEvent.SelectPlayerLayout(newLayout))
                     },
@@ -101,8 +92,6 @@ fun NowPlayingScreen(
                     currentSongIndex = uiState.playingSongIndex,
                     onNavigateUp = onNavigateUp,
                     selectedLayout = it,
-                    windowHeightSizeClass = windowHeightSizeClass,
-                    windowWidthSizeClass = windowWidthSizeClass,
                     playingQueue = uiState.playingQueue,
                     onPlayQueueItem = { audio ->
                         viewModel.onEvent(PlayerEvent.PlayAudioFile(audio))

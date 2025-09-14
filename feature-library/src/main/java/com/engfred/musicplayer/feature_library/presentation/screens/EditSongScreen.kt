@@ -41,7 +41,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
-import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -72,7 +71,6 @@ fun EditAudioInfoScreenContainer(
     onMiniPlayPrevious: () -> Unit,
     playingAudioFile: AudioFile?,
     isPlaying: Boolean,
-    windowWidthSizeClass: WindowWidthSizeClass,
     viewModel: EditSongViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -114,9 +112,6 @@ fun EditAudioInfoScreenContainer(
                 pendingIntent.intentSender.let { sender ->
                     val req = IntentSenderRequest.Builder(sender).build()
                     intentSenderLauncher.launch(req)
-                } ?: run {
-                    // Fallback: inform user we couldn't build the write request but keep UI visible
-                    Toast.makeText(context, "Could not build write request; continuing without per-file access.", Toast.LENGTH_SHORT).show()
                 }
             } else {
                 // pre-Q nothing else required; user can edit
@@ -172,9 +167,6 @@ fun EditAudioInfoScreenContainer(
                 pendingIntent.intentSender.let { sender ->
                     val req = IntentSenderRequest.Builder(sender).build()
                     intentSenderLauncher.launch(req)
-                } ?: run {
-                    // Fallback: inform user but keep UI visible
-                    Toast.makeText(context, "Could not build write request; continuing.", Toast.LENGTH_SHORT).show()
                 }
             } else {
                 // pre-Q no further action required
@@ -198,8 +190,7 @@ fun EditAudioInfoScreenContainer(
         onMiniPlayNext = onMiniPlayNext,
         onMiniPlayPrevious = onMiniPlayPrevious,
         playingAudioFile = playingAudioFile,
-        isPlaying = isPlaying,
-        windowWidthSizeClass = windowWidthSizeClass
+        isPlaying = isPlaying
     )
 }
 
@@ -216,8 +207,7 @@ fun EditSongScreen(
     onMiniPlayNext: () -> Unit,
     onMiniPlayPrevious: () -> Unit,
     playingAudioFile: AudioFile?,
-    isPlaying: Boolean,
-    windowWidthSizeClass: WindowWidthSizeClass
+    isPlaying: Boolean
 ) {
     Scaffold(
         topBar = {
@@ -234,7 +224,6 @@ fun EditSongScreen(
                     onPlayNext = onMiniPlayNext,
                     onPlayPrev = onMiniPlayPrevious,
                     playingAudioFile = playingAudioFile,
-                    windowWidthSizeClass = windowWidthSizeClass,
                     isPlaying = isPlaying
                 )
             }

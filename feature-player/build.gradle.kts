@@ -90,7 +90,7 @@ dependencies {
 
     //
 //    implementation(libs.androidx.adaptive)
-    implementation(libs.androidx.material3.window.size.class1.android)
+//    implementation(libs.androidx.material3.window.size.class1.android)
 
     implementation(libs.kotlinx.coroutines.guava)
 

@@ -27,8 +27,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.windowsizeclass.WindowHeightSizeClass
-import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -69,8 +67,6 @@ fun MinimalistGrooveLayout(
     totalSongsInQueue: Int,
     selectedLayout: PlayerLayout,
     onLayoutSelected: (PlayerLayout) -> Unit,
-    windowWidthSizeClass: WindowWidthSizeClass,
-    windowHeightSizeClass: WindowHeightSizeClass,
     playingQueue: List<AudioFile>,
     onPlayQueueItem: (AudioFile) -> Unit,
     onRemoveQueueItem: (AudioFile) -> Unit,
@@ -79,6 +75,7 @@ fun MinimalistGrooveLayout(
 ) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val screenWidthDp = configuration.screenWidthDp
 
     val view = LocalView.current
     val context = LocalContext.current
@@ -98,6 +95,10 @@ fun MinimalistGrooveLayout(
     }
     var verticalDragCumulative by remember { mutableFloatStateOf(0f) }
     val dragThreshold = 100f // Adjust as needed for sensitivity
+
+    // responsive breakpoint
+    val isTablet = screenWidthDp >= 900
+
     Surface(
         color = MaterialTheme.colorScheme.background,
         contentColor = MaterialTheme.colorScheme.onBackground,
@@ -110,12 +111,10 @@ fun MinimalistGrooveLayout(
                     detectVerticalDragGestures(
                         onDragEnd = {
                             if (verticalDragCumulative < -dragThreshold) {
-                                // Drag up to open queue
                                 coroutineScope.launch { sheetState.show() }
                                 showQueueBottomSheet = true
                                 view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                             } else if (verticalDragCumulative > dragThreshold) {
-                                // Drag down to exit the screen
                                 onNavigateUp()
                                 view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                             }
@@ -135,7 +134,6 @@ fun MinimalistGrooveLayout(
                 currentSongIndex = currentSongIndex + 1,
                 totalQueueSize = totalSongsInQueue,
                 onOpenQueue = { },
-                windowWidthSizeClass = WindowWidthSizeClass.Compact, // Unused but passed
                 selectedLayout = selectedLayout,
                 onLayoutSelected = onLayoutSelected,
                 isFavorite = uiState.isFavorite,
@@ -156,12 +154,15 @@ fun MinimalistGrooveLayout(
                     }
                 }
             )
+
             if (isLandscape) {
-                // Landscape layout (organized based on previous two-pane implementation)
+                // Landscape: adjust spacing/sizes for tablet
+                val artAndControlsSpacing = if (isTablet) 96.dp else 76.dp
+                val controlsWeight = if (isTablet) 1.6f else 1f
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
+                        .padding(horizontal = if (isTablet) 32.dp else 24.dp)
                         .weight(1f),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
@@ -170,12 +171,13 @@ fun MinimalistGrooveLayout(
                         albumArtUri = uiState.currentAudioFile?.albumArtUri,
                         isPlaying = uiState.isPlaying,
                         modifier = Modifier
-                            .aspectRatio(1f)
+                            .aspectRatio(if (isTablet) 1f else 1f)
+                            .weight(1f)
                     )
-                    Spacer(modifier = Modifier.width(76.dp))
+                    Spacer(modifier = Modifier.width(artAndControlsSpacing))
                     Column(
                         modifier = Modifier
-                            .weight(1f)
+                            .weight(controlsWeight)
                             .fillMaxHeight(),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
@@ -184,7 +186,7 @@ fun MinimalistGrooveLayout(
                             title = uiState.currentAudioFile?.title,
                             artist = uiState.currentAudioFile?.artist
                         )
-                        Spacer(modifier = Modifier.height(32.dp))
+                        Spacer(modifier = Modifier.height(if (isTablet) 40.dp else 32.dp))
                         SeekBarSection(
                             sliderValue = uiState.playbackPositionMs.toFloat(),
                             totalDurationMs = uiState.totalDurationMs,
@@ -220,84 +222,76 @@ fun MinimalistGrooveLayout(
                             onSetShuffleMode = { newMode -> onEvent(PlayerEvent.SetShuffleMode(newMode)) },
                             onSetRepeatMode = { newMode -> onEvent(PlayerEvent.SetRepeatMode(newMode)) },
                             playerLayout = PlayerLayout.MINIMALIST_GROOVE,
-                            windowWidthSizeClass = WindowWidthSizeClass.Expanded, // Unused but passed
-                            windowHeightSizeClass = WindowHeightSizeClass.Medium, // Unused but passed
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
             } else {
-                // Portrait layout
+                // Portrait: scale album art size on tablets
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = if (isTablet) 32.dp else 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceAround
                 ) {
-                    Box(
-                        contentAlignment = Alignment.Center
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.SpaceAround
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.SpaceAround
-                        ) {
-                            RotatingWaveAlbumArt(
-                                albumArtUri = uiState.currentAudioFile?.albumArtUri,
-                                isPlaying = uiState.isPlaying,
-                                modifier = Modifier.size(260.dp)
-                            )
-                            Spacer(modifier = Modifier.height(28.dp))
-                            SongInfoSection(
-                                title = uiState.currentAudioFile?.title,
-                                artist = uiState.currentAudioFile?.artist,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            Spacer(modifier = Modifier.height(32.dp))
-                            SeekBarSection(
-                                sliderValue = uiState.playbackPositionMs.toFloat(),
-                                totalDurationMs = uiState.totalDurationMs,
-                                playbackPositionMs = uiState.playbackPositionMs,
-                                onSliderValueChange = { newValue ->
-                                    onEvent(PlayerEvent.SetSeeking(true))
-                                    onEvent(PlayerEvent.SeekTo(newValue.toLong()))
-                                },
-                                onSliderValueChangeFinished = {
-                                    onEvent(PlayerEvent.SetSeeking(false))
-                                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                },
-                                playerLayout = PlayerLayout.MINIMALIST_GROOVE,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            ControlBar(
-                                shuffleMode = shuffleMode,
-                                isPlaying = uiState.isPlaying,
-                                repeatMode = repeatMode,
-                                onPlayPauseClick = {
-                                    onEvent(PlayerEvent.PlayPause)
-                                    view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                                },
-                                onSkipPreviousClick = {
-                                    onEvent(PlayerEvent.SkipToPrevious)
-                                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                },
-                                onSkipNextClick = {
-                                    onEvent(PlayerEvent.SkipToNext)
-                                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                },
-                                onSetShuffleMode = { newMode -> onEvent(PlayerEvent.SetShuffleMode(newMode)) },
-                                onSetRepeatMode = { newMode -> onEvent(PlayerEvent.SetRepeatMode(newMode)) },
-                                playerLayout = PlayerLayout.MINIMALIST_GROOVE,
-                                windowWidthSizeClass = WindowWidthSizeClass.Compact, // Unused but passed
-                                windowHeightSizeClass = WindowHeightSizeClass.Medium, // Unused but passed
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-
+                        RotatingWaveAlbumArt(
+                            albumArtUri = uiState.currentAudioFile?.albumArtUri,
+                            isPlaying = uiState.isPlaying,
+                            modifier = Modifier.size(if (isTablet) 360.dp else 260.dp)
+                        )
+                        Spacer(modifier = Modifier.height( if (isTablet) 36.dp else 28.dp))
+                        SongInfoSection(
+                            title = uiState.currentAudioFile?.title,
+                            artist = uiState.currentAudioFile?.artist,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height( if (isTablet) 36.dp else 32.dp))
+                        SeekBarSection(
+                            sliderValue = uiState.playbackPositionMs.toFloat(),
+                            totalDurationMs = uiState.totalDurationMs,
+                            playbackPositionMs = uiState.playbackPositionMs,
+                            onSliderValueChange = { newValue ->
+                                onEvent(PlayerEvent.SetSeeking(true))
+                                onEvent(PlayerEvent.SeekTo(newValue.toLong()))
+                            },
+                            onSliderValueChangeFinished = {
+                                onEvent(PlayerEvent.SetSeeking(false))
+                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                            },
+                            playerLayout = PlayerLayout.MINIMALIST_GROOVE,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        ControlBar(
+                            shuffleMode = shuffleMode,
+                            isPlaying = uiState.isPlaying,
+                            repeatMode = repeatMode,
+                            onPlayPauseClick = {
+                                onEvent(PlayerEvent.PlayPause)
+                                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                            },
+                            onSkipPreviousClick = {
+                                onEvent(PlayerEvent.SkipToPrevious)
+                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                            },
+                            onSkipNextClick = {
+                                onEvent(PlayerEvent.SkipToNext)
+                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                            },
+                            onSetShuffleMode = { newMode -> onEvent(PlayerEvent.SetShuffleMode(newMode)) },
+                            onSetRepeatMode = { newMode -> onEvent(PlayerEvent.SetRepeatMode(newMode)) },
+                            playerLayout = PlayerLayout.MINIMALIST_GROOVE,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
             }
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -330,6 +324,7 @@ fun MinimalistGrooveLayout(
         }
     }
 }
+
 @Composable
 private fun SongInfoSection(
     title: String?,

@@ -10,18 +10,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
-
-// Updated Theme Types
 enum class AppThemeType {
-    BLUE,
+    CLASSIC_BLUE,
     SUNSET_GROOVE,
-    LIGHT,
+    CLASSIC_LIGHT,
     NEON_DARK,
     DARK,
 }
-
-// --- Existing Themes ---
-
 private val LightColorScheme = lightColorScheme(
     primary = FrostPrimary,
     onPrimary = FrostOnPrimary,
@@ -134,9 +129,9 @@ fun MusicPlayerAppTheme(
     content: @Composable () -> Unit
 ) {
     val colorScheme = when (selectedTheme) {
-        AppThemeType.LIGHT -> LightColorScheme
+        AppThemeType.CLASSIC_LIGHT -> LightColorScheme
         AppThemeType.DARK -> DarkColorScheme
-        AppThemeType.BLUE -> DeepBlueColorScheme
+        AppThemeType.CLASSIC_BLUE -> DeepBlueColorScheme
         AppThemeType.NEON_DARK -> NeonPulseColorScheme
         AppThemeType.SUNSET_GROOVE -> SunsetGrooveColorScheme
     }
@@ -149,7 +144,7 @@ fun MusicPlayerAppTheme(
             window.navigationBarColor = Color.Transparent.toArgb()
 
             // Determine if the current theme is a light theme (Frostbyte)
-            val isLightTheme = selectedTheme == AppThemeType.LIGHT
+            val isLightTheme = selectedTheme == AppThemeType.CLASSIC_LIGHT
 
             // Set status bar icons to dark for light themes, and light for dark themes
             WindowCompat.getInsetsController(window, view).apply {
@@ -162,7 +157,7 @@ fun MusicPlayerAppTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography,
+        typography = AppTypography,
         shapes = Shapes,
         content = content
     )

@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.feature_player.presentation.components
 
+import android.content.res.Configuration
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
@@ -13,7 +14,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -22,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
@@ -32,31 +33,28 @@ import com.skydoves.landscapist.coil.CoilImage
 fun AlbumArtDisplay(
     albumArtUri: Any?,
     isPlaying: Boolean,
-    windowWidthSizeClass: WindowWidthSizeClass,
     playerLayout: PlayerLayout,
     modifier: Modifier = Modifier
 ) {
+
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
     if (playerLayout == PlayerLayout.ETHEREAL_FLOW) {
         // ---- ETHEREAL_FLOW only ----
         // Increased sizes
         val compactBaseSize = 340.dp   // was 280.dp
         val compactPausedSize = compactBaseSize * 0.7f  // was 0.8f
-        val mediumBaseSize = 400.dp   // was 320.dp
         val expandedBaseSize = 460.dp // was 380.dp
 
         // Fixed container to prevent layout from shrinking
-        val fixedContainerSize = when (windowWidthSizeClass) {
-            WindowWidthSizeClass.Compact -> compactBaseSize
-            WindowWidthSizeClass.Medium -> mediumBaseSize
-            WindowWidthSizeClass.Expanded -> expandedBaseSize
-            else -> compactBaseSize
-        }
+        val fixedContainerSize = if (isLandscape) expandedBaseSize else compactBaseSize
 
         // Inner animated size (only for compact layouts)
-        val targetSize: Dp = when {
-            windowWidthSizeClass == WindowWidthSizeClass.Compact -> if (isPlaying) compactBaseSize else compactPausedSize
-            else -> compactPausedSize // Always paused size for Medium & Expanded
-        }
+        val targetSize: Dp = if (isLandscape.not()) {
+            if (isPlaying) compactBaseSize else compactPausedSize
+        } else compactPausedSize // Always paused size for Medium & Expanded
+
 
         val animatedAlbumArtSize by animateDpAsState(
             targetValue = targetSize,
@@ -68,7 +66,7 @@ fun AlbumArtDisplay(
         )
 
         val albumArtShadowElevation by animateDpAsState(
-            targetValue = if (windowWidthSizeClass == WindowWidthSizeClass.Compact && isPlaying) 36.dp else 20.dp,
+            targetValue = if (isLandscape.not() && isPlaying) 36.dp else 20.dp,
             animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow),
             label = "etherealFlowAlbumArtShadowElevation"
         )
@@ -116,12 +114,7 @@ fun AlbumArtDisplay(
         }
     } else {
         // ---- All other layouts remain unchanged ----
-        val baseNonImmersiveAlbumArtSize = when (windowWidthSizeClass) {
-            WindowWidthSizeClass.Compact -> 240.dp
-            WindowWidthSizeClass.Medium -> 280.dp
-            WindowWidthSizeClass.Expanded -> 320.dp
-            else -> 240.dp
-        }
+        val baseNonImmersiveAlbumArtSize = if(isLandscape) 320.dp else  240.dp
 
         val albumArtSizePlaying: Dp = baseNonImmersiveAlbumArtSize
         val albumArtSizePaused: Dp = baseNonImmersiveAlbumArtSize * 0.8f

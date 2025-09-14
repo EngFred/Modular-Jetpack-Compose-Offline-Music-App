@@ -34,12 +34,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.windowsizeclass.WindowHeightSizeClass
-import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -73,13 +70,13 @@ import com.engfred.musicplayer.feature_player.presentation.components.TrackInfo
 import com.engfred.musicplayer.feature_player.utils.getContentColorForAlbumArt
 import com.engfred.musicplayer.feature_player.utils.loadBitmapFromUri
 import com.engfred.musicplayer.feature_player.utils.saveBitmapToPictures
+import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerEvent
 import kotlinx.coroutines.launch
 import android.widget.Toast
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.core.view.WindowInsetsControllerCompat
-import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerEvent
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,8 +88,6 @@ fun ImmersiveCanvasLayout(
     currentSongIndex: Int,
     onPlayQueueItem: (AudioFile) -> Unit,
     onRemoveQueueItem: (AudioFile) -> Unit = {},
-    windowWidthSizeClass: WindowWidthSizeClass,
-    windowHeightSizeClass: WindowHeightSizeClass,
     selectedLayout: PlayerLayout,
     onLayoutSelected: (PlayerLayout) -> Unit,
     playingAudio: AudioFile?,
@@ -101,6 +96,7 @@ fun ImmersiveCanvasLayout(
 ) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val screenWidthDp = configuration.screenWidthDp
 
     val view = LocalView.current
     val context = LocalContext.current
@@ -113,21 +109,24 @@ fun ImmersiveCanvasLayout(
     } else {
         defaultContentColor
     }
+
+    // responsive breakpoint — use same tablet cutoff
+    val isTablet = screenWidthDp >= 900
+
     // Handle status bar color and icon appearance
     DisposableEffect(isLandscape, dynamicContentColor, selectedLayout) {
         val window = (context as? Activity)?.window
         val insetsController = window?.let { WindowInsetsControllerCompat(it, view) }
-        // Set status bar for portrait mode in ImmersiveCanvasLayout
         if (selectedLayout == PlayerLayout.IMMERSIVE_CANVAS && !isLandscape) {
             insetsController?.isAppearanceLightStatusBars = (dynamicContentColor.luminance() > 0.5f).not()
         } else {
             insetsController?.isAppearanceLightStatusBars = colorScheme.background.luminance() > 0.5f
         }
-        // Cleanup: Revert to default theme status bar settings on dispose
         onDispose {
             insetsController?.isAppearanceLightStatusBars = colorScheme.background.luminance() > 0.5f
         }
     }
+
     var showQueueBottomSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     if (showQueueBottomSheet && !isLandscape) {
@@ -141,8 +140,10 @@ fun ImmersiveCanvasLayout(
             isPlaying = uiState.isPlaying
         )
     }
+
     var verticalDragCumulative by remember { mutableStateOf(0f) }
     val dragThreshold = 100f
+
     CompositionLocalProvider(LocalContentColor provides defaultContentColor) {
         Box(
             modifier = Modifier
@@ -192,7 +193,6 @@ fun ImmersiveCanvasLayout(
                     detectVerticalDragGestures(
                         onDragEnd = {
                             if (verticalDragCumulative > dragThreshold) {
-                                // Drag down to exit
                                 onNavigateUp()
                                 view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                             }
@@ -219,24 +219,32 @@ fun ImmersiveCanvasLayout(
                     )
                 }
         ) {
-            val horizontalPadding = if (isLandscape) 32.dp else 24.dp
-            val verticalPadding = if (isLandscape) 28.dp else 24.dp
-            val spacingInfoToButtons = if (isLandscape) 28.dp else 24.dp
-            val spacingButtonsToSeekBar = if (isLandscape) 36.dp else 32.dp
-            val spacingSeekBarToControlBar = if (isLandscape) 28.dp else 24.dp
+            // responsive paddings & spacing
+            val horizontalPadding = when {
+                isTablet -> 48.dp
+                isLandscape -> 32.dp
+                else -> 0.dp
+            }
+            val verticalPadding = when {
+                isTablet -> 36.dp
+                isLandscape -> 28.dp
+                else -> 24.dp
+            }
+            val spacingInfoToButtons = if (isTablet) 32.dp else if (isLandscape) 28.dp else 24.dp
+            val spacingButtonsToSeekBar = if (isTablet) 40.dp else if (isLandscape) 36.dp else 32.dp
+            val spacingSeekBarToControlBar = if (isTablet) 32.dp else if (isLandscape) 28.dp else 24.dp
 
             if (!isLandscape) {
-                // Portrait layout
+                // Portrait: on tablet we still present a larger album art region
                 Column(modifier = Modifier.fillMaxSize()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f)
+                            .weight(if (isTablet) 0.60f else 1f)
                     ) {
                         AlbumArtDisplay(
                             albumArtUri = uiState.currentAudioFile?.albumArtUri,
                             isPlaying = uiState.isPlaying,
-                            windowWidthSizeClass = WindowWidthSizeClass.Compact, // Unused but passed
                             playerLayout = PlayerLayout.IMMERSIVE_CANVAS,
                             modifier = Modifier.fillMaxSize()
                         )
@@ -248,7 +256,6 @@ fun ImmersiveCanvasLayout(
                                 coroutineScope.launch { sheetState.show() }
                                 showQueueBottomSheet = true
                             },
-                            windowWidthSizeClass = WindowWidthSizeClass.Compact, // Unused but passed
                             selectedLayout = selectedLayout,
                             onLayoutSelected = onLayoutSelected,
                             dynamicContentColor = dynamicContentColor,
@@ -258,12 +265,14 @@ fun ImmersiveCanvasLayout(
                                 .statusBarsPadding()
                         )
                     }
+
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f)
+                            .weight(if (isTablet) 0.40f else 1f)
                             .background(backgroundColor)
-                            .verticalScroll(rememberScrollState()),
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = horizontalPadding, vertical = verticalPadding),
                         horizontalAlignment = Alignment.Start,
                         verticalArrangement = Arrangement.SpaceAround
                     ) {
@@ -375,8 +384,6 @@ fun ImmersiveCanvasLayout(
                             onSetShuffleMode = { newMode -> onEvent(PlayerEvent.SetShuffleMode(newMode)) },
                             onSetRepeatMode = { newMode -> onEvent(PlayerEvent.SetRepeatMode(newMode)) },
                             playerLayout = PlayerLayout.IMMERSIVE_CANVAS,
-                            windowWidthSizeClass = WindowWidthSizeClass.Compact, // Unused but passed
-                            windowHeightSizeClass = WindowHeightSizeClass.Medium // Unused but passed
                         )
                         Spacer(modifier = Modifier.height(spacingSeekBarToControlBar))
                         SeekBarSection(
@@ -395,41 +402,50 @@ fun ImmersiveCanvasLayout(
                             playerLayout = PlayerLayout.IMMERSIVE_CANVAS,
                             isPlaying = uiState.isPlaying
                         )
-                        Spacer(modifier = Modifier.height(spacingSeekBarToControlBar))
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
             } else {
-                // Landscape layout
+                // Landscape: use three columns; on tablet increase left/middle/right proportions
+                val leftWeight = if (isTablet) 1.2f else 1f
+                val middleWeight = if (isTablet) 1.6f else 1.5f
+                val rightWeight = if (isTablet) 1.2f else 1f
+
                 Row(
-                    modifier = Modifier.fillMaxSize().systemBarsPadding().padding(bottom = 13.dp),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .systemBarsPadding()
+                        .padding(bottom = 13.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Album art section
+                    // Album art section (left)
                     Column(
                         modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight(),
+                            .weight(leftWeight)
+                            .fillMaxHeight()
+                            .padding(start = 16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
                         AlbumArtDisplay(
                             albumArtUri = uiState.currentAudioFile?.albumArtUri,
                             isPlaying = uiState.isPlaying,
-                            windowWidthSizeClass = WindowWidthSizeClass.Expanded, // Unused but passed
                             playerLayout = PlayerLayout.IMMERSIVE_CANVAS,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .aspectRatio(1f)
-                                .padding(start = horizontalPadding)
+                                .aspectRatio( 1.0f)
                         )
                     }
-                    Spacer(modifier = Modifier.width(32.dp))
-                    // Controls and info section
+
+                    Spacer(modifier = Modifier.width(if (isTablet) 40.dp else 32.dp))
+
+                    // Controls and info section (middle)
                     Column(
                         modifier = Modifier
-                            .weight(1.5f)
-                            .fillMaxHeight(),
+                            .weight(middleWeight)
+                            .fillMaxHeight()
+                            .padding(horizontal = 8.dp),
                         horizontalAlignment = Alignment.Start,
                         verticalArrangement = Arrangement.SpaceAround
                     ) {
@@ -437,16 +453,16 @@ fun ImmersiveCanvasLayout(
                             onNavigateUp = onNavigateUp,
                             currentSongIndex = currentSongIndex,
                             totalQueueSize = playingQueue.size,
-                            onOpenQueue = { /* No-op for landscape, queue is visible */ },
-                            windowWidthSizeClass = WindowWidthSizeClass.Expanded, // Unused but passed
+                            onOpenQueue = { /* No-op for landscape */ },
                             selectedLayout = selectedLayout,
                             onLayoutSelected = onLayoutSelected,
-                            dynamicContentColor = defaultContentColor // Use default for landscape
+                            dynamicContentColor = defaultContentColor
                         )
-//                        Spacer(modifier = Modifier.height(spacingInfoToButtons))
+
                         Column(
                             modifier = Modifier
-                                .verticalScroll(rememberScrollState()),
+                                .verticalScroll(rememberScrollState())
+                                .padding(end = 8.dp),
                             horizontalAlignment = Alignment.Start,
                             verticalArrangement = Arrangement.SpaceAround
                         ) {
@@ -476,7 +492,9 @@ fun ImmersiveCanvasLayout(
                                     playerLayout = PlayerLayout.IMMERSIVE_CANVAS
                                 )
                             }
+
                             Spacer(modifier = Modifier.height(16.dp))
+
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -526,6 +544,7 @@ fun ImmersiveCanvasLayout(
                                     )
                                 }
                             }
+
                             ControlBar(
                                 shuffleMode = shuffleMode,
                                 isPlaying = uiState.isPlaying,
@@ -544,10 +563,9 @@ fun ImmersiveCanvasLayout(
                                 },
                                 onSetShuffleMode = { newMode -> onEvent(PlayerEvent.SetShuffleMode(newMode)) },
                                 onSetRepeatMode = { newMode -> onEvent(PlayerEvent.SetRepeatMode(newMode)) },
-                                playerLayout = PlayerLayout.IMMERSIVE_CANVAS,
-                                windowWidthSizeClass = WindowWidthSizeClass.Expanded, // Unused but passed
-                                windowHeightSizeClass = WindowHeightSizeClass.Medium // Unused but passed
+                                playerLayout = PlayerLayout.IMMERSIVE_CANVAS
                             )
+
                             SeekBarSection(
                                 sliderValue = uiState.playbackPositionMs.toFloat(),
                                 totalDurationMs = uiState.totalDurationMs,
@@ -563,21 +581,26 @@ fun ImmersiveCanvasLayout(
                                 playerLayout = PlayerLayout.IMMERSIVE_CANVAS,
                                 isPlaying = uiState.isPlaying
                             )
-                            Spacer(modifier = Modifier.height(16.dp))
                         }
                     }
-                    Spacer(modifier = Modifier.width(32.dp))
-                    // Queue section in landscape
+
+                    Spacer(modifier = Modifier.width(if (isTablet) 40.dp else 32.dp))
+
+                    // Queue section (right)
                     Column(
                         modifier = Modifier
-                            .weight(1f)
+                            .weight(rightWeight)
                             .fillMaxHeight()
-                            .systemBarsPadding().padding(end = 8.dp),
+                            .systemBarsPadding()
+                            .padding(end = if (isTablet) 16.dp else 8.dp),
                         horizontalAlignment = Alignment.Start,
                         verticalArrangement = Arrangement.Top
                     ) {
                         PlayingQueueSection(
-                            modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(LocalContentColor.current.copy(alpha = 0.05f)).padding(bottom = 7.dp),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(LocalContentColor.current.copy(alpha = 0.05f))
+                                .padding(bottom = 7.dp),
                             playingQueue = playingQueue,
                             playingAudio = playingAudio,
                             onPlayItem = onPlayQueueItem,

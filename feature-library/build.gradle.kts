@@ -61,7 +61,7 @@ dependencies {
 
     // Hilt (Dependency Injection for this feature)
     implementation(libs.hilt.android)
-    implementation(libs.androidx.material3.window.size.class1.android)
+//    implementation(libs.androidx.material3.window.size.class1.android)
     ksp(libs.hilt.android.compiler)
     implementation(libs.hilt.navigation.compose)
 

@@ -31,7 +31,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -74,12 +73,12 @@ fun MainScreen(
     onPlayPrev: () -> Unit,
     playingAudioFile: AudioFile?,
     isPlaying: Boolean,
-    windowWidthSizeClass: WindowWidthSizeClass,
     onEditSong: (AudioFile) -> Unit,
     onPlayAll: () -> Unit,
     onShuffleAll: () -> Unit,
     audioItems: List<AudioFile>,
     onReleasePlayer: () -> Unit,
+    onCreatePlaylist: () -> Unit,
 ) {
     val bottomNavController = rememberNavController()
     val bottomNavItems = listOf(
@@ -156,14 +155,12 @@ fun MainScreen(
                         onPlayPrev = onPlayPrev,
                         isPlaying = isPlaying,
                         playingAudioFile = playingAudioFile,
-                        windowWidthSizeClass = windowWidthSizeClass
                     )
                 } else {
                     PlayShuffleBar(
                         onPlayAll = onPlayAll,
                         onShuffleAll = onShuffleAll,
-                        modifier = Modifier.fillMaxWidth(),
-                        windowWidthSizeClass = windowWidthSizeClass
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
 
@@ -214,7 +211,7 @@ fun MainScreen(
                 ) // LibraryScreen will be laid out inside NavHost's padded area
             }
             composable(AppDestinations.BottomNavItem.Playlists.baseRoute) {
-                PlaylistsScreen(onPlaylistClick = onPlaylistClick, windowWidthSizeClass = windowWidthSizeClass)
+                PlaylistsScreen(onPlaylistClick = onPlaylistClick, onCreatePlaylist = onCreatePlaylist)
             }
             composable(AppDestinations.BottomNavItem.Favorites.baseRoute) {
                 FavoritesScreen(onEditSong)

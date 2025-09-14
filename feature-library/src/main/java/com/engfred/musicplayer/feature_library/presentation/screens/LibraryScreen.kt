@@ -130,7 +130,7 @@ fun LibraryScreen(
         }
     }
 
-    // --- New: helper states for showing scroll buttons ---
+    // --- helper states for showing scroll buttons ---
 
     // Keep a coroutine scope for scroll animations (animateScrollToItem)
     val coroutineScope = rememberCoroutineScope()
@@ -199,6 +199,15 @@ fun LibraryScreen(
     val showScrollToBottom by remember(userIsScrolling, isAtBottom, currentListCount) {
         derivedStateOf {
             userIsScrolling && !isAtBottom && currentListCount > 0
+        }
+    }
+
+    // Scroll to top when a sort/filter option is applied or changes ---
+    // Do not scroll if the list is already at the top.
+    LaunchedEffect(key1 = uiState.currentFilterOption) {
+        if (lazyListState.firstVisibleItemIndex > 0 || lazyListState.firstVisibleItemScrollOffset > 0) {
+            // animate for smooth UX; replace with scrollToItem(0) if you prefer an instant jump
+            lazyListState.scrollToItem(index = 0)
         }
     }
 
@@ -294,7 +303,7 @@ fun LibraryScreen(
                         // Scroll to top safely
                         coroutineScope.launch {
                             // animate to first item (index 0)
-                            lazyListState.animateScrollToItem(index = 0)
+                            lazyListState.scrollToItem(index = 0)
                         }
                     },
                     // keep default styling - you can customise in theme
@@ -318,7 +327,7 @@ fun LibraryScreen(
                         coroutineScope.launch {
                             // Scroll to last item (index = count - 1). Clamp to 0 if list changes to empty.
                             val lastIndex = (currentListCount - 1).coerceAtLeast(0)
-                            lazyListState.animateScrollToItem(index = lastIndex)
+                            lazyListState.scrollToItem(index = lastIndex)
                         }
                     },
                     containerColor = MaterialTheme.colorScheme.primary

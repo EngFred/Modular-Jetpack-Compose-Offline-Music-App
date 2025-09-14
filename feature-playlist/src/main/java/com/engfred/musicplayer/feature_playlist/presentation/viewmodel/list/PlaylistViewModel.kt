@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import com.engfred.musicplayer.core.domain.repository.PlaybackController
 import com.engfred.musicplayer.core.domain.model.PlaylistLayoutType
 import com.engfred.musicplayer.core.domain.repository.SettingsRepository
-import com.engfred.musicplayer.core.domain.model.Playlist
 import com.engfred.musicplayer.core.domain.repository.PlaylistRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -22,7 +21,6 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
 
 @HiltViewModel
 class PlaylistViewModel @Inject constructor(
@@ -65,27 +63,6 @@ class PlaylistViewModel @Inject constructor(
     fun onEvent(event: PlaylistEvent) {
         viewModelScope.launch {
             when (event) {
-                is PlaylistEvent.CreatePlaylist -> {
-                    if (event.name.isNotBlank()) {
-                        if (uiState.value.userPlaylists.any { it.name.equals(event.name, ignoreCase = true) }) { // Check only user playlists
-                            _uiState.update { it.copy(dialogInputError = "Playlist with this name already exists.") }
-                            return@launch
-                        }
-
-                        val newPlaylist = Playlist(name = event.name, isAutomatic = false, type = null)
-                        try {
-                            playlistRepository.createPlaylist(newPlaylist)
-                            _uiState.update { it.copy(showCreatePlaylistDialog = false, dialogInputError = null) }
-                            _uiEvent.emit("Playlist '${event.name}' created!")
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Error creating playlist: ${e.message}", e)
-                            _uiState.update { it.copy(dialogInputError = "Error creating playlist: ${e.message}") }
-                            _uiEvent.emit("Error creating playlist: ${e.message}")
-                        }
-                    } else {
-                        _uiState.update { it.copy(dialogInputError = "Playlist name cannot be empty.") }
-                    }
-                }
                 is PlaylistEvent.DeletePlaylist -> {
                     if (event.playlistId < 0) {
                         _uiEvent.emit("Automatic playlists cannot be deleted.")
@@ -127,12 +104,6 @@ class PlaylistViewModel @Inject constructor(
                 }
                 PlaylistEvent.LoadPlaylists -> {
                     loadPlaylists()
-                }
-                PlaylistEvent.ShowCreatePlaylistDialog -> {
-                    _uiState.update { it.copy(showCreatePlaylistDialog = true, dialogInputError = null) }
-                }
-                PlaylistEvent.HideCreatePlaylistDialog -> {
-                    _uiState.update { it.copy(showCreatePlaylistDialog = false, dialogInputError = null) }
                 }
                 PlaylistEvent.ToggleLayout -> {
                     _uiState.update {

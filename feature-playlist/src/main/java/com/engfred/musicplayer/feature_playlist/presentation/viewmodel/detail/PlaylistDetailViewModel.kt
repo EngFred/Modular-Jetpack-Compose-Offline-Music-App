@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
@@ -149,6 +150,18 @@ class PlaylistDetailViewModel @Inject constructor(
                         _uiState.update { it.copy(showRenameDialog = false) }
                         return@launch
                     }
+
+                    if (event.newName.equals("Favorites", ignoreCase = true) || event.newName.equals("Favorite", ignoreCase = true)) {
+                        _uiEvent.emit("Cannot use this playlist name! Please choose another.")
+                        return@launch
+                    }
+
+                    val existingPlaylists = playlistRepository.getPlaylists().first().filter { !it.isAutomatic }
+                    if (existingPlaylists.any { it.name.equals(event.newName, ignoreCase = true) }) {
+                        _uiEvent.emit("Playlist with this name already exists.")
+                        return@launch
+                    }
+
                     currentPlaylistId?.let {
                         if (currentPlaylist != null && event.newName.isNotBlank()) {
                             try {
@@ -204,7 +217,7 @@ class PlaylistDetailViewModel @Inject constructor(
                     uiState.value.playlist?.songs?.let { songs ->
                         if(songs.isNotEmpty()) {
                             playbackController.setShuffleMode(ShuffleMode.OFF)
-                            startAudioPlayback(event.audioFile)
+                            startAudioPlayback()
                         } else {
                             _uiEvent.emit("Playlist is empty, cannot play.")
                         }
@@ -332,10 +345,11 @@ class PlaylistDetailViewModel @Inject constructor(
         }
     }
 
-    private suspend fun startAudioPlayback(audioFile: AudioFile) {
+    private suspend fun startAudioPlayback() {
         uiState.value.playlist?.songs?.let {
             sharedAudioDataSource.setPlayingQueue(_uiState.value.sortedSongs)
-            playbackController.initiatePlayback(audioFile.uri)
+            val firstSong = _uiState.value.sortedSongs.first()
+            playbackController.initiatePlayback(firstSong.uri)
         }
     }
 

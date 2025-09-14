@@ -1,20 +1,19 @@
 package com.engfred.musicplayer.feature_library.presentation.components
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Clear
-import androidx.compose.material.icons.rounded.FilterList
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -32,10 +31,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.PopupProperties
 import com.engfred.musicplayer.core.domain.model.FilterOption
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Clear
+import androidx.compose.material.icons.rounded.FilterList
+import androidx.compose.material.icons.rounded.Search
 
 @Composable
 fun SearchBar(
@@ -54,7 +59,7 @@ fun SearchBar(
         onValueChange = onQueryChange,
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
             .clip(RoundedCornerShape(24.dp))
             .heightIn(min = 48.dp),
         placeholder = { Text(placeholder) },
@@ -91,78 +96,84 @@ fun SearchBar(
                         properties = PopupProperties(focusable = true),
                         containerColor = MaterialTheme.colorScheme.surface
                     ) {
-                        DropdownMenuItem(
-                            text = { Text("Date Added (Newest First)") },
-                            onClick = {
-                                onFilterSelected(FilterOption.DATE_ADDED_DESC)
-                                showFilterMenu = false
-                            },
-                            trailingIcon = {
-                                if (currentFilter == FilterOption.DATE_ADDED_DESC) {
-                                    Icon(Icons.Rounded.Check, contentDescription = null)
+                        // Local composable helper
+                        @Composable
+                        fun DropdownMenuItemRow(
+                            label: String,
+                            option: FilterOption,
+                            onClickAction: () -> Unit
+                        ) {
+                            val isSelected = option == currentFilter
+                            val dotColor by animateColorAsState(
+                                targetValue = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+                            )
+
+                            DropdownMenuItem(
+                                text = {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        // Label on the left (emphasize selected with bold + primary color)
+                                        Text(
+                                            text = label,
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                            fontSize = 15.sp,
+                                            modifier = Modifier.weight(1f)
+                                        )
+
+                                        // (Removed Selected chip — minimal UI)
+                                        // We keep the label emphasis and leading radio-dot as the selection affordance
+                                    }
+                                },
+                                onClick = {
+                                    onClickAction()
+                                    showFilterMenu = false
+                                },
+                                leadingIcon = {
+                                    if (isSelected) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(12.dp)
+                                                .clip(CircleShape)
+                                                .background(dotColor)
+                                        )
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(12.dp)
+                                                .clip(CircleShape)
+                                                .border(
+                                                    width = 1.dp,
+                                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
+                                                    shape = CircleShape
+                                                )
+                                        )
+                                    }
                                 }
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Date Added (Oldest First)") },
-                            onClick = {
-                                onFilterSelected(FilterOption.DATE_ADDED_ASC)
-                                showFilterMenu = false
-                            },
-                            trailingIcon = {
-                                if (currentFilter == FilterOption.DATE_ADDED_ASC) {
-                                    Icon(Icons.Rounded.Check, contentDescription = null)
-                                }
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Length (Shortest First)") },
-                            onClick = {
-                                onFilterSelected(FilterOption.LENGTH_ASC)
-                                showFilterMenu = false
-                            },
-                            trailingIcon = {
-                                if (currentFilter == FilterOption.LENGTH_ASC) {
-                                    Icon(Icons.Rounded.Check, contentDescription = null)
-                                }
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Length (Longest First)") },
-                            onClick = {
-                                onFilterSelected(FilterOption.LENGTH_DESC)
-                                showFilterMenu = false
-                            },
-                            trailingIcon = {
-                                if (currentFilter == FilterOption.LENGTH_DESC) {
-                                    Icon(Icons.Rounded.Check, contentDescription = null)
-                                }
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Alphabetical (A-Z)") },
-                            onClick = {
-                                onFilterSelected(FilterOption.ALPHABETICAL_ASC)
-                                showFilterMenu = false
-                            },
-                            trailingIcon = {
-                                if (currentFilter == FilterOption.ALPHABETICAL_ASC) {
-                                    Icon(Icons.Rounded.Check, contentDescription = null)
-                                }
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Alphabetical (Z-A)") },
-                            onClick = {
-                                onFilterSelected(FilterOption.ALPHABETICAL_DESC)
-                                showFilterMenu = false
-                            },
-                            trailingIcon = {
-                                if (currentFilter == FilterOption.ALPHABETICAL_DESC) {
-                                    Icon(Icons.Rounded.Check, contentDescription = null)
-                                }
-                            }
-                        )
+                            )
+                        }
+
+                        DropdownMenuItemRow("Newest First", FilterOption.DATE_ADDED_DESC) {
+                            onFilterSelected(FilterOption.DATE_ADDED_DESC)
+                        }
+                        DropdownMenuItemRow("Oldest First", FilterOption.DATE_ADDED_ASC) {
+                            onFilterSelected(FilterOption.DATE_ADDED_ASC)
+                        }
+                        DropdownMenuItemRow("Shortest First", FilterOption.LENGTH_ASC) {
+                            onFilterSelected(FilterOption.LENGTH_ASC)
+                        }
+                        DropdownMenuItemRow("Longest First", FilterOption.LENGTH_DESC) {
+                            onFilterSelected(FilterOption.LENGTH_DESC)
+                        }
+                        DropdownMenuItemRow("A → Z", FilterOption.ALPHABETICAL_ASC) {
+                            onFilterSelected(FilterOption.ALPHABETICAL_ASC)
+                        }
+                        DropdownMenuItemRow("Z → A", FilterOption.ALPHABETICAL_DESC) {
+                            onFilterSelected(FilterOption.ALPHABETICAL_DESC)
+                        }
                     }
                 }
             }

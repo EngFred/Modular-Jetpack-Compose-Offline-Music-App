@@ -22,14 +22,12 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.engfred.musicplayer.R
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.feature_library.presentation.screens.EditAudioInfoScreenContainer
 import com.engfred.musicplayer.feature_player.presentation.screens.NowPlayingScreen
 import com.engfred.musicplayer.feature_playlist.presentation.screens.CreatePlaylistScreen
 import com.engfred.musicplayer.feature_playlist.presentation.screens.PlaylistDetailScreen
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.detail.PlaylistDetailArgs
-import com.engfred.musicplayer.feature_settings.presentation.screens.SettingsScreen
 import com.engfred.musicplayer.ui.MainScreen
 import com.engfred.musicplayer.ui.about.screen.CustomSplashScreen
 import kotlinx.coroutines.delay
@@ -94,9 +92,6 @@ fun AppNavHost(
                 onNavigateToNowPlaying = onNavigateToNowPlaying,
                 onPlaylistClick = { playlistId ->
                     rootNavController.navigate(AppDestinations.PlaylistDetail.createRoute(playlistId))
-                },
-                onSettingsClick = {
-                    rootNavController.navigate(AppDestinations.Settings.route)
                 },
                 onContactDeveloper = {
                     launchWhatsapp(context = context )
@@ -171,77 +166,6 @@ fun AppNavHost(
                 onEditInfo = {
                     rootNavController.navigate(AppDestinations.EditAudioInfo.createRoute(it.id))
                 }
-            )
-        }
-
-        // Settings
-        composable(
-            route = AppDestinations.Settings.route,
-            enterTransition = {
-                // If we're coming from NowPlaying -> disable enter animation for Settings
-                val from = initialState.destination.route ?: ""
-                if (from == AppDestinations.NowPlaying.route) {
-                    null
-                } else {
-                    // Navigate -> Settings: slide in from right to left
-                    slideInHorizontally(
-                        initialOffsetX = { fullWidth -> fullWidth },
-                        animationSpec = tween(durationMillis = 400)
-                    )
-                }
-            },
-            exitTransition = {
-                // If we're navigating TO NowPlaying -> disable exit animation for Settings
-                val to = targetState.destination.route ?: ""
-                if (to == AppDestinations.NowPlaying.route) {
-                    null
-                } else {
-                    // Navigate away from Settings: slide out to the left
-                    slideOutHorizontally(
-                        targetOffsetX = { fullWidth -> -fullWidth },
-                        animationSpec = tween(durationMillis = 400)
-                    )
-                }
-            },
-            popEnterTransition = {
-                // When popping back to Settings, if we are coming from NowPlaying skip the enter animation
-                val from = initialState.destination.route ?: ""
-                if (from == AppDestinations.NowPlaying.route) {
-                    null
-                } else {
-                    // When popping back to the previous screen, the previous screen should slide in from the left
-                    slideInHorizontally(
-                        initialOffsetX = { fullWidth -> -fullWidth },
-                        animationSpec = tween(durationMillis = 400)
-                    )
-                }
-            },
-            popExitTransition = {
-                // When popping from Settings, if the destination is NowPlaying skip exit animation
-                val to = targetState.destination.route ?: ""
-                if (to == AppDestinations.NowPlaying.route) {
-                    null
-                } else {
-                    // Back press from Settings -> previous: Settings slides out to the right
-                    slideOutHorizontally(
-                        targetOffsetX = { fullWidth -> fullWidth },
-                        animationSpec = tween(durationMillis = 400)
-                    )
-                }
-            }
-        ) {
-            SettingsScreen(
-                githubIconRes = R.drawable.github,
-                linkedInIconRes = R.drawable.linked_in,
-                emailIconRes = R.drawable.gmail,
-                developerAvatarRes = R.drawable.developer_avatar,
-                onNavigateBack = { rootNavController.navigateUp() },
-                onMiniPlayerClick = onNavigateToNowPlaying,
-                onMiniPlayPauseClick = onPlayPause,
-                onMiniPlayNext = onPlayNext,
-                onMiniPlayPrevious = onPlayPrev,
-                playingAudioFile = playingAudioFile,
-                isPlaying = isPlaying,
             )
         }
 

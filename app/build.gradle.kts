@@ -99,7 +99,6 @@ dependencies {
     implementation(project(":feature-library"))
     implementation(project(":feature-player"))
     implementation(project(":feature-playlist"))
-    implementation(project(":feature-favorites"))
     implementation(project(":feature-settings"))
 
     // Testing Dependencies

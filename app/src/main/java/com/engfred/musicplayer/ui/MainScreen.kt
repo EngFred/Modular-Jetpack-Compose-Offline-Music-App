@@ -49,13 +49,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.engfred.musicplayer.R
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.ui.CustomTopBar
 import com.engfred.musicplayer.core.ui.MiniPlayer
 import com.engfred.musicplayer.core.util.restartApp
-import com.engfred.musicplayer.feature_favorites.presentation.screen.FavoritesScreen
 import com.engfred.musicplayer.feature_library.presentation.screens.LibraryScreen
 import com.engfred.musicplayer.feature_playlist.presentation.screens.PlaylistsScreen
+import com.engfred.musicplayer.feature_settings.presentation.screens.SettingsScreen
 import com.engfred.musicplayer.navigation.AppDestinations
 
 /**
@@ -66,7 +67,6 @@ import com.engfred.musicplayer.navigation.AppDestinations
 fun MainScreen(
     onNavigateToNowPlaying: () -> Unit,
     onPlaylistClick: (Long) -> Unit,
-    onSettingsClick: () -> Unit,
     onContactDeveloper: () -> Unit,
     onPlayPause: () -> Unit,
     onPlayNext: () -> Unit,
@@ -84,7 +84,7 @@ fun MainScreen(
     val bottomNavItems = listOf(
         AppDestinations.BottomNavItem.Library,
         AppDestinations.BottomNavItem.Playlists,
-        AppDestinations.BottomNavItem.Favorites,
+        AppDestinations.BottomNavItem.Settings,
     )
     var showDropdownMenu by remember { mutableStateOf(false) }
     var showRestartDialog by remember { mutableStateOf(false) }
@@ -112,13 +112,6 @@ fun MainScreen(
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(MaterialTheme.colorScheme.surface)
                         ) {
-                            DropdownMenuItem(
-                                text = { Text("Settings", color = MaterialTheme.colorScheme.onSurface) },
-                                onClick = {
-                                    showDropdownMenu = false
-                                    onSettingsClick()
-                                }
-                            )
                             DropdownMenuItem(
                                 text = { Text("Contact Developer", color = MaterialTheme.colorScheme.onSurface) },
                                 onClick = {
@@ -213,8 +206,13 @@ fun MainScreen(
             composable(AppDestinations.BottomNavItem.Playlists.baseRoute) {
                 PlaylistsScreen(onPlaylistClick = onPlaylistClick, onCreatePlaylist = onCreatePlaylist)
             }
-            composable(AppDestinations.BottomNavItem.Favorites.baseRoute) {
-                FavoritesScreen(onEditSong)
+            composable(AppDestinations.BottomNavItem.Settings.baseRoute) {
+                SettingsScreen(
+                    githubIconRes = R.drawable.github,
+                    linkedInIconRes = R.drawable.linked_in,
+                    emailIconRes = R.drawable.gmail,
+                    developerAvatarRes = R.drawable.developer_avatar
+                )
             }
         }
     }

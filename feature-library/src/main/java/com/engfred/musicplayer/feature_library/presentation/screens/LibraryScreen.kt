@@ -89,7 +89,7 @@ fun LibraryScreen(
     }
 
     // React to permission state changes:
-    // IMPORTANT: reset isPermissionDialogShowing whenever a response is observed (granted or denied)
+    // reset isPermissionDialogShowing whenever a response is observed (granted or denied)
     LaunchedEffect(permissionState.status) {
         // user responded to permission dialog — hide the "dialog showing" UI
         isPermissionDialogShowing = false

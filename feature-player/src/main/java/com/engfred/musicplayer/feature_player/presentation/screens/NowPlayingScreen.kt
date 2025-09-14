@@ -16,12 +16,12 @@ import com.engfred.musicplayer.feature_player.presentation.layouts.EtherealFlowL
 import com.engfred.musicplayer.feature_player.presentation.layouts.ImmersiveCanvasLayout
 import com.engfred.musicplayer.feature_player.presentation.layouts.MinimalistGrooveLayout
 import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerEvent
-import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerViewModel
+import com.engfred.musicplayer.feature_player.presentation.viewmodel.NowPlayingViewModel
 
 @UnstableApi
 @Composable
 fun NowPlayingScreen(
-    viewModel: PlayerViewModel = hiltViewModel(),
+    viewModel: NowPlayingViewModel = hiltViewModel(),
     onNavigateUp: () -> Unit
 ) {
     val uiState: PlaybackState by viewModel.uiState.collectAsState()

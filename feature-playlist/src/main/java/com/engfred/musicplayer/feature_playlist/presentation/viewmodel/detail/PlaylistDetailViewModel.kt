@@ -118,7 +118,7 @@ class PlaylistDetailViewModel @Inject constructor(
                         }
                         try {
                             playlistRepository.removeSongFromPlaylist(playlistId, audioFileToRemove.id)
-                            playbackController.removeFromQueue(audioFileToRemove)
+                            //playbackController.removeFromQueue(audioFileToRemove)
                             _uiEvent.emit("Removed '${audioFileToRemove.title}' from playlist.")
                             Log.d(TAG, "Removed song ID: ${audioFileToRemove.id} from playlist ID: $playlistId")
                         } catch (e: Exception) {

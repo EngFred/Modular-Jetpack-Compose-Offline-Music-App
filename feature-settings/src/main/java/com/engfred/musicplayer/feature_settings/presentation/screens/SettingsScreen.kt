@@ -1,8 +1,8 @@
 package com.engfred.musicplayer.feature_settings.presentation.screens
 
 import android.content.Intent
-import android.os.Build
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -18,10 +18,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -57,20 +55,17 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.domain.model.AudioPreset
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
 import com.engfred.musicplayer.core.domain.model.PlaylistLayoutType
 import com.engfred.musicplayer.core.ui.theme.AppThemeType
-import com.engfred.musicplayer.core.ui.CustomTopBar
-import com.engfred.musicplayer.core.ui.MiniPlayer
 import com.engfred.musicplayer.feature_settings.presentation.viewmodel.SettingsEvent
 import com.engfred.musicplayer.feature_settings.presentation.viewmodel.SettingsViewModel
 import java.time.Year
@@ -83,48 +78,19 @@ import java.time.Year
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
-    onNavigateBack: () -> Unit,
     @DrawableRes githubIconRes: Int? = null,
     @DrawableRes linkedInIconRes: Int? = null,
     @DrawableRes emailIconRes: Int? = null,
-    @DrawableRes developerAvatarRes: Int? = null,
-    onMiniPlayerClick: () -> Unit,
-    onMiniPlayPauseClick: () -> Unit,
-    onMiniPlayNext: () -> Unit,
-    onMiniPlayPrevious: () -> Unit,
-    playingAudioFile: AudioFile?,
-    isPlaying: Boolean,
+    @DrawableRes developerAvatarRes: Int? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
-        topBar = {
-            CustomTopBar(
-                modifier = Modifier.statusBarsPadding(),
-                title = "Settings",
-                showNavigationIcon = true,
-                onNavigateBack = onNavigateBack
-            )
-        },
-        bottomBar = {
-            if (playingAudioFile != null) {
-                MiniPlayer(
-                    modifier = Modifier.navigationBarsPadding(),
-                    onClick = onMiniPlayerClick,
-                    onPlayPause = onMiniPlayPauseClick,
-                    onPlayNext = onMiniPlayNext,
-                    onPlayPrev = onMiniPlayPrevious,
-                    playingAudioFile = playingAudioFile,
-                    isPlaying = isPlaying
-                )
-            }
-        },
         containerColor = MaterialTheme.colorScheme.background,
         modifier = Modifier.fillMaxSize()
     ) { innerPadding ->
         Column(
             modifier = Modifier
-                .padding(innerPadding)
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 16.dp),
@@ -210,7 +176,7 @@ fun SettingsScreen(
             //     developerAvatarRes = developerAvatarRes // host provides avatar drawable id
             // )
 
-            // REPLACED: simple app version + copyright section
+            //app version + copyright section
             AppVersionSection(
                 copyrightText = "© 2025 Engineer Fred",
             )

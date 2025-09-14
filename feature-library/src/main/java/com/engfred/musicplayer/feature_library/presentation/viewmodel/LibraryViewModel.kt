@@ -8,17 +8,25 @@ import androidx.activity.result.IntentSenderRequest
 import com.engfred.musicplayer.core.common.Resource
 import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
 import com.engfred.musicplayer.core.domain.model.AudioFile
+import com.engfred.musicplayer.core.domain.model.FilterOption
 import com.engfred.musicplayer.core.domain.repository.PlaybackController
 import com.engfred.musicplayer.core.domain.repository.PlaylistRepository
-import com.engfred.musicplayer.core.domain.model.FilterOption
-import com.engfred.musicplayer.core.domain.repository.FavoritesRepository
-import com.engfred.musicplayer.feature_library.domain.usecases.GetAllAudioFilesUseCase
-import com.engfred.musicplayer.core.domain.usecases.PermissionHandlerUseCase
 import com.engfred.musicplayer.core.domain.repository.SettingsRepository
+import com.engfred.musicplayer.core.domain.usecases.PermissionHandlerUseCase
+import com.engfred.musicplayer.feature_library.domain.usecases.GetAllAudioFilesUseCase
 import com.engfred.musicplayer.core.util.MediaUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -29,7 +37,6 @@ class LibraryViewModel @Inject constructor(
     private val sharedAudioDataSource: SharedAudioDataSource,
     private val playbackController: PlaybackController,
     private val playlistRepository: PlaylistRepository,
-    private val favoritesRepository: FavoritesRepository,
     private val settingsRepository: SettingsRepository,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
@@ -99,6 +106,7 @@ class LibraryViewModel @Inject constructor(
                         loadAudioFiles()
                     }
                 }
+
                 LibraryEvent.CheckPermission -> {
                     val granted = permissionHandlerUseCase.hasAudioPermission() &&
                             permissionHandlerUseCase.hasWriteStoragePermission()
@@ -109,7 +117,6 @@ class LibraryViewModel @Inject constructor(
                 }
 
                 is LibraryEvent.PlayAudio -> startAudioPlayback(event.audioFile)
-
                 is LibraryEvent.SearchQueryChanged -> {
                     _uiState.update { it.copy(searchQuery = event.query) }
                     applySearchAndFilter()
@@ -170,7 +177,6 @@ class LibraryViewModel @Inject constructor(
                         val intentSender = MediaUtils.deleteAudioFile(context, audioFile) { success, errorMessage ->
                             onEvent(LibraryEvent.DeletionResult(audioFile, success, errorMessage))
                         }
-
                         if (intentSender != null) {
                             _deleteRequest.emit(IntentSenderRequest.Builder(intentSender).build())
                         }
@@ -181,17 +187,15 @@ class LibraryViewModel @Inject constructor(
                 is LibraryEvent.DeletionResult -> {
                     val audioFile = event.audioFile
                     if (event.success) {
+                        // Update UI and data sources after successful deletion
                         _uiState.update { currentState ->
                             val updatedList = currentState.audioFiles.filter { it.id != audioFile.id }
-
                             val filteredList = updatedList.filter {
                                 it.title.contains(currentState.searchQuery, ignoreCase = true) ||
                                         it.artist?.contains(currentState.searchQuery, ignoreCase = true) == true ||
                                         it.album?.contains(currentState.searchQuery, ignoreCase = true) == true
                             }
-
                             val sorted = sortAudioFiles(filteredList, currentState.currentFilterOption)
-
                             sharedAudioDataSource.setPlayingQueue(sorted)
 
                             currentState.copy(
@@ -201,11 +205,9 @@ class LibraryViewModel @Inject constructor(
                                 audioFileToDelete = null
                             )
                         }
-
                         playbackController.onAudioFileRemoved(audioFile)
                         sharedAudioDataSource.deleteAudioFile(audioFile)
-                        playlistRepository.removeSongFromAllPlaylists(audioFile.id) //Remove the deleted song from all playlists.
-                        favoritesRepository.removeFavoriteAudioFile(audioFile.id) //Remove the deleted song from favorites.
+                        playlistRepository.removeSongFromAllPlaylists(audioFile.id)
                         _uiEvent.emit("Successfully deleted '${audioFile.title}'.")
                     } else {
                         _uiEvent.emit(event.errorMessage ?: "Failed to delete '${audioFile.title}'.")
@@ -235,9 +237,7 @@ class LibraryViewModel @Inject constructor(
                             it.album?.contains(current.searchQuery, ignoreCase = true) == true
                 }
             }
-
             val sortedFiltered = sortAudioFiles(filtered, current.currentFilterOption)
-
             current.copy(filteredAudioFiles = sortedFiltered)
         }
     }
@@ -273,7 +273,6 @@ class LibraryViewModel @Inject constructor(
                             val audioFiles = result.data ?: emptyList()
                             val sortedFiltered = sortAudioFiles(audioFiles, currentState.currentFilterOption)
                             sharedAudioDataSource.setDeviceAudioFiles(audioFiles)
-//                            sharedAudioDataSource.setPlayingQueue(sortedFiltered)
                             currentState.copy(
                                 audioFiles = audioFiles,
                                 filteredAudioFiles = sortedFiltered,

@@ -2,8 +2,8 @@ package com.engfred.musicplayer.navigation
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.List
-import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 
 sealed class AppDestinations(val route: String) {
@@ -23,8 +23,6 @@ sealed class AppDestinations(val route: String) {
     sealed class BottomNavItem(val baseRoute: String, val icon: ImageVector, val label: String) {
         data object Library : BottomNavItem("library", Icons.Rounded.LibraryMusic, "Library")
         data object Playlists : BottomNavItem("playlists", Icons.AutoMirrored.Rounded.List, "Playlists")
-        data object Favorites : BottomNavItem("favorites", Icons.Rounded.Favorite, "Favorites")
+        data object Settings : BottomNavItem("settings", Icons.Rounded.Settings, "Settings")
     }
-
-    data object Settings : AppDestinations("settings")
 }

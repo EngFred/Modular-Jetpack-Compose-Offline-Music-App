@@ -48,7 +48,8 @@ fun PlaylistGridItem(
     playlist: Playlist,
     onClick: (Long) -> Unit,
     onDeleteClick: (Long) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isDeletable: Boolean = true
 ) {
     var showDeleteConfirmationDialog by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
@@ -103,39 +104,40 @@ fun PlaylistGridItem(
                     )
                 }
 
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(4.dp)
-                ) {
-                    IconButton(
-                        onClick = { showMenu = true },
-                        modifier = Modifier.size(32.dp)
+                if (isDeletable) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.MoreVert,
-                            contentDescription = "Playlist options",
-                            tint = Color.White
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Delete Playlist") },
-                            onClick = {
-                                showDeleteConfirmationDialog = true
-                                showMenu = false
-                            },
-                            leadingIcon = {
-                                Icon(Icons.Rounded.Delete, contentDescription = "Delete")
-                            }
-                        )
+                        IconButton(
+                            onClick = { showMenu = true },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.MoreVert,
+                                contentDescription = "Playlist options",
+                                tint = Color.White
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Delete Playlist") },
+                                onClick = {
+                                    showDeleteConfirmationDialog = true
+                                    showMenu = false
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Rounded.Delete, contentDescription = "Delete")
+                                }
+                            )
+                        }
                     }
                 }
-            }
-
+                }
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(

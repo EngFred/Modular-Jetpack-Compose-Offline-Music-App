@@ -46,7 +46,8 @@ fun PlaylistDetailTopBar(
     isAutomaticPlaylist: Boolean,
     onAddSongsClick: () -> Unit,
     onRenamePlaylistClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isEditable: Boolean
 ) {
     Row(
         modifier = modifier
@@ -127,13 +128,15 @@ fun PlaylistDetailTopBar(
                                 onMoreMenuExpandedChange(false)
                             }
                         )
-                        DropdownMenuItem(
-                            text = { Text("Rename playlist") },
-                            onClick = {
-                                onRenamePlaylistClick()
-                                onMoreMenuExpandedChange(false)
-                            }
-                        )
+                        if (isEditable) {
+                            DropdownMenuItem(
+                                text = { Text("Rename playlist") },
+                                onClick = {
+                                    onRenamePlaylistClick()
+                                    onMoreMenuExpandedChange(false)
+                                }
+                            )
+                        }
                     } else {
                         DropdownMenuItem(
                             text = { Text("Cannot modify automatic playlist") },

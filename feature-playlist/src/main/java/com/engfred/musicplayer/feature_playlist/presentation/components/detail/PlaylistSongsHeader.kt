@@ -28,13 +28,13 @@ import com.engfred.musicplayer.feature_playlist.domain.model.PlaylistSortOrder
 
 @Composable
 fun PlaylistSongsHeader(
+    modifier: Modifier = Modifier,
     songCount: Int,
     currentSortOrder: PlaylistSortOrder,
     onSortOrderChange: (PlaylistSortOrder) -> Unit,
     sortMenuExpanded: Boolean,
     onSortMenuExpandedChange: (Boolean) -> Unit,
-    isTopSongs: Boolean = false,
-    modifier: Modifier = Modifier
+    isTopSongs: Boolean = false
 ) {
     Row(
         modifier = modifier
@@ -75,7 +75,8 @@ fun PlaylistSongsHeader(
 
             DropdownMenu(
                 expanded = sortMenuExpanded,
-                onDismissRequest = { onSortMenuExpandedChange(false) }
+                onDismissRequest = { onSortMenuExpandedChange(false) },
+                containerColor = MaterialTheme.colorScheme.surface
             ) {
                 DropdownMenuItem(
                     text = { Text("Date Added") },
@@ -89,7 +90,7 @@ fun PlaylistSongsHeader(
                         } else {
                             Spacer(modifier = Modifier.size(Icons.Rounded.Check.defaultWidth, Icons.Rounded.Check.defaultHeight)) // Placeholder for alignment
                         }
-                    }
+                    },
                 )
                 DropdownMenuItem(
                     text = { Text("Alphabetical (A-Z)") },

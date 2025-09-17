@@ -134,8 +134,6 @@ fun PlaylistsScreen(
                 // Main content: a single vertical scroller. Spacing between *sections* kept at 12.dp.
                 LazyColumn(
                     contentPadding = PaddingValues(
-                        start = contentHorizontalPadding,
-                        end = contentHorizontalPadding,
                         top = 12.dp,
                         bottom = 96.dp // Leave space for FABs
                     ),
@@ -150,7 +148,7 @@ fun PlaylistsScreen(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .wrapContentHeight()
+                                    .wrapContentHeight().padding(horizontal = contentHorizontalPadding)
                             ) {
                                 val automaticItemWidth = if (isLandscape) 200.dp else 160.dp
                                 itemsIndexed(uiState.automaticPlaylists, key = { _, it -> it.id }) { _, playlist ->
@@ -172,7 +170,7 @@ fun PlaylistsScreen(
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onBackground,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
+                                modifier = Modifier.padding(horizontal = contentHorizontalPadding, vertical = 8.dp)
                             )
                         }
 
@@ -184,6 +182,7 @@ fun PlaylistsScreen(
                                     val lastIndex = uiState.userPlaylists.lastIndex
                                     uiState.userPlaylists.forEachIndexed { index, playlist ->
                                         PlaylistListItem(
+                                            modifier = Modifier.padding(start = contentHorizontalPadding, end = 10.dp),
                                             playlist = playlist,
                                             onClick = onPlaylistClick,
                                             onDeleteClick = { playlistId ->

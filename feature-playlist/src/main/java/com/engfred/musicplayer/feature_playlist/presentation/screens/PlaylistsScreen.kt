@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.List
@@ -48,7 +47,7 @@ import com.engfred.musicplayer.core.ui.InfoIndicator
 import com.engfred.musicplayer.core.ui.LoadingIndicator
 import com.engfred.musicplayer.feature_playlist.presentation.components.list.AutomaticPlaylistItem
 import com.engfred.musicplayer.feature_playlist.presentation.components.list.PlaylistGridItem
-import com.engfred.musicplayer.feature_playlist.presentation.components.list.PlaylistItem
+import com.engfred.musicplayer.feature_playlist.presentation.components.list.PlaylistListItem
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.list.PlaylistEvent
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.list.PlaylistViewModel
 import kotlin.math.max
@@ -132,7 +131,7 @@ fun PlaylistsScreen(
             }
 
             else -> {
-                // Main content: a single vertical scroller
+                // Main content: a single vertical scroller. Spacing between *sections* kept at 12.dp.
                 LazyColumn(
                     contentPadding = PaddingValues(
                         start = contentHorizontalPadding,
@@ -140,10 +139,11 @@ fun PlaylistsScreen(
                         top = 12.dp,
                         bottom = 96.dp // Leave space for FABs
                     ),
+                    // we keep spacing between sections; the list content itself will control its dividers/spacing
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    // Automatic playlists row (if any)
+                    // Automatic playlists row (unchanged)
                     if (uiState.automaticPlaylists.isNotEmpty()) {
                         item {
                             LazyRow(
@@ -153,7 +153,7 @@ fun PlaylistsScreen(
                                     .wrapContentHeight()
                             ) {
                                 val automaticItemWidth = if (isLandscape) 200.dp else 160.dp
-                                items(uiState.automaticPlaylists, key = { it.id }) { playlist ->
+                                itemsIndexed(uiState.automaticPlaylists, key = { _, it -> it.id }) { _, playlist ->
                                     AutomaticPlaylistItem(
                                         playlist = playlist,
                                         onClick = onPlaylistClick,
@@ -164,7 +164,7 @@ fun PlaylistsScreen(
                         }
                     }
 
-                    // My Playlists section
+                    // My Playlists section (title as a separate section)
                     if (uiState.userPlaylists.isNotEmpty()) {
                         item {
                             Text(
@@ -176,24 +176,31 @@ fun PlaylistsScreen(
                             )
                         }
 
-                        // Render user playlists based on the current layout
+                        // If LIST layout selected -> rendering a flat Column inside a single LazyColumn item
                         if (uiState.currentLayout == PlaylistLayoutType.LIST) {
-                            items(uiState.userPlaylists, key = { it.id }) { playlist ->
-                                PlaylistItem(
-                                    playlist = playlist,
-                                    onClick = onPlaylistClick,
-                                    onDeleteClick = { playlistId ->
-                                        viewModel.onEvent(PlaylistEvent.DeletePlaylist(playlistId))
-                                    },
-                                    isDeletable = !playlist.name.equals("Favorites", ignoreCase = true)
-                                )
+                            item {
+                                // Render list items manually inside a Column so we can control dividers (no extra spacing)
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    val lastIndex = uiState.userPlaylists.lastIndex
+                                    uiState.userPlaylists.forEachIndexed { index, playlist ->
+                                        PlaylistListItem(
+                                            playlist = playlist,
+                                            onClick = onPlaylistClick,
+                                            onDeleteClick = { playlistId ->
+                                                viewModel.onEvent(PlaylistEvent.DeletePlaylist(playlistId))
+                                            },
+                                            isDeletable = !playlist.name.equals("Favorites", ignoreCase = true),
+                                            showDivider = index < lastIndex
+                                        )
+                                    }
+                                }
                             }
                         } else {
-                            // GRID layout: implemented as chunked rows within the LazyColumn
+                            // GRID layout (unchanged) — chunk into rows
                             val chunks = uiState.userPlaylists.chunked(gridColumns)
                             itemsIndexed(chunks) { _, rowPlaylists ->
                                 Row(
-                                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(0.dp),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     rowPlaylists.forEach { playlist ->

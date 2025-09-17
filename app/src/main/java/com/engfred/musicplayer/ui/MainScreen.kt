@@ -207,12 +207,7 @@ fun MainScreen(
                 PlaylistsScreen(onPlaylistClick = onPlaylistClick, onCreatePlaylist = onCreatePlaylist)
             }
             composable(AppDestinations.BottomNavItem.Settings.baseRoute) {
-                SettingsScreen(
-                    githubIconRes = R.drawable.github,
-                    linkedInIconRes = R.drawable.linked_in,
-                    emailIconRes = R.drawable.gmail,
-                    developerAvatarRes = R.drawable.developer_avatar
-                )
+                SettingsScreen()
             }
         }
     }

@@ -120,7 +120,7 @@ class PlaylistRepositoryImpl @Inject constructor(
                 automaticPlaylists.add(
                     Playlist(
                         id = -1,
-                        name = "20 Recently Added",
+                        name = "Recently Added",
                         songs = recentlyAddedSongs,
                         isAutomatic = true,
                         type = AutomaticPlaylistType.RECENTLY_ADDED
@@ -131,7 +131,7 @@ class PlaylistRepositoryImpl @Inject constructor(
             automaticPlaylists.add(
                 Playlist(
                     id = -2,
-                    name = "Weekly Most Played",
+                    name = "Most Played",
                     songs = topPlayedPairs.map { it.first },
                     isAutomatic = true,
                     type = AutomaticPlaylistType.MOST_PLAYED,

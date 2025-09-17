@@ -26,8 +26,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextOverflow
 
@@ -39,8 +37,8 @@ import androidx.compose.ui.text.style.TextOverflow
  */
 @Composable
 fun PlaylistActionButtons(
-    onPlayClick: () -> Unit,
-    onShuffleClick: () -> Unit,
+    onPlayAllClick: () -> Unit,
+    onShuffleAllClick: () -> Unit,
     isCompact: Boolean,
     modifier: Modifier = Modifier
 ) {
@@ -60,7 +58,7 @@ fun PlaylistActionButtons(
     ) {
         // Play tile - Outlined (looks like Shuffle) with primary-colored border
         OutlinedButton(
-            onClick = onPlayClick,
+            onClick = onPlayAllClick,
             modifier = Modifier
                 .weight(1f)
                 .height(tileHeight)
@@ -119,7 +117,7 @@ fun PlaylistActionButtons(
 
         // Shuffle tile - Outlined style, lighter border (uses secondary)
         OutlinedButton(
-            onClick = onShuffleClick,
+            onClick = onShuffleAllClick,
             modifier = Modifier
                 .weight(1f)
                 .height(tileHeight)
@@ -163,7 +161,7 @@ fun PlaylistActionButtons(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        "Mix order",
+                        "Mixed order",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
                         maxLines = 1,

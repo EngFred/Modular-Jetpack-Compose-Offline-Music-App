@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import com.engfred.musicplayer.core.domain.model.Playlist
 import com.skydoves.landscapist.coil.CoilImage
 import com.engfred.musicplayer.feature_playlist.utils.TextUtils
+import com.skydoves.landscapist.ImageOptions
 
 @Composable
 fun AutomaticPlaylistItem(
@@ -66,6 +68,9 @@ fun AutomaticPlaylistItem(
                     CoilImage(
                         imageModel = { firstSongAlbumArtUri },
                         modifier = Modifier.fillMaxSize(),
+                        imageOptions = ImageOptions(
+                            contentScale = ContentScale.FillBounds
+                        ),
                         loading = {
                             Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant))
                         },

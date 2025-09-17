@@ -34,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -42,6 +43,7 @@ import com.engfred.musicplayer.core.domain.model.Playlist
 import com.engfred.musicplayer.feature_playlist.presentation.components.DeleteConfirmationDialog
 import com.skydoves.landscapist.coil.CoilImage
 import com.engfred.musicplayer.feature_playlist.utils.TextUtils
+import com.skydoves.landscapist.ImageOptions
 
 @Composable
 fun PlaylistGridItem(
@@ -82,6 +84,9 @@ fun PlaylistGridItem(
                 if (firstSongAlbumArtUri != null) {
                     CoilImage(
                         imageModel = { firstSongAlbumArtUri },
+                        imageOptions = ImageOptions(
+                            contentScale = ContentScale.FillBounds
+                        ),
                         modifier = Modifier.fillMaxSize(),
                         loading = {
                             Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant))

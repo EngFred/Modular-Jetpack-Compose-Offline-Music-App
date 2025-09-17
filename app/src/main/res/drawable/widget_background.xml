@@ -20,7 +20,7 @@
             android:endColor="#FF2B2B5F"
             android:type="linear" />
             <!-- faint border to separate from wallpaper -->
-            <stroke android:width="1dp" android:color="#33FFFFFF" />
+            <stroke android:width="1dp" android:color="#FF2B2B5F" />
             <!-- small padding inside -->
             <padding android:left="10dp" android:top="10dp" android:right="10dp" android:bottom="10dp" />
         </shape>

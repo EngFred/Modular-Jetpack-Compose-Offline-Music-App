@@ -63,9 +63,10 @@ class PlaylistViewModel @Inject constructor(
         // Load the saved playlist layout from settings
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val savedLayout = settingsRepository.getAppSettings().first().playlistLayoutType
-                _uiState.update { currentState ->
-                    currentState.copy(currentLayout = savedLayout)
+               settingsRepository.getAppSettings().collect {
+                    _uiState.update { currentState ->
+                        currentState.copy(currentLayout = it.playlistLayoutType)
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to load playlist layout from settings: ${e.message}", e)

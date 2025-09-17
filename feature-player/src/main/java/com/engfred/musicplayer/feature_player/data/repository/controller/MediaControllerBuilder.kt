@@ -28,7 +28,7 @@ class MediaControllerBuilder(
     suspend fun buildAndConnectController() {
         withContext(Dispatchers.Main) {
             var attempts = 0
-            val maxAttempts = 3
+            val maxAttempts = 6
             var lastError: Throwable? = null
 
             while (attempts < maxAttempts) {
@@ -43,7 +43,7 @@ class MediaControllerBuilder(
                     lastError = e
                     attempts++
                     Log.w(TAG, "Failed to connect MediaController (attempt $attempts/$maxAttempts): ${e.message}")
-                    delay(300L * attempts) // backoff
+                    delay(600L * attempts) // backoff
                 }
             }
 

@@ -213,7 +213,7 @@ class PlaylistDetailViewModel @Inject constructor(
                     }
                 }
 
-                is PlaylistDetailEvent.PlaySong -> {
+                PlaylistDetailEvent.PlayAll -> {
                     uiState.value.playlist?.songs?.let { songs ->
                         if(songs.isNotEmpty()) {
                             playbackController.setShuffleMode(ShuffleMode.OFF)
@@ -224,7 +224,7 @@ class PlaylistDetailViewModel @Inject constructor(
                     }
                 }
 
-                PlaylistDetailEvent.ShufflePlay -> {
+                PlaylistDetailEvent.ShuffleAll -> {
                     uiState.value.playlist?.songs?.let { songs ->
                         if (songs.isNotEmpty()) {
                             playbackController.initiateShufflePlayback(songs)
@@ -281,6 +281,15 @@ class PlaylistDetailViewModel @Inject constructor(
                             currentSortOrder = event.sortOrder,
                             sortedSongs = sorted
                         )
+                    }
+                }
+
+                is PlaylistDetailEvent.PlayAudio -> {
+                    if (uiState.value.playlist?.songs?.isNotEmpty() == true) {
+                        sharedAudioDataSource.setPlayingQueue(uiState.value.sortedSongs)
+                        playbackController.initiatePlayback(event.audioFile.uri)
+                    } else {
+                        _uiEvent.emit("Playlist is empty, cannot play.")
                     }
                 }
             }

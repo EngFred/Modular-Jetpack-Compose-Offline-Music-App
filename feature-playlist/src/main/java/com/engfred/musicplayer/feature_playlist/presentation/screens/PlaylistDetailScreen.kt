@@ -229,18 +229,18 @@ fun PlaylistDetailScreen(
                             else -> {
                                 Column(Modifier.fillMaxWidth()) {
                                     PlaylistActionButtons(
-                                        onPlayClick = {
+                                        onPlayAllClick = {
                                             uiState.playlist?.songs?.let { songs ->
                                                 if (songs.isNotEmpty()) {
-                                                    viewModel.onEvent(PlaylistDetailEvent.PlaySong(songs.first()))
+                                                    viewModel.onEvent(PlaylistDetailEvent.PlayAll)
                                                 } else {
                                                     Toast.makeText(context, "Playlist is empty, cannot play.", Toast.LENGTH_SHORT).show()
                                                 }
                                             }
                                         },
-                                        onShuffleClick = {
+                                        onShuffleAllClick = {
                                             if (uiState.playlist?.songs?.isNotEmpty() == true) {
-                                                viewModel.onEvent(PlaylistDetailEvent.ShufflePlay)
+                                                viewModel.onEvent(PlaylistDetailEvent.ShuffleAll)
                                             } else {
                                                 Toast.makeText(context, "Playlist is empty, cannot shuffle play.", Toast.LENGTH_SHORT).show()
                                             }
@@ -284,7 +284,7 @@ fun PlaylistDetailScreen(
                             AudioFileItem(
                                 audioFile = audioFile,
                                 isCurrentPlayingAudio = (audioFile.id == uiState.currentPlayingAudioFile?.id),
-                                onClick = { clickedAudioFile -> viewModel.onEvent(PlaylistDetailEvent.PlaySong(clickedAudioFile)) },
+                                onClick = { clickedAudioFile -> viewModel.onEvent(PlaylistDetailEvent.PlayAudio(clickedAudioFile)) },
                                 onRemoveOrDelete = { song -> viewModel.onEvent(PlaylistDetailEvent.ShowRemoveSongConfirmation(song)) },
                                 modifier = Modifier.animateItem(),
                                 isAudioPlaying = uiState.isPlaying,
@@ -325,14 +325,14 @@ fun PlaylistDetailScreen(
 
                     item {
                         PlaylistActionButtons(
-                            onPlayClick = {
+                            onPlayAllClick = {
                                 uiState.playlist?.songs?.firstOrNull()?.let { firstSong ->
-                                    viewModel.onEvent(PlaylistDetailEvent.PlaySong(firstSong))
+                                    viewModel.onEvent(PlaylistDetailEvent.PlayAll)
                                 }
                             },
-                            onShuffleClick = {
+                            onShuffleAllClick = {
                                 if (uiState.playlist?.songs?.isNotEmpty() == true) {
-                                    viewModel.onEvent(PlaylistDetailEvent.ShufflePlay)
+                                    viewModel.onEvent(PlaylistDetailEvent.ShuffleAll)
                                 }
                             },
                             isCompact = false
@@ -376,7 +376,7 @@ fun PlaylistDetailScreen(
                                 PlaylistSongs(
                                     songs = uiState.sortedSongs,
                                     currentPlayingId = uiState.currentPlayingAudioFile?.id,
-                                    onSongClick = { clickedAudioFile -> viewModel.onEvent(PlaylistDetailEvent.PlaySong(clickedAudioFile)) },
+                                    onSongClick = { clickedAudioFile -> viewModel.onEvent(PlaylistDetailEvent.PlayAudio(clickedAudioFile)) },
                                     onSongRemove = { song -> viewModel.onEvent(PlaylistDetailEvent.ShowRemoveSongConfirmation(song)) },
                                     listState = rightListState,
                                     isAudioPlaying = uiState.isPlaying,

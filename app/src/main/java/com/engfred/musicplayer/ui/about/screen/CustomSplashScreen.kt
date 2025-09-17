@@ -27,7 +27,7 @@ import com.engfred.musicplayer.R
 @SuppressLint("SourceLockedOrientationActivity")
 @Composable
 fun CustomSplashScreen() {
-    val splashBackgroundColor = Color(0xFF23052B)
+    val splashBackgroundColor = Color(0xFF2B2B5F)
 
     val activity = LocalActivity.current
 

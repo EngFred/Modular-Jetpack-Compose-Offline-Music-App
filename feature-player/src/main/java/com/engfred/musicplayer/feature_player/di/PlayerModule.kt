@@ -2,24 +2,22 @@ package com.engfred.musicplayer.feature_player.di
 
 import android.content.ComponentName
 import android.content.Context
-import androidx.media3.common.AudioAttributes
-import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.SessionToken
+import com.engfred.musicplayer.feature_player.data.service.ExoPlayerProvider
+import com.engfred.musicplayer.feature_player.data.service.PlaybackService
+import com.engfred.musicplayer.feature_player.data.service.MusicNotificationProvider
+import com.engfred.musicplayer.feature_player.data.repository.PlaybackControllerImpl
 import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
 import com.engfred.musicplayer.core.domain.repository.PlaybackController
-import com.engfred.musicplayer.core.domain.repository.PlaylistRepository
-import com.engfred.musicplayer.core.domain.usecases.PermissionHandlerUseCase
-import com.engfred.musicplayer.feature_player.data.service.PlaybackService
 import com.engfred.musicplayer.core.mapper.AudioFileMapper
-import com.engfred.musicplayer.feature_player.data.repository.PlaybackControllerImpl
-import com.engfred.musicplayer.feature_player.data.service.MusicNotificationProvider
+import com.engfred.musicplayer.core.domain.usecases.PermissionHandlerUseCase
+import com.engfred.musicplayer.core.domain.repository.PlaylistRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Singleton
 
 @Module
@@ -28,20 +26,8 @@ object PlayerModule {
 
     @Provides
     @Singleton
-    fun provideExoPlayer(
-        @ApplicationContext context: Context
-    ): ExoPlayer {
-        // Grok: Configure ExoPlayer with AudioAttributes and noise handling, matching PlaybackService
-        return ExoPlayer.Builder(context).build().apply {
-            setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(C.USAGE_MEDIA)
-                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                    .build(),
-                true
-            )
-            setHandleAudioBecomingNoisy(true)
-        }
+    fun provideExoPlayerProvider(@ApplicationContext context: Context): ExoPlayerProvider {
+        return ExoPlayerProvider(context)
     }
 
     @UnstableApi

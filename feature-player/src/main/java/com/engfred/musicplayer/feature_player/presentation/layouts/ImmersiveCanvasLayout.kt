@@ -266,17 +266,18 @@ fun ImmersiveCanvasLayout(
                         )
                     }
 
+                    //*********************** PORTRAIT BOTTOM SECTION *************************//
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(if (isTablet) 0.40f else 1f)
                             .background(backgroundColor)
                             .verticalScroll(rememberScrollState())
-                            .padding(horizontal = horizontalPadding, vertical = verticalPadding),
+                            .padding(start = horizontalPadding, end = horizontalPadding, bottom = 5.dp),
                         horizontalAlignment = Alignment.Start,
                         verticalArrangement = Arrangement.SpaceAround
                     ) {
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(2.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,

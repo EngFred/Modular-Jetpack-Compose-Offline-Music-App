@@ -54,13 +54,11 @@ class PlaybackControllerImpl @Inject constructor(
 
     private val mediaController = MutableStateFlow<MediaController?>(null)
     private val _playbackState = MutableStateFlow(PlaybackState())
-    override fun getPlaybackState(): kotlinx.coroutines.flow.Flow<PlaybackState> = _playbackState.asStateFlow()
+    override fun getPlaybackState() = _playbackState.asStateFlow()
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var attachedController: MediaController? = null
     private val pendingPlayNextMediaId = MutableStateFlow<String?>(null)
 
-    // Keep the last "intended" repeat mode (comes from preferences or user action)
-    // This is applied to the controller as soon as it is available.
     @Volatile
     private var intendedRepeatMode: RepeatMode = RepeatMode.OFF
 
@@ -94,25 +92,21 @@ class PlaybackControllerImpl @Inject constructor(
     init {
         Log.d(TAG, "Initializing PlayerControllerImpl")
 
-        // 1) Start collecting settings first so intendedRepeatMode is known early.
         repositoryScope.launch {
             settingsRepository.getAppSettings()
-                .map { it.repeatMode } // map to RepeatMode
+                .map { it.repeatMode }
                 .distinctUntilChanged()
                 .collectLatest { mode ->
                     Log.d(TAG, "Settings repository emitted repeat mode: $mode")
                     intendedRepeatMode = mode
-                    // Apply to controller if available; if not available, setRepeatMode will store for later application.
                     setRepeatMode(mode)
                 }
         }
 
-        // 2) Build and connect the media controller after we've started listening to settings.
         repositoryScope.launch {
             mediaControllerBuilder.buildAndConnectController()
         }
 
-        // 3) React to mediaController changes (attach/detach) on Main thread
         repositoryScope.launch {
             mediaController.collectLatest { newController ->
                 withContext(Dispatchers.Main) {
@@ -121,12 +115,7 @@ class PlaybackControllerImpl @Inject constructor(
                         newController.addListener(controllerCallback)
                         attachedController = newController
                         Log.d(TAG, "PlayerControllerImpl received and attached to shared MediaController.")
-
-                        // Apply the intended repeat mode (whatever was read from prefs or previously set)
-                        // We call the suspend setRepeatMode which will apply to the attached controller.
                         setRepeatMode(intendedRepeatMode)
-
-                        // Update other state and start tracking progress
                         stateUpdater.updatePlaybackState()
                         progressTracker.updateCurrentAudioFilePlaybackProgress(newController)
                     } else {
@@ -140,26 +129,25 @@ class PlaybackControllerImpl @Inject constructor(
             }
         }
 
-        // 4) Start progress tracker loop
         repositoryScope.launch {
             progressTracker.playEventRecorder = controllerCallback
             progressTracker.startPlaybackPositionUpdates()
         }
     }
 
-    override suspend fun initiatePlayback(initialAudioFileUri: android.net.Uri) {
-        queueManager.initiatePlayback(initialAudioFileUri, intendedRepeatMode)
+    override suspend fun initiatePlayback(initialAudioFileUri: android.net.Uri, startPositionMs: Long) {
+        queueManager.initiatePlayback(initialAudioFileUri, intendedRepeatMode, startPositionMs)
     }
 
-    override suspend fun initiateShufflePlayback(playingQueue: List<AudioFile>) {
+    override suspend fun initiateShufflePlayback(playingQueue: List<AudioFile>, startPositionMs: Long) {
         if (playingQueue.isEmpty()) {
             Log.w(TAG, "Cannot initiate shuffle playback: empty queue.")
             return
         }
-
         val shuffledQueue = playingQueue.shuffled()
         sharedAudioDataSource.setPlayingQueue(shuffledQueue)
-        initiatePlayback(shuffledQueue.first().uri)
+        // start playback at shuffledQueue.first() and apply startPositionMs
+        initiatePlayback(shuffledQueue.first().uri, startPositionMs)
     }
 
     override suspend fun playPause() {
@@ -192,14 +180,7 @@ class PlaybackControllerImpl @Inject constructor(
         }
     }
 
-    /**
-     * Sets repeat mode on the MediaController if available, otherwise stores it to apply later.
-     *
-     * NOTE: This function applies the *intended* repeat mode but does NOT persist it to preferences.
-     * Persisting should be done by the settings UI (call settingsRepository.updateRepeatMode(mode)).
-     */
     override suspend fun setRepeatMode(mode: RepeatMode) {
-        // remember intention immediately (helps avoid races)
         intendedRepeatMode = mode
 
         withContext(Dispatchers.Main) {
@@ -210,7 +191,6 @@ class PlaybackControllerImpl @Inject constructor(
                     RepeatMode.ALL -> Player.REPEAT_MODE_ALL
                 }
                 Log.d(TAG, "Set repeat mode to $mode on MediaController")
-                // Optionally update playback state object so UI reads the current mode immediately
                 _playbackState.update { it.copy(repeatMode = mode) }
             } ?: Log.w(TAG, "MediaController not set when trying to set repeat mode. Stored $mode for later.")
         }

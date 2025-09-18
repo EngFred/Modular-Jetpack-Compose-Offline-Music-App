@@ -22,12 +22,24 @@ import androidx.annotation.OptIn
 import androidx.annotation.RequiresApi
 import androidx.core.graphics.createBitmap
 import androidx.core.net.toUri
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import java.util.Locale
 
 private const val TAG = "WidgetUpdater"
+
+/**
+ * Data class for holding display information when the player is idle but a last playback state exists.
+ */
+data class WidgetDisplayInfo(
+    val title: String,
+    val artist: String,
+    val durationMs: Long,
+    val positionMs: Long,
+    val artworkUri: Uri?
+)
 
 /**
  * Contains the large widget update logic extracted from PlaybackService.
@@ -38,7 +50,12 @@ private const val TAG = "WidgetUpdater"
 @RequiresApi(Build.VERSION_CODES.P)
 object WidgetUpdater {
 
-    fun updateWidget(context: Context, exoPlayer: ExoPlayer) {
+    fun updateWidget(
+        context: Context,
+        exoPlayer: ExoPlayer,
+        idleDisplayInfo: WidgetDisplayInfo? = null,
+        idleRepeatMode: Int = Player.REPEAT_MODE_OFF
+    ) {
         try {
             val providerComponent = ComponentName(context.packageName, PlaybackService.WIDGET_PROVIDER_CLASS)
             val appWidgetManager = AppWidgetManager.getInstance(context)
@@ -52,12 +69,7 @@ object WidgetUpdater {
 
             val current = exoPlayer.currentMediaItem
             val isIdle = current == null
-            val isPlaying = exoPlayer.isPlaying
-
-            val metadata = current?.mediaMetadata
-            val currentPositionMs = if (isIdle) 0L else exoPlayer.currentPosition
-            val totalDurationMs = if (isIdle) 0L else exoPlayer.duration
-            val durationText = if (isIdle) "00:00 / 00:00" else "${formatDuration(currentPositionMs)} / ${formatDuration(totalDurationMs)}"
+            val showFullInfo = !isIdle || (idleDisplayInfo != null)
 
             val idPlayPause = resources.getIdentifier("widget_play_pause", "id", context.packageName)
             val idNext = resources.getIdentifier("widget_next", "id", context.packageName)
@@ -68,7 +80,8 @@ object WidgetUpdater {
             val idArtist = resources.getIdentifier("widget_artist", "id", context.packageName)
             val idDuration = resources.getIdentifier("widget_duration", "id", context.packageName)
 
-            if (isIdle) {
+            if (!showFullInfo) {
+                // Plain idle: only play button
                 if (idleLayoutId == 0) {
                     Log.w(TAG, "widget_player_idle layout missing; falling back to full with hides")
                     val fallbackViews = RemoteViews(context.packageName, fullLayoutId)
@@ -89,18 +102,27 @@ object WidgetUpdater {
                             Log.w(TAG, "Error updating idle widget id=$appWidgetId: ${e.message}")
                         }
                     }
-                    return
                 }
+                return
             }
 
-            val title = metadata?.title?.toString() ?: getStringSafe(context, "app_name")
-            val artist = metadata?.artist?.toString() ?: getStringSafe(context, "app_name")
+            // Show full info: either current media or idle display info
+            val metadata: MediaMetadata? = if (!isIdle) current?.mediaMetadata else null
+            val title = if (!isIdle) (metadata?.title?.toString() ?: getStringSafe(context, "app_name"))
+            else idleDisplayInfo!!.title
+            val artist = if (!isIdle) (metadata?.artist?.toString() ?: getStringSafe(context, "app_name"))
+            else idleDisplayInfo!!.artist
+            val currentPositionMs = if (!isIdle) exoPlayer.currentPosition.coerceAtLeast(0L) else idleDisplayInfo!!.positionMs
+            val totalDurationMs = if (!isIdle) exoPlayer.duration.takeIf { it > 0L } ?: 0L else idleDisplayInfo!!.durationMs
+            val durationText = "${formatDuration(currentPositionMs)} / ${formatDuration(totalDurationMs)}"
+
             val baseViews = RemoteViews(context.packageName, fullLayoutId)
 
             if (idTitle != 0) baseViews.setTextViewText(idTitle, title)
             if (idArtist != 0) baseViews.setTextViewText(idArtist, artist)
             if (idDuration != 0) baseViews.setTextViewText(idDuration, durationText)
 
+            val isPlaying = exoPlayer.isPlaying
             val playDrawableResName = if (isPlaying) "ic_pause_24" else "ic_play_arrow_24"
             val playDrawableId = resources.getIdentifier(playDrawableResName, "drawable", context.packageName)
             if (idPlayPause != 0 && playDrawableId != 0) {
@@ -108,7 +130,8 @@ object WidgetUpdater {
             }
 
             // load artwork
-            var artBitmap = tryLoadArtwork(context, metadata?.artworkUri)
+            val artworkUri: Uri? = if (!isIdle) metadata?.artworkUri else idleDisplayInfo!!.artworkUri
+            var artBitmap = tryLoadArtwork(context, artworkUri)
             if (artBitmap == null) {
                 val defaultId = resources.getIdentifier("ic_music_note_24", "drawable", context.packageName)
                 if (defaultId != 0) {
@@ -126,7 +149,7 @@ object WidgetUpdater {
             if (idPrev != 0) baseViews.setInt(idPrev, "setColorFilter", android.graphics.Color.WHITE)
             if (idNext != 0) baseViews.setInt(idNext, "setColorFilter", android.graphics.Color.WHITE)
 
-            val repeatMode = exoPlayer.repeatMode
+            val repeatMode = if (!isIdle) exoPlayer.repeatMode else idleRepeatMode
             val repeatDrawableResName = when (repeatMode) {
                 Player.REPEAT_MODE_ONE -> "ic_repeat_one_24"
                 Player.REPEAT_MODE_ALL -> "ic_repeat_on_24"
@@ -202,7 +225,7 @@ object WidgetUpdater {
         }
     }
 
-    private fun tryLoadArtwork(context: Context, uri: Uri?): android.graphics.Bitmap? {
+    private fun tryLoadArtwork(context: Context, uri: Uri?): Bitmap? {
         if (uri == null) return null
         return try {
             context.contentResolver.openInputStream(uri)?.use { input ->

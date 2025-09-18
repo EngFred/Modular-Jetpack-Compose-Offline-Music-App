@@ -35,9 +35,12 @@ class QueueManager(
     /**
      * Initiates playback of a given audio file within the current playing queue.
      * If the queue doesn't match the controller's queue, it will be set.
+     *
      * @param initialAudioFileUri The [android.net.Uri] of the audio file to start playback from.
+     * @param intendedRepeat the repeat mode intended to be applied after setting media items.
+     * @param startPositionMs position (ms) to start playback from, or C.TIME_UNSET to use default.
      */
-    suspend fun initiatePlayback(initialAudioFileUri: android.net.Uri, intendedRepeat: RepeatMode) {
+    suspend fun initiatePlayback(initialAudioFileUri: android.net.Uri, intendedRepeat: RepeatMode, startPositionMs: Long = C.TIME_UNSET) {
         withContext(Dispatchers.Main) {
             val controller = mediaController.value
             if (controller == null) {
@@ -84,37 +87,52 @@ class QueueManager(
             val currentMediaItemsMatchSharedSource = controller.mediaItemCount == playingQueue.size &&
                     currentMediaIds == sharedMediaIds
 
+            Log.d(TAG, "Initiating playback. startIndex=$startIndex startPositionMs=$startPositionMs queueMatch=$currentMediaItemsMatchSharedSource")
+
             if (currentMediaItemsMatchSharedSource) {
                 val currentMediaId = controller.currentMediaItem?.mediaId
-                if (currentMediaId == desiredMediaId && controller.isPlaying) {
-                    Log.d(TAG, "Already playing desired song. No action needed.")
+                if (currentMediaId == desiredMediaId && controller.isPlaying && (startPositionMs == C.TIME_UNSET || startPositionMs <= 0)) {
+                    Log.d(TAG, "Already playing desired song and no seek needed. No action.")
                     return@withContext
                 }
 
                 // Temporarily disable shuffle to seek deterministically
                 val wasShuffle = controller.shuffleModeEnabled
                 controller.shuffleModeEnabled = false
-                controller.seekToDefaultPosition(startIndex)
-                controller.shuffleModeEnabled = wasShuffle
+
+                try {
+                    if (startPositionMs != C.TIME_UNSET && startPositionMs > 0) {
+                        // seek to index + position
+                        controller.seekTo(startIndex, startPositionMs)
+                        Log.d(TAG, "seekTo(index=$startIndex, pos=$startPositionMs) on existing queue")
+                    } else {
+                        controller.seekToDefaultPosition(startIndex)
+                        Log.d(TAG, "seekToDefaultPosition(index=$startIndex) on existing queue")
+                    }
+                } finally {
+                    controller.shuffleModeEnabled = wasShuffle
+                }
 
                 if (!controller.isPlaying) {
                     controller.play()
                 }
                 stateUpdater.updatePlaybackState()
                 progressTracker.updateCurrentAudioFilePlaybackProgress(controller)
-                Log.d(TAG, "Repositioned playback within existing queue to index $startIndex.")
+                Log.d(TAG, "Repositioned playback within existing queue to index $startIndex with pos=$startPositionMs.")
             } else {
-                // Use the playing queue as-is without filtering
                 try {
                     val mediaItems = playingQueue.map { audioFileMapper.mapAudioFileToMediaItem(it) }
-                    controller.setMediaItems(mediaItems, startIndex, C.TIME_UNSET)
+                    // When setting media items you can pass a start position to begin playback from that offset
+                    val startPosToUse = if (startPositionMs != C.TIME_UNSET && startPositionMs > 0) startPositionMs else C.TIME_UNSET
+                    controller.setMediaItems(mediaItems, startIndex, startPosToUse)
+                    Log.d(TAG, "setMediaItems called. startIndex=$startIndex startPos=$startPosToUse count=${mediaItems.size}")
 
                     // Re-apply stored repeat and shuffle modes
                     setRepeatCallback(intendedRepeat)
 
                     controller.prepare()
                     controller.play()
-                    Log.d(TAG, "Initiated playback without filtering. StartIndex=$startIndex")
+                    Log.d(TAG, "Initiated playback with new queue. StartIndex=$startIndex pos=$startPosToUse")
                     progressTracker.updateCurrentAudioFilePlaybackProgress(controller)
                 } catch (e: Exception) {
                     Log.e(TAG, "Error setting media items or playing during initiation: ${e.message}", e)
@@ -126,7 +144,6 @@ class QueueManager(
 
     /**
      * Adds an [AudioFile] to the player's queue right after the currently playing song.
-     * @param audioFile The [AudioFile] to add to the queue.
      */
     suspend fun addAudioToQueueNext(audioFile: AudioFile) {
         withContext(Dispatchers.Main) {
@@ -137,7 +154,6 @@ class QueueManager(
                 return@withContext
             }
 
-            // Pre-add to queue accessibility check
             val isAccessible = isAudioFileAccessible(context, audioFile.uri, permissionHandlerUseCase)
             if (!isAccessible) {
                 Log.e(TAG, "Audio file is not accessible for 'Play Next': ${audioFile.uri}. Aborting add.")
@@ -149,7 +165,6 @@ class QueueManager(
             val newItemMediaId = mediaItemToAdd.mediaId
             Log.d(TAG, "Attempting to 'Play Next': Title='${audioFile.title}', AudioFile.ID='${audioFile.id}', NewItemMediaId='$newItemMediaId'")
 
-            // FIX: Temporarily disable shuffle to insert exactly next, restore later via callback if was enabled.
             val wasShuffle = controller.shuffleModeEnabled
             controller.shuffleModeEnabled = false
 
@@ -168,27 +183,23 @@ class QueueManager(
 
                 Log.d(TAG, "Added ${audioFile.title} (ID: ${audioFile.id}) to queue at index $insertIndex (Play Next).")
 
-                // If this was the very first item added and the player was idle, start playback
                 if (controller.mediaItemCount == 1 && !controller.isPlaying && controller.playbackState == Player.STATE_IDLE) {
                     controller.prepare()
                     controller.play()
                     Log.d(TAG, "Started playback as it was the first item in the queue.")
                     progressTracker.updateCurrentAudioFilePlaybackProgress(controller)
                 }
-
             } catch (e: Exception) {
                 Log.e(TAG, "Error adding media item to queue: ${e.message}", e)
                 playbackState.update { it.copy(error = "Error adding song to queue: ${e.message}") }
             } finally {
-                // Note: Shuffle is left disabled if was enabled; it will be re-enabled in the callback on transition.
+                // Do not re-enable shuffle here — restored in callback if needed.
             }
         }
     }
 
     /**
-     * Handles the event when an audio file is removed from the device's storage.
-     * It attempts to remove the corresponding media item from the player's queue.
-     * @param deletedAudioFile The [AudioFile] that was removed.
+     * Handles when an audio file is removed from storage.
      */
     suspend fun onAudioFileRemoved(deletedAudioFile: AudioFile) {
         Log.d(TAG, "onAudioFileRemoved: Attempting to remove '${deletedAudioFile.title}' (ID: ${deletedAudioFile.id}) from player queue.")
@@ -200,12 +211,8 @@ class QueueManager(
                 return@withContext
             }
 
-            Log.d(TAG, "onAudioFileRemoved: Attempting to remove '${deletedAudioFile.title}' (ID: ${deletedAudioFile.id}) from player queue.")
-
             val deletedMediaId = deletedAudioFile.id.toString()
             var removedIndex: Int? = null
-
-            // Find the index of the deleted song in the player's current queue
             for (i in 0 until controller.mediaItemCount) {
                 val mediaItem = controller.getMediaItemAt(i)
                 if (mediaItem.mediaId == deletedMediaId) {
@@ -216,7 +223,6 @@ class QueueManager(
 
             if (removedIndex != null) {
                 try {
-                    // Check if the deleted song was currently playing
                     val wasPlayingDeletedSong = (controller.currentMediaItemIndex == removedIndex) && controller.isPlaying
 
                     controller.removeMediaItem(removedIndex)
@@ -224,23 +230,18 @@ class QueueManager(
                     Log.d(TAG, "Successfully removed '${deletedAudioFile.title}' from ExoPlayer queue at index $removedIndex.")
 
                     if (controller.mediaItemCount == 0) {
-                        // If queue becomes empty, stop and clear player completely
                         controller.stop()
                         controller.clearMediaItems()
                         playbackState.update { it.copy(currentAudioFile = null, isPlaying = false) }
-                        progressTracker.resetProgress() // Reset progress tracker
+                        progressTracker.resetProgress()
                         Log.d(TAG, "ExoPlayer queue is empty after deletion. Stopping playback.")
                     } else if (wasPlayingDeletedSong) {
-                        // If the currently playing song was deleted, the player automatically transitions.
-                        // Update state to reflect the new current song.
                         stateUpdater.updatePlaybackState()
-                        progressTracker.updateCurrentAudioFilePlaybackProgress(controller) // Ensure progress tracker is updated
+                        progressTracker.updateCurrentAudioFilePlaybackProgress(controller)
                         Log.d(TAG, "Currently playing song deleted. Player automatically transitioned.")
                     } else {
-                        // A song was deleted from the queue but not the currently playing one.
-                        // Just update the state to reflect the new queue size/indices.
                         stateUpdater.updatePlaybackState()
-                        progressTracker.updateCurrentAudioFilePlaybackProgress(controller) // Ensure progress tracker is updated
+                        progressTracker.updateCurrentAudioFilePlaybackProgress(controller)
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error removing media item from ExoPlayer: ${e.message}", e)
@@ -263,8 +264,6 @@ class QueueManager(
 
             val mediaIdToRemove = audioFile.id.toString()
             var removedIndex: Int? = null
-
-            // Find the index of the AudioFile in the player's queue using its Media ID
             for (i in 0 until controller.mediaItemCount) {
                 val mediaItem = controller.getMediaItemAt(i)
                 if (mediaItem.mediaId == mediaIdToRemove) {

@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import androidx.media3.common.C
 
 private const val TAG = "PlaybackQueueHelper"
 
@@ -58,12 +59,9 @@ object PlaybackQueueHelper {
             }
             val startUri = startAudio?.uri ?: playingQueue.firstOrNull()?.uri
             if (startUri != null) {
-                Log.d(TAG, "Starting playback with URI: $startUri")
-                playbackController.initiatePlayback(startUri)
-                if (startAudio != null && lastState.positionMs > 0) {
-                    Log.d(TAG, "Seeking to last position: ${lastState.positionMs}")
-                    playbackController.seekTo(lastState.positionMs)
-                }
+                val resumePosition = if (startAudio != null && lastState.positionMs > 0) lastState.positionMs else C.TIME_UNSET
+                Log.d(TAG, "Starting playback with URI: $startUri (resumePos=$resumePosition)")
+                playbackController.initiatePlayback(startUri, resumePosition)
             } else {
                 Toast.makeText(context, "No audio files found", Toast.LENGTH_SHORT).show()
             }
@@ -93,13 +91,9 @@ object PlaybackQueueHelper {
             } ?: sorted
             sharedAudioDataSource.setPlayingQueue(playingQueue)
             playbackController.setRepeatMode(repeat)
-            playbackController.initiateShufflePlayback(playingQueue)
-            val startAudio = lastState.audioId?.let { id ->
-                playingQueue.find { it.id == id }
-            }
-            if (startAudio != null && lastState.positionMs > 0) {
-                playbackController.seekTo(lastState.positionMs)
-            }
+            // pass resume position into shuffle initiation
+            val resumePosition = if (lastState.positionMs > 0) lastState.positionMs else C.TIME_UNSET
+            playbackController.initiateShufflePlayback(playingQueue, resumePosition)
         }
     }
 }

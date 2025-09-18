@@ -6,6 +6,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.media.audiofx.Equalizer
+import android.net.Uri
 import android.os.Build
 import android.util.Log
 import androidx.annotation.OptIn
@@ -19,9 +20,12 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.engfred.musicplayer.core.data.SharedAudioDataSource
+import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.domain.model.AudioPreset
+import com.engfred.musicplayer.core.domain.model.LastPlaybackState
 import com.engfred.musicplayer.core.domain.repository.LibraryRepository
 import com.engfred.musicplayer.core.domain.repository.PlaybackController
+import com.engfred.musicplayer.core.domain.repository.RepeatMode
 import com.engfred.musicplayer.core.domain.repository.SettingsRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -29,11 +33,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 const val MUSIC_NOTIFICATION_CHANNEL_ID = "music_playback_channel"
 const val MUSIC_NOTIFICATION_ID = 101
+private const val UNKNOWN_ARTIST = "Unknown Artist"
 
 @UnstableApi
 @AndroidEntryPoint
@@ -58,6 +65,8 @@ class PlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var equalizer: Equalizer? = null
+    private var lastIdleDisplayInfo: WidgetDisplayInfo? = null
+    private var preferredRepeatMode: RepeatMode = RepeatMode.OFF
 
     companion object {
         const val ACTION_WIDGET_PLAY_PAUSE = "com.engfred.musicplayer.ACTION_WIDGET_PLAY_PAUSE"
@@ -117,19 +126,34 @@ class PlaybackService : MediaSessionService() {
                 @RequiresApi(Build.VERSION_CODES.P)
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     super.onIsPlayingChanged(isPlaying)
-                    WidgetUpdater.updateWidget(this@PlaybackService, exoPlayer)
+                    updateWidgetWithInfo()
                 }
 
                 @RequiresApi(Build.VERSION_CODES.P)
                 override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
                     super.onMediaItemTransition(mediaItem, reason)
-                    WidgetUpdater.updateWidget(this@PlaybackService, exoPlayer)
+                    if (mediaItem == null) {
+                        serviceScope.launch {
+                            loadLastIdleDisplayInfo()
+                            updateWidgetWithInfo()
+                        }
+                    } else {
+                        updateWidgetWithInfo()
+                    }
                 }
 
                 @RequiresApi(Build.VERSION_CODES.P)
                 override fun onPositionDiscontinuity(reason: Int) {
                     super.onPositionDiscontinuity(reason)
-                    WidgetUpdater.updateWidget(this@PlaybackService, exoPlayer)
+                    updateWidgetWithInfo()
+                }
+
+                private fun updateWidgetWithInfo() {
+                    val idleInfo = if (exoPlayer.currentMediaItem == null) lastIdleDisplayInfo else null
+                    val idleRepeat = if (exoPlayer.currentMediaItem == null) getIdleRepeatMode() else Player.REPEAT_MODE_OFF
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        WidgetUpdater.updateWidget(this@PlaybackService, exoPlayer, idleInfo, idleRepeat)
+                    }
                 }
             })
 
@@ -139,7 +163,9 @@ class PlaybackService : MediaSessionService() {
                     delay(1000)
                     if (exoPlayer.isPlaying) {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                            WidgetUpdater.updateWidget(this@PlaybackService, exoPlayer)
+                            val idleInfo = if (exoPlayer.currentMediaItem == null) lastIdleDisplayInfo else null
+                            val idleRepeat = if (exoPlayer.currentMediaItem == null) getIdleRepeatMode() else Player.REPEAT_MODE_OFF
+                            WidgetUpdater.updateWidget(this@PlaybackService, exoPlayer, idleInfo, idleRepeat)
                         }
                     }
                 }
@@ -157,15 +183,68 @@ class PlaybackService : MediaSessionService() {
 
             equalizer = Equalizer(0, exoPlayer.audioSessionId)
 
-            // Observe settings and apply preset
+            // Load last idle display info, preferred repeat, and initial widget update
+            serviceScope.launch {
+                loadLastIdleDisplayInfo()
+                val appSettings = settingsRepository.getAppSettings().first()
+                preferredRepeatMode = appSettings.repeatMode
+                val idleInfo = if (exoPlayer.currentMediaItem == null) lastIdleDisplayInfo else null
+                val idleRepeat = if (exoPlayer.currentMediaItem == null) getIdleRepeatMode() else Player.REPEAT_MODE_OFF
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    WidgetUpdater.updateWidget(this@PlaybackService, exoPlayer, idleInfo, idleRepeat)
+                }
+            }
+
+            // Observe settings for preset and repeat changes
             serviceScope.launch {
                 settingsRepository.getAppSettings().collect { settings ->
+                    val oldRepeat = preferredRepeatMode
+                    preferredRepeatMode = settings.repeatMode
                     applyAudioPreset(settings.audioPreset)
+                    // Update widget if idle and repeat changed
+                    if (oldRepeat != preferredRepeatMode && exoPlayer.currentMediaItem == null && lastIdleDisplayInfo != null) {
+                        val idleInfo = lastIdleDisplayInfo
+                        val idleRepeat = getIdleRepeatMode()
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                            WidgetUpdater.updateWidget(this@PlaybackService, exoPlayer, idleInfo, idleRepeat)
+                        }
+                    }
                 }
             }
         } catch (e: Exception) {
             Log.e(TAG, "onCreate error: ${e.message}", e)
             stopSelf()
+        }
+    }
+
+    private fun getIdleRepeatMode(): Int = when (preferredRepeatMode) {
+        RepeatMode.OFF -> Player.REPEAT_MODE_OFF
+        RepeatMode.ONE -> Player.REPEAT_MODE_ONE
+        RepeatMode.ALL -> Player.REPEAT_MODE_ALL
+    }
+
+    private suspend fun loadLastIdleDisplayInfo() {
+        val lastState = settingsRepository.getLastPlaybackState().first()
+        if (lastState.audioId != null) {
+            val audios = libRepo.getAllAudioFiles().first()
+            val audio = audios.find { it.id == lastState.audioId }
+            if (audio != null) {
+                lastIdleDisplayInfo = WidgetDisplayInfo(
+                    title = audio.title,
+                    artist = audio.artist ?: UNKNOWN_ARTIST,
+                    durationMs = audio.duration,
+                    positionMs = lastState.positionMs.coerceAtLeast(0L).coerceAtMost(audio.duration),
+                    artworkUri = audio.albumArtUri
+                )
+                Log.d(TAG, "Cached last idle display info: ${audio.title} by ${audio.artist}")
+            } else {
+                // Clear invalid state
+                settingsRepository.saveLastPlaybackState(LastPlaybackState(null))
+                lastIdleDisplayInfo = null
+                Log.w(TAG, "Last audio ID ${lastState.audioId} not found; cleared state")
+            }
+        } else {
+            lastIdleDisplayInfo = null
         }
     }
 
@@ -203,32 +282,45 @@ class PlaybackService : MediaSessionService() {
         try {
             when (intent?.action) {
                 ACTION_WIDGET_PLAY_PAUSE -> {
-                    PlaybackActions.handlePlayPauseFromWidget(
-                        exoPlayer,
-                        libRepo,
-                        settingsRepository,
-                        sharedAudioDataSource,
-                        playbackController,
-                        serviceScope
-                    )
-                    WidgetUpdater.updateWidget(this, exoPlayer)
+                    serviceScope.launch {
+                        PlaybackActions.handlePlayPauseFromWidget(
+                            exoPlayer,
+                            libRepo,
+                            settingsRepository,
+                            sharedAudioDataSource,
+                            playbackController
+                        )
+                        val idleInfo = if (exoPlayer.currentMediaItem == null) lastIdleDisplayInfo else null
+                        val idleRepeat = if (exoPlayer.currentMediaItem == null) getIdleRepeatMode() else Player.REPEAT_MODE_OFF
+                        WidgetUpdater.updateWidget(this@PlaybackService, exoPlayer, idleInfo, idleRepeat)
+                    }
                 }
                 ACTION_WIDGET_NEXT -> {
                     try {
                         exoPlayer.seekToNextMediaItem()
                     } catch (_: Exception) {}
-                    WidgetUpdater.updateWidget(this, exoPlayer)
+                    val idleInfo = if (exoPlayer.currentMediaItem == null) lastIdleDisplayInfo else null
+                    val idleRepeat = if (exoPlayer.currentMediaItem == null) getIdleRepeatMode() else Player.REPEAT_MODE_OFF
+                    WidgetUpdater.updateWidget(this, exoPlayer, idleInfo, idleRepeat)
                 }
                 ACTION_WIDGET_PREV -> {
                     try {
                         exoPlayer.seekToPreviousMediaItem()
                     } catch (_: Exception) {}
-                    WidgetUpdater.updateWidget(this, exoPlayer)
+                    val idleInfo = if (exoPlayer.currentMediaItem == null) lastIdleDisplayInfo else null
+                    val idleRepeat = if (exoPlayer.currentMediaItem == null) getIdleRepeatMode() else Player.REPEAT_MODE_OFF
+                    WidgetUpdater.updateWidget(this, exoPlayer, idleInfo, idleRepeat)
                 }
-                ACTION_REFRESH_WIDGET -> WidgetUpdater.updateWidget(this, exoPlayer)
+                ACTION_REFRESH_WIDGET -> {
+                    val idleInfo = if (exoPlayer.currentMediaItem == null) lastIdleDisplayInfo else null
+                    val idleRepeat = if (exoPlayer.currentMediaItem == null) getIdleRepeatMode() else Player.REPEAT_MODE_OFF
+                    WidgetUpdater.updateWidget(this, exoPlayer, idleInfo, idleRepeat)
+                }
                 ACTION_WIDGET_REPEAT -> {
                     PlaybackActions.handleRepeatToggle(exoPlayer, settingsRepository, serviceScope)
-                    WidgetUpdater.updateWidget(this, exoPlayer)
+                    val idleInfo = if (exoPlayer.currentMediaItem == null) lastIdleDisplayInfo else null
+                    val idleRepeat = if (exoPlayer.currentMediaItem == null) getIdleRepeatMode() else Player.REPEAT_MODE_OFF
+                    WidgetUpdater.updateWidget(this, exoPlayer, idleInfo, idleRepeat)
                 }
             }
         } catch (e: Exception) {

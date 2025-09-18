@@ -13,14 +13,17 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -59,7 +62,7 @@ import com.engfred.musicplayer.core.domain.model.PlayerLayout
 import com.engfred.musicplayer.core.domain.repository.PlaybackState
 import com.engfred.musicplayer.core.domain.repository.RepeatMode
 import com.engfred.musicplayer.core.domain.repository.ShuffleMode
-import com.engfred.musicplayer.core.util.shareAudioFile
+import com.engfred.musicplayer.core.util.MediaUtils.shareAudioFile
 import com.engfred.musicplayer.feature_player.presentation.components.AlbumArtDisplay
 import com.engfred.musicplayer.feature_player.presentation.components.ControlBar
 import com.engfred.musicplayer.feature_player.presentation.components.FavoriteButton
@@ -290,7 +293,7 @@ fun EtherealFlowLayout(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    Spacer(modifier = Modifier.height(spacing))
+//                        Spacer(modifier = Modifier.height(spacing))
 
                     FavoriteButton(
                         isFavorite = uiState.isFavorite,
@@ -349,11 +352,6 @@ fun EtherealFlowLayout(
                     )
                 }
             } else {
-                // Landscape — three-column arrangement (left: art, middle: controls, right: queue)
-                val leftWeight = if (isTablet) 1.2f else 1f
-                val middleWeight = if (isTablet) 1.6f else 1.5f
-                val rightWeight = if (isTablet) 1.2f else 1f
-
                 Row(
                     modifier = Modifier
                         .fillMaxSize(),
@@ -363,38 +361,20 @@ fun EtherealFlowLayout(
                     // Left: album art
                     Column(
                         modifier = Modifier
-                            .weight(leftWeight)
-                            .fillMaxHeight(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        AlbumArtDisplay(
-                            albumArtUri = uiState.currentAudioFile?.albumArtUri,
-                            isPlaying = uiState.isPlaying,
-                            playerLayout = PlayerLayout.ETHEREAL_FLOW,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f)
-                                .padding(start = if (isTablet) 24.dp else 12.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(24.dp))
-
-                    // Middle: controls & info
-                    Column(
-                        modifier = Modifier
-                            .weight(middleWeight)
-                            .fillMaxHeight()
+                            .fillMaxSize()
+                            .weight(1f)
                             .verticalScroll(rememberScrollState()),
-                        horizontalAlignment = Alignment.Start,
+                        horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
                         TopBar(
                             onNavigateUp = onNavigateUp,
                             currentSongIndex = currentSongIndex,
                             totalQueueSize = playingQueue.size,
-                            onOpenQueue = { /* no-op in wide */ },
+                            onOpenQueue = {
+                                coroutineScope.launch { sheetState.show() }
+                                showQueueBottomSheet = true
+                            },
                             selectedLayout = selectedLayout,
                             onLayoutSelected = onLayoutSelected,
                             modifier = Modifier.fillMaxWidth(),
@@ -403,6 +383,17 @@ fun EtherealFlowLayout(
                             }
                         )
 
+                        // Album art — larger on tablet
+                        AlbumArtDisplay(
+                            albumArtUri = uiState.currentAudioFile?.albumArtUri,
+                            isPlaying = uiState.isPlaying,
+                            playerLayout = PlayerLayout.ETHEREAL_FLOW,
+                            modifier = Modifier
+                                .fillMaxWidth().size(200.dp)
+                        )
+
+                        Spacer(Modifier.height(8.dp))
+
                         TrackInfo(
                             title = uiState.currentAudioFile?.title,
                             artist = uiState.currentAudioFile?.artist,
@@ -410,28 +401,23 @@ fun EtherealFlowLayout(
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        Spacer(modifier = Modifier.height(spacing))
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            FavoriteButton(
-                                isFavorite = uiState.isFavorite,
-                                onToggleFavorite = {
-                                    uiState.currentAudioFile?.let {
-                                        if (uiState.isFavorite) onEvent(PlayerEvent.RemoveFromFavorites(it.id))
-                                        else onEvent(PlayerEvent.AddToFavorites(it))
-                                    }
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                        view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-                                    }
-                                },
-                                playerLayout = PlayerLayout.ETHEREAL_FLOW
-                            )
-                        }
+                        FavoriteButton(
+                            isFavorite = uiState.isFavorite,
+                            onToggleFavorite = {
+                                uiState.currentAudioFile?.let {
+                                    if (uiState.isFavorite) onEvent(PlayerEvent.RemoveFromFavorites(it.id))
+                                    else onEvent(PlayerEvent.AddToFavorites(it))
+                                }
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                    view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+                                }
+                            },
+                            playerLayout = PlayerLayout.ETHEREAL_FLOW
+                        )
 
-                        Spacer(modifier = Modifier.height(spacing))
+                        Spacer(modifier = Modifier.height(8.dp))
 
                         SeekBarSection(
                             sliderValue = uiState.playbackPositionMs.toFloat(),
@@ -445,10 +431,11 @@ fun EtherealFlowLayout(
                                 onEvent(PlayerEvent.SetSeeking(false))
                                 view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                             },
-                            playerLayout = PlayerLayout.ETHEREAL_FLOW
+                            playerLayout = PlayerLayout.ETHEREAL_FLOW,
+                            modifier = Modifier.padding(horizontal = if (isTablet) 28.dp else 24.dp)
                         )
 
-                        Spacer(modifier = Modifier.height(spacing))
+                        Spacer(modifier = Modifier.height(8.dp))
 
                         ControlBar(
                             shuffleMode = shuffleMode,
@@ -468,17 +455,15 @@ fun EtherealFlowLayout(
                             },
                             onSetShuffleMode = { newMode -> onEvent(PlayerEvent.SetShuffleMode(newMode)) },
                             onSetRepeatMode = { newMode -> onEvent(PlayerEvent.SetRepeatMode(newMode)) },
-                            playerLayout = PlayerLayout.ETHEREAL_FLOW)
-
+                            playerLayout = PlayerLayout.ETHEREAL_FLOW,
+                            modifier = Modifier.navigationBarsPadding().padding(horizontal = if (isTablet) 28.dp else 24.dp).padding(bottom = 16.dp, top = 8.dp)
+                        )
                     }
-
-                    Spacer(modifier = Modifier.width(if (isTablet) 36.dp else 24.dp))
 
                     // Right: queue
                     Column(
                         modifier = Modifier
-                            .weight(rightWeight)
-                            .fillMaxHeight()
+                            .weight(1f)
                             .navigationBarsPadding()
                             .padding(end = if (isTablet) 12.dp else 8.dp),
                         horizontalAlignment = Alignment.Start,
@@ -486,6 +471,7 @@ fun EtherealFlowLayout(
                     ) {
                         PlayingQueueSection(
                             modifier = Modifier
+                                .fillMaxSize()
                                 .clip(RoundedCornerShape(16.dp))
                                 .background(LocalContentColor.current.copy(alpha = 0.06f))
                                 .padding(bottom = 7.dp),

@@ -39,8 +39,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.engfred.musicplayer.core.util.formatDuration
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
+import com.engfred.musicplayer.core.util.MediaUtils.formatDuration
 import kotlin.math.PI
 import kotlin.math.sin
 

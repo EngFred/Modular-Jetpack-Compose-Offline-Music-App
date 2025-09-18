@@ -35,8 +35,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.engfred.musicplayer.core.domain.model.AudioFile
-import com.engfred.musicplayer.core.ui.AddSongToPlaylistDialog
-import com.engfred.musicplayer.core.ui.ConfirmationDialog
+import com.engfred.musicplayer.core.ui.components.AddSongToPlaylistDialog
+import com.engfred.musicplayer.core.ui.components.ConfirmationDialog
 import com.engfred.musicplayer.feature_library.presentation.components.LibraryContent
 import com.engfred.musicplayer.feature_library.presentation.components.PermissionRequestContent
 import com.engfred.musicplayer.feature_library.presentation.components.SearchBar
@@ -47,8 +47,6 @@ import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalPermissionsApi::class)

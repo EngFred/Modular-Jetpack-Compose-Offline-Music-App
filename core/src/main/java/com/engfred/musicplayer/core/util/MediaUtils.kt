@@ -16,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.FileNotFoundException
 import java.io.IOException
+import java.util.Locale
 
 object MediaUtils {
 
@@ -119,11 +120,10 @@ object MediaUtils {
             return null
         }
     }
-
-    fun formatDuration(durationMillis: Long): String {
-        val minutes = (durationMillis / 1000) / 60
-        val seconds = (durationMillis / 1000) % 60
-        return String.format("%02d:%02d", minutes, seconds)
+    fun formatDuration(milliseconds: Long): String {
+        val minutes = (milliseconds / 1000) / 60
+        val seconds = (milliseconds / 1000) % 60
+        return String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
     }
 
     // Existing shareAudioFile function

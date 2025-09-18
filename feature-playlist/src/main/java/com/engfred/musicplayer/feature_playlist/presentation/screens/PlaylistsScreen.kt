@@ -42,9 +42,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.engfred.musicplayer.core.domain.model.PlaylistLayoutType
-import com.engfred.musicplayer.core.ui.ErrorIndicator
-import com.engfred.musicplayer.core.ui.InfoIndicator
-import com.engfred.musicplayer.core.ui.LoadingIndicator
+import com.engfred.musicplayer.core.ui.components.ErrorIndicator
+import com.engfred.musicplayer.core.ui.components.InfoIndicator
+import com.engfred.musicplayer.core.ui.components.LoadingIndicator
 import com.engfred.musicplayer.feature_playlist.presentation.components.list.AutomaticPlaylistItem
 import com.engfred.musicplayer.feature_playlist.presentation.components.list.PlaylistGridItem
 import com.engfred.musicplayer.feature_playlist.presentation.components.list.PlaylistListItem

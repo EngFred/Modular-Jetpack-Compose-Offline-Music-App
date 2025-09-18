@@ -42,7 +42,7 @@ import androidx.compose.ui.unit.dp
 import com.engfred.musicplayer.core.domain.model.Playlist
 import com.engfred.musicplayer.feature_playlist.presentation.components.DeleteConfirmationDialog
 import com.skydoves.landscapist.coil.CoilImage
-import com.engfred.musicplayer.feature_playlist.utils.TextUtils
+import com.engfred.musicplayer.core.util.TextUtils
 import com.skydoves.landscapist.ImageOptions
 
 @Composable

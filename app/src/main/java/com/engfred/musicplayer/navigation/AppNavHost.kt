@@ -29,7 +29,7 @@ import com.engfred.musicplayer.feature_playlist.presentation.screens.CreatePlayl
 import com.engfred.musicplayer.feature_playlist.presentation.screens.PlaylistDetailScreen
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.detail.PlaylistDetailArgs
 import com.engfred.musicplayer.ui.MainScreen
-import com.engfred.musicplayer.ui.about.screen.CustomSplashScreen
+import com.engfred.musicplayer.ui.SplashScreen
 import kotlinx.coroutines.delay
 
 /**
@@ -77,7 +77,7 @@ fun AppNavHost(
     ) {
         // Splash screen
         composable(AppDestinations.Splash.route) {
-            CustomSplashScreen()
+            SplashScreen()
             LaunchedEffect(Unit) {
                 delay(3000) // 3-second delay
                 rootNavController.navigate(AppDestinations.MainGraph.route) {

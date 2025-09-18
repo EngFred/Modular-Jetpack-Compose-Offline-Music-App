@@ -38,8 +38,7 @@ fun PlayingQueueSection(
     }
 
     Column(
-        modifier = modifier
-            .fillMaxSize(),
+        modifier = modifier,
         horizontalAlignment = Alignment.Start
     ) {
         Text(

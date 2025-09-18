@@ -7,10 +7,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -50,7 +52,8 @@ fun ControlBar(
     onSetShuffleMode: (ShuffleMode) -> Unit,
     onSetRepeatMode: (RepeatMode) -> Unit,
     playerLayout: PlayerLayout,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    addExtraSpaceBetweenButtons: Boolean = false
 ) {
 
     when (playerLayout) {
@@ -74,6 +77,9 @@ fun ControlBar(
                     size = 35.dp,
                     buttonSize = 48.dp
                 )
+                if (addExtraSpaceBetweenButtons) {
+                    Spacer(modifier = Modifier.width(16.dp))
+                }
                 PlaybackControlIconButton(
                     icon = Icons.Rounded.SkipPrevious,
                     contentDescription = "Skip Previous Song",
@@ -82,6 +88,9 @@ fun ControlBar(
                     size = 60.dp,
                     buttonSize = 60.dp
                 )
+                if (addExtraSpaceBetweenButtons) {
+                    Spacer(modifier = Modifier.width(16.dp))
+                }
                 PlaybackControlIconButton(
                     icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                     contentDescription = if (isPlaying) "Pause Playback" else "Play Playback",
@@ -93,6 +102,9 @@ fun ControlBar(
                     scaleAnimation = true,
                     isPlaying = isPlaying
                 )
+                if (addExtraSpaceBetweenButtons) {
+                    Spacer(modifier = Modifier.width(16.dp))
+                }
                 PlaybackControlIconButton(
                     icon = Icons.Rounded.SkipNext,
                     contentDescription = "Skip Next Song",
@@ -101,6 +113,9 @@ fun ControlBar(
                     size = 60.dp,
                     buttonSize = 64.dp
                 )
+                if (addExtraSpaceBetweenButtons) {
+                    Spacer(modifier = Modifier.width(16.dp))
+                }
                 PlaybackControlIconButton(
                     icon = when (repeatMode) {
                         RepeatMode.OFF -> Icons.Rounded.Repeat

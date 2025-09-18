@@ -23,7 +23,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.util.UnstableApi
 import com.engfred.musicplayer.core.common.Resource
-import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
+import com.engfred.musicplayer.core.data.SharedAudioDataSource
 import com.engfred.musicplayer.core.domain.model.AppSettings
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.domain.model.FilterOption
@@ -71,10 +71,6 @@ class MainActivity : ComponentActivity() {
     private var appSettingsLoaded by mutableStateOf(false)
 
     private val uiScope get() = lifecycleScope
-
-    companion object {
-        private const val PERMISSION_READ_EXTERNAL = "PERMISSION_READ_EXTERNAL"
-    }
 
     @UnstableApi
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -301,11 +297,6 @@ class MainActivity : ComponentActivity() {
             Log.w(TAG, "Could not open URI stream: ${e.message}")
             false
         }
-    }
-
-    private fun needsRuntimeReadPermission(): Boolean {
-        // Modern Android versions always require runtime permission for external storage/media
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
     }
 
     private suspend fun initiatePlaybackFromExternalUri(uri: Uri): Boolean {

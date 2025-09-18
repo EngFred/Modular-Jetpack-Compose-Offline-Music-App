@@ -17,8 +17,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material3.Divider
-import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -39,9 +37,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.engfred.musicplayer.core.domain.model.Playlist
-import com.engfred.musicplayer.core.util.formatDate
+import com.engfred.musicplayer.feature_playlist.utils.formatDate
 import com.engfred.musicplayer.feature_playlist.presentation.components.DeleteConfirmationDialog
-import com.engfred.musicplayer.feature_playlist.utils.TextUtils
+import com.engfred.musicplayer.core.util.TextUtils
 import com.skydoves.landscapist.ImageOptions
 import com.skydoves.landscapist.coil.CoilImage
 

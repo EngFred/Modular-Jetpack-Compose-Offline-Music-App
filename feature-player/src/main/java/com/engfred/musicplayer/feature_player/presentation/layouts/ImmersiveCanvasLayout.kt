@@ -3,6 +3,7 @@ package com.engfred.musicplayer.feature_player.presentation.layouts
 import android.app.Activity
 import android.content.res.Configuration
 import android.view.HapticFeedbackConstants
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -12,7 +13,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,8 +21,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
@@ -44,6 +44,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
@@ -53,12 +55,13 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowInsetsControllerCompat
 import com.engfred.musicplayer.core.domain.model.AudioFile
-import com.engfred.musicplayer.core.domain.repository.PlaybackState
-import com.engfred.musicplayer.core.util.shareAudioFile
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
+import com.engfred.musicplayer.core.domain.repository.PlaybackState
 import com.engfred.musicplayer.core.domain.repository.RepeatMode
 import com.engfred.musicplayer.core.domain.repository.ShuffleMode
+import com.engfred.musicplayer.core.util.MediaUtils.shareAudioFile
 import com.engfred.musicplayer.feature_player.presentation.components.AlbumArtDisplay
 import com.engfred.musicplayer.feature_player.presentation.components.ControlBar
 import com.engfred.musicplayer.feature_player.presentation.components.FavoriteButton
@@ -67,16 +70,11 @@ import com.engfred.musicplayer.feature_player.presentation.components.QueueBotto
 import com.engfred.musicplayer.feature_player.presentation.components.SeekBarSection
 import com.engfred.musicplayer.feature_player.presentation.components.TopBar
 import com.engfred.musicplayer.feature_player.presentation.components.TrackInfo
+import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerEvent
 import com.engfred.musicplayer.feature_player.utils.getContentColorForAlbumArt
 import com.engfred.musicplayer.feature_player.utils.loadBitmapFromUri
 import com.engfred.musicplayer.feature_player.utils.saveBitmapToPictures
-import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerEvent
 import kotlinx.coroutines.launch
-import android.widget.Toast
-import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
-import androidx.core.view.WindowInsetsControllerCompat
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -114,10 +112,10 @@ fun ImmersiveCanvasLayout(
     val isTablet = screenWidthDp >= 900
 
     // Handle status bar color and icon appearance
-    DisposableEffect(isLandscape, dynamicContentColor, selectedLayout) {
+    DisposableEffect(isLandscape, dynamicContentColor, selectedLayout, isTablet, screenWidthDp) {
         val window = (context as? Activity)?.window
         val insetsController = window?.let { WindowInsetsControllerCompat(it, view) }
-        if (selectedLayout == PlayerLayout.IMMERSIVE_CANVAS && !isLandscape) {
+        if (selectedLayout == PlayerLayout.IMMERSIVE_CANVAS) {
             insetsController?.isAppearanceLightStatusBars = (dynamicContentColor.luminance() > 0.5f).not()
         } else {
             insetsController?.isAppearanceLightStatusBars = colorScheme.background.luminance() > 0.5f
@@ -407,201 +405,201 @@ fun ImmersiveCanvasLayout(
                     }
                 }
             } else {
-                // Landscape: use three columns; on tablet increase left/middle/right proportions
-                val leftWeight = if (isTablet) 1.2f else 1f
-                val middleWeight = if (isTablet) 1.6f else 1.5f
-                val rightWeight = if (isTablet) 1.2f else 1f
-
                 Row(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .systemBarsPadding()
-                        .padding(bottom = 13.dp),
+                        .fillMaxSize(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Album art section (left)
+
+                    //left side
                     Column(
-                        modifier = Modifier
-                            .weight(leftWeight)
-                            .fillMaxHeight()
-                            .padding(start = 16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                        modifier = Modifier.fillMaxSize()
+                            .weight( 1f)
                     ) {
-                        AlbumArtDisplay(
-                            albumArtUri = uiState.currentAudioFile?.albumArtUri,
-                            isPlaying = uiState.isPlaying,
-                            playerLayout = PlayerLayout.IMMERSIVE_CANVAS,
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .aspectRatio( 1.0f)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(if (isTablet) 16.dp else 10.dp))
-
-                    // Controls and info section (middle)
-                    Column(
-                        modifier = Modifier
-                            .weight(middleWeight)
-                            .fillMaxHeight()
-                            .padding(horizontal = 8.dp),
-                        horizontalAlignment = Alignment.Start,
-                        verticalArrangement = Arrangement.SpaceAround
-                    ) {
-                        TopBar(
-                            onNavigateUp = onNavigateUp,
-                            currentSongIndex = currentSongIndex,
-                            totalQueueSize = playingQueue.size,
-                            onOpenQueue = { /* No-op for landscape */ },
-                            selectedLayout = selectedLayout,
-                            onLayoutSelected = onLayoutSelected,
-                            dynamicContentColor = defaultContentColor
-                        )
-
-                        Column(
-                            modifier = Modifier
-                                .verticalScroll(rememberScrollState())
-                                .padding(end = 8.dp),
-                            horizontalAlignment = Alignment.Start,
-                            verticalArrangement = Arrangement.SpaceAround
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                TrackInfo(
-                                    title = uiState.currentAudioFile?.title,
-                                    artist = uiState.currentAudioFile?.artist,
-                                    playerLayout = PlayerLayout.IMMERSIVE_CANVAS,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                FavoriteButton(
-                                    isFavorite = uiState.isFavorite,
-                                    onToggleFavorite = {
-                                        uiState.currentAudioFile?.let {
-                                            if (uiState.isFavorite) {
-                                                onEvent(PlayerEvent.RemoveFromFavorites(it.id))
-                                            } else {
-                                                onEvent(PlayerEvent.AddToFavorites(it))
-                                            }
-                                        }
-                                        view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
-                                    },
-                                    playerLayout = PlayerLayout.IMMERSIVE_CANVAS
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                IconButton(onClick = {
-                                    uiState.currentAudioFile?.albumArtUri?.let { uri ->
-                                        coroutineScope.launch {
-                                            val bitmap = loadBitmapFromUri(context, uri)
-                                            if (bitmap != null) {
-                                                val audioFileName = uiState.currentAudioFile?.title?.replace(" ", "") ?: "album_art"
-                                                val success = saveBitmapToPictures(
-                                                    context = context,
-                                                    bitmap = bitmap,
-                                                    filename = "${audioFileName}_album_art.jpg",
-                                                    mimeType = "image/jpeg"
-                                                )
-                                                if (success) {
-                                                    Toast.makeText(context, "Album art saved!", Toast.LENGTH_SHORT).show()
-                                                } else {
-                                                    Toast.makeText(context, "Failed to save album art.", Toast.LENGTH_SHORT).show()
-                                                }
-                                            } else {
-                                                Toast.makeText(context, "No album art found to save.", Toast.LENGTH_SHORT).show()
-                                            }
-                                        }
-                                    } ?: run {
-                                        Toast.makeText(context, "No album art available for this song.", Toast.LENGTH_SHORT).show()
-                                    }
-                                    view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                                }) {
-                                    Icon(
-                                        Icons.Rounded.Download,
-                                        contentDescription = "Download Album Art",
-                                        tint = LocalContentColor.current
-                                    )
-                                }
-                                IconButton(onClick = {
-                                    if (currentSongIndex >= 0 && currentSongIndex < playingQueue.size) {
-                                        shareAudioFile(context, playingQueue[currentSongIndex])
-                                    }
-                                }) {
-                                    Icon(
-                                        Icons.Rounded.Share,
-                                        contentDescription = "Share",
-                                        tint = LocalContentColor.current
-                                    )
-                                }
-                            }
-
-                            ControlBar(
-                                shuffleMode = shuffleMode,
+                            AlbumArtDisplay(
+                                albumArtUri = uiState.currentAudioFile?.albumArtUri,
                                 isPlaying = uiState.isPlaying,
-                                repeatMode = repeatMode,
-                                onPlayPauseClick = {
-                                    onEvent(PlayerEvent.PlayPause)
-                                    view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                playerLayout = PlayerLayout.IMMERSIVE_CANVAS,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            TopBar(
+                                onNavigateUp = onNavigateUp,
+                                currentSongIndex = currentSongIndex,
+                                totalQueueSize = playingQueue.size,
+                                onOpenQueue = {
+                                    coroutineScope.launch { sheetState.show() }
+                                    showQueueBottomSheet = true
                                 },
-                                onSkipPreviousClick = {
-                                    onEvent(PlayerEvent.SkipToPrevious)
-                                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                },
-                                onSkipNextClick = {
-                                    onEvent(PlayerEvent.SkipToNext)
-                                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                },
-                                onSetShuffleMode = { newMode -> onEvent(PlayerEvent.SetShuffleMode(newMode)) },
-                                onSetRepeatMode = { newMode -> onEvent(PlayerEvent.SetRepeatMode(newMode)) },
-                                playerLayout = PlayerLayout.IMMERSIVE_CANVAS
+                                selectedLayout = selectedLayout,
+                                onLayoutSelected = onLayoutSelected,
+                                dynamicContentColor = dynamicContentColor,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .align(Alignment.TopCenter)
+                                    .statusBarsPadding()
                             )
 
-                            SeekBarSection(
-                                sliderValue = uiState.playbackPositionMs.toFloat(),
-                                totalDurationMs = uiState.totalDurationMs,
-                                playbackPositionMs = uiState.playbackPositionMs,
-                                onSliderValueChange = { newValue ->
-                                    onEvent(PlayerEvent.SetSeeking(true))
-                                    onEvent(PlayerEvent.SeekTo(newValue.toLong()))
-                                },
-                                onSliderValueChangeFinished = {
-                                    onEvent(PlayerEvent.SetSeeking(false))
-                                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                },
-                                playerLayout = PlayerLayout.IMMERSIVE_CANVAS,
-                                isPlaying = uiState.isPlaying
-                            )
+                            //*********************** PORTRAIT BOTTOM SECTION *************************//
+                            Column(
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .background(backgroundColor.copy(alpha = .6f))
+                                    .padding(start = 5.dp, end = 5.dp, bottom = 5.dp),
+                                horizontalAlignment = Alignment.Start,
+                                verticalArrangement = Arrangement.SpaceAround
+                            ) {
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    TrackInfo(
+                                        title = uiState.currentAudioFile?.title,
+                                        artist = uiState.currentAudioFile?.artist,
+                                        playerLayout = PlayerLayout.IMMERSIVE_CANVAS,
+                                        modifier = Modifier.weight(1f).padding(horizontal = 4.dp)
+                                    )
+                                    FavoriteButton(
+                                        isFavorite = uiState.isFavorite,
+                                        onToggleFavorite = {
+                                            uiState.currentAudioFile?.let {
+                                                if (uiState.isFavorite) {
+                                                    onEvent(PlayerEvent.RemoveFromFavorites(it.id))
+                                                } else {
+                                                    onEvent(PlayerEvent.AddToFavorites(it))
+                                                }
+                                            }
+                                            view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+                                        },
+                                        playerLayout = PlayerLayout.IMMERSIVE_CANVAS
+                                    )
+                                    Spacer(Modifier.size(8.dp))
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceAround,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    IconButton(onClick = {
+                                        uiState.currentAudioFile?.albumArtUri?.let { uri ->
+                                            coroutineScope.launch {
+                                                val bitmap = loadBitmapFromUri(context, uri)
+                                                if (bitmap != null) {
+                                                    val audioFileName = uiState.currentAudioFile?.title?.replace(" ", "_") ?: "album_art"
+                                                    val success = saveBitmapToPictures(
+                                                        context = context,
+                                                        bitmap = bitmap,
+                                                        filename = "${audioFileName}album_art.jpg",
+                                                        mimeType = "image/jpeg"
+                                                    )
+                                                    if (success) {
+                                                        Toast.makeText(context, "Album art saved!", Toast.LENGTH_SHORT).show()
+                                                    } else {
+                                                        Toast.makeText(context, "Failed to save album art.", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                } else {
+                                                    Toast.makeText(context, "No album art found to save.", Toast.LENGTH_SHORT).show()
+                                                }
+                                            }
+                                        } ?: run {
+                                            Toast.makeText(context, "No album art available for this song.", Toast.LENGTH_SHORT).show()
+                                        }
+                                        view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                    }) {
+                                        Icon(
+                                            Icons.Rounded.Download,
+                                            contentDescription = "Download Album Art",
+                                            tint = LocalContentColor.current
+                                        )
+                                    }
+                                    IconButton(onClick = {
+                                        if (currentSongIndex >= 0 && currentSongIndex < playingQueue.size) {
+                                            shareAudioFile(context, playingQueue[currentSongIndex])
+                                        }
+                                    }) {
+                                        Icon(
+                                            Icons.Rounded.Share,
+                                            contentDescription = "Share",
+                                            tint = LocalContentColor.current
+                                        )
+                                    }
+                                    IconButton(onClick = {
+                                        coroutineScope.launch { sheetState.show() }
+                                        showQueueBottomSheet = true
+                                    }) {
+                                        Icon(
+                                            Icons.AutoMirrored.Rounded.QueueMusic,
+                                            contentDescription = "Open Queue",
+                                            tint = LocalContentColor.current
+                                        )
+                                    }
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                ControlBar(
+                                    shuffleMode = shuffleMode,
+                                    isPlaying = uiState.isPlaying,
+                                    addExtraSpaceBetweenButtons = true,
+                                    repeatMode = repeatMode,
+                                    onPlayPauseClick = {
+                                        onEvent(PlayerEvent.PlayPause)
+                                        view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                    },
+                                    onSkipPreviousClick = {
+                                        onEvent(PlayerEvent.SkipToPrevious)
+                                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                    },
+                                    onSkipNextClick = {
+                                        onEvent(PlayerEvent.SkipToNext)
+                                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                    },
+                                    onSetShuffleMode = { newMode -> onEvent(PlayerEvent.SetShuffleMode(newMode)) },
+                                    onSetRepeatMode = { newMode -> onEvent(PlayerEvent.SetRepeatMode(newMode)) },
+                                    playerLayout = PlayerLayout.IMMERSIVE_CANVAS,
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                SeekBarSection(
+                                    modifier = Modifier.navigationBarsPadding().padding(horizontal = 14.dp),
+                                    sliderValue = uiState.playbackPositionMs.toFloat(),
+                                    totalDurationMs = uiState.totalDurationMs,
+                                    playbackPositionMs = uiState.playbackPositionMs,
+                                    onSliderValueChange = { newValue ->
+                                        onEvent(PlayerEvent.SetSeeking(true))
+                                        onEvent(PlayerEvent.SeekTo(newValue.toLong()))
+                                    },
+                                    onSliderValueChangeFinished = {
+                                        onEvent(PlayerEvent.SetSeeking(false))
+                                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                    },
+                                    playerLayout = PlayerLayout.IMMERSIVE_CANVAS,
+                                    isPlaying = uiState.isPlaying
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
                         }
+
                     }
 
-                    Spacer(modifier = Modifier.width(if (isTablet) 16.dp else 10.dp))
-
-                    // Queue section (right)
+                    //right side
                     Column(
                         modifier = Modifier
-                            .weight(rightWeight)
-                            .fillMaxHeight()
-                            .systemBarsPadding()
-                            .padding(end = if (isTablet) 16.dp else 8.dp),
+                            .weight(1f)
+                            .padding(end = 8.dp),
                         horizontalAlignment = Alignment.Start,
                         verticalArrangement = Arrangement.Top
                     ) {
                         PlayingQueueSection(
                             modifier = Modifier
+                                .fillMaxSize()
                                 .clip(RoundedCornerShape(16.dp))
-                                .background(LocalContentColor.current.copy(alpha = 0.05f))
-                                .padding(bottom = 7.dp),
+                                .background(LocalContentColor.current.copy(alpha = 0.05f)),
                             playingQueue = playingQueue,
                             playingAudio = playingAudio,
                             onPlayItem = onPlayQueueItem,
@@ -609,9 +607,12 @@ fun ImmersiveCanvasLayout(
                             isCompact = false,
                             isPlaying = uiState.isPlaying
                         )
+//                        Spacer(Modifier.height(25.dp))
                     }
                 }
             }
+
         }
+
     }
 }

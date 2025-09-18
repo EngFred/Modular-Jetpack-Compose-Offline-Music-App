@@ -45,9 +45,9 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.engfred.musicplayer.core.domain.model.AudioFile
-import com.engfred.musicplayer.core.ui.CustomTopBar
-import com.engfred.musicplayer.core.ui.LoadingIndicator
-import com.engfred.musicplayer.core.ui.MiniPlayer
+import com.engfred.musicplayer.core.ui.components.CustomTopBar
+import com.engfred.musicplayer.core.ui.components.LoadingIndicator
+import com.engfred.musicplayer.core.ui.components.MiniPlayer
 import com.engfred.musicplayer.feature_playlist.presentation.components.detail.AddSongItem
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.create.CreatePlaylistEvent
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.create.CreatePlaylistViewModel

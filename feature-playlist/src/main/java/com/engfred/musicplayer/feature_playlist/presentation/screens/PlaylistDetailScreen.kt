@@ -42,14 +42,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.engfred.musicplayer.core.ui.ErrorIndicator
-import com.engfred.musicplayer.core.ui.InfoIndicator
-import com.engfred.musicplayer.core.ui.LoadingIndicator
+import com.engfred.musicplayer.core.ui.components.ErrorIndicator
+import com.engfred.musicplayer.core.ui.components.InfoIndicator
+import com.engfred.musicplayer.core.ui.components.LoadingIndicator
 import com.engfred.musicplayer.feature_playlist.presentation.components.detail.AddSongsBottomSheet
 import com.engfred.musicplayer.feature_playlist.presentation.components.detail.PlaylistActionButtons
 import com.engfred.musicplayer.feature_playlist.presentation.components.detail.PlaylistDetailHeaderSection
 import com.engfred.musicplayer.feature_playlist.presentation.components.detail.PlaylistEmptyState
-import com.engfred.musicplayer.core.ui.AudioFileItem
+import com.engfred.musicplayer.core.ui.components.AudioFileItem
 import com.engfred.musicplayer.feature_playlist.presentation.components.detail.PlaylistSongsHeader
 import com.engfred.musicplayer.feature_playlist.presentation.components.detail.RenamePlaylistDialog
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.detail.PlaylistDetailEvent
@@ -58,11 +58,11 @@ import androidx.compose.ui.draw.clip
 import com.engfred.musicplayer.feature_playlist.presentation.components.detail.PlaylistSongs
 import androidx.compose.ui.platform.LocalDensity
 import com.engfred.musicplayer.core.domain.model.AudioFile
-import com.engfred.musicplayer.core.ui.AddSongToPlaylistDialog
-import com.engfred.musicplayer.core.ui.ConfirmationDialog
+import com.engfred.musicplayer.core.ui.components.AddSongToPlaylistDialog
+import com.engfred.musicplayer.core.ui.components.ConfirmationDialog
 import com.engfred.musicplayer.feature_playlist.presentation.components.detail.PlaylistDetailTopBar
 import com.engfred.musicplayer.core.domain.model.AutomaticPlaylistType
-import com.engfred.musicplayer.core.ui.MiniPlayer
+import com.engfred.musicplayer.core.ui.components.MiniPlayer
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

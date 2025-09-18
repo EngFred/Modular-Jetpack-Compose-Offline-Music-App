@@ -55,8 +55,8 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.engfred.musicplayer.core.domain.model.AudioFile
-import com.engfred.musicplayer.core.ui.CustomTopBar
-import com.engfred.musicplayer.core.ui.MiniPlayer
+import com.engfred.musicplayer.core.ui.components.CustomTopBar
+import com.engfred.musicplayer.core.ui.components.MiniPlayer
 import com.engfred.musicplayer.feature_library.presentation.viewmodel.EditSongUiState
 import com.engfred.musicplayer.feature_library.presentation.viewmodel.EditSongViewModel
 import kotlinx.coroutines.flow.collectLatest

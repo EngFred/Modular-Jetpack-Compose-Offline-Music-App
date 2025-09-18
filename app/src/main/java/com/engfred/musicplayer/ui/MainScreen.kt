@@ -49,10 +49,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.engfred.musicplayer.R
 import com.engfred.musicplayer.core.domain.model.AudioFile
-import com.engfred.musicplayer.core.ui.CustomTopBar
-import com.engfred.musicplayer.core.ui.MiniPlayer
+import com.engfred.musicplayer.core.ui.components.CustomTopBar
+import com.engfred.musicplayer.core.ui.components.MiniPlayer
+import com.engfred.musicplayer.core.ui.components.PlayShuffleBar
 import com.engfred.musicplayer.core.util.restartApp
 import com.engfred.musicplayer.feature_library.presentation.screens.LibraryScreen
 import com.engfred.musicplayer.feature_playlist.presentation.screens.PlaylistsScreen

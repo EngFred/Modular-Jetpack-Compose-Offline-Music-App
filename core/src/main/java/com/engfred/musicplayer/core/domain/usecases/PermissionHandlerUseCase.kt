@@ -65,15 +65,4 @@ class PermissionHandlerUseCase (
             Manifest.permission.READ_EXTERNAL_STORAGE
         }
     }
-
-    /**
-     * Returns the appropriate permission string for writing to external storage if applicable.
-     */
-    fun getRequiredWritePermission(): String? {
-        return if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
-            Manifest.permission.WRITE_EXTERNAL_STORAGE
-        } else {
-            null // Not directly needed for Q+ for media deletion via MediaStore
-        }
-    }
 }

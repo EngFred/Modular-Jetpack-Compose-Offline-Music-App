@@ -9,7 +9,7 @@ import androidx.compose.material.icons.outlined.LibraryMusic
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.engfred.musicplayer.core.domain.model.AutomaticPlaylistType
-import com.engfred.musicplayer.core.ui.InfoIndicator
+import com.engfred.musicplayer.core.ui.components.InfoIndicator
 
 @Composable
 fun PlaylistEmptyState(

@@ -16,10 +16,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.dp
 import com.engfred.musicplayer.core.domain.model.AudioFile
-import com.engfred.musicplayer.core.ui.AudioFileItem
-import com.engfred.musicplayer.core.ui.ErrorIndicator
-import com.engfred.musicplayer.core.ui.InfoIndicator
-import com.engfred.musicplayer.core.ui.LoadingIndicator
+import com.engfred.musicplayer.core.ui.components.AudioFileItem
+import com.engfred.musicplayer.core.ui.components.ErrorIndicator
+import com.engfred.musicplayer.core.ui.components.InfoIndicator
+import com.engfred.musicplayer.core.ui.components.LoadingIndicator
 import com.engfred.musicplayer.feature_library.presentation.viewmodel.LibraryScreenState
 
 @Composable

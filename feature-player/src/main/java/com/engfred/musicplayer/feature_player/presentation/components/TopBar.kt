@@ -2,7 +2,6 @@ package com.engfred.musicplayer.feature_player.presentation.components
 
 import android.app.Activity
 import android.content.pm.ActivityInfo
-import android.content.res.Configuration
 import android.widget.Toast
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
@@ -287,6 +286,10 @@ fun TopBar(
                             )
                         }
                     }
+
+//                    if (screenWidthDp < 900) {
+//
+//                    }
                     IconButton(
                         onClick = { toggleOrientation() },
                         modifier = Modifier.semantics {

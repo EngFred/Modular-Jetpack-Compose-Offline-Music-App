@@ -1,7 +1,7 @@
 package com.engfred.musicplayer.core.di
 
 import android.content.Context
-import com.engfred.musicplayer.core.data.source.SharedAudioDataSource
+import com.engfred.musicplayer.core.data.SharedAudioDataSource
 import com.engfred.musicplayer.core.domain.usecases.PermissionHandlerUseCase
 import com.engfred.musicplayer.core.mapper.AudioFileMapper
 import dagger.Module

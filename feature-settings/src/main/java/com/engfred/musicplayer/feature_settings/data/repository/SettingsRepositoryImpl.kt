@@ -146,20 +146,6 @@ class SettingsRepositoryImpl @Inject constructor(
             }
         }
     }
-//    override suspend fun saveLastPlaybackState(state: LastPlaybackState) {
-//        dataStore.edit { preferences ->
-//            if (state.audioId != null) {
-//                preferences[LAST_PLAYED_AUDIO_ID] = state.audioId!!
-//                preferences[LAST_POSITION_MS] = state.positionMs
-//                preferences[LAST_QUEUE_IDS] = state.queueIds?.joinToString(",") ?: ""
-//            } else {
-//                // Clear stale state (e.g., file deleted)
-//                preferences.remove(LAST_PLAYED_AUDIO_ID)
-//                preferences.remove(LAST_POSITION_MS)
-//                preferences.remove(LAST_QUEUE_IDS)
-//            }
-//        }
-//    }
 
     override suspend fun updateTheme(theme: AppThemeType) {
         dataStore.edit { preferences ->

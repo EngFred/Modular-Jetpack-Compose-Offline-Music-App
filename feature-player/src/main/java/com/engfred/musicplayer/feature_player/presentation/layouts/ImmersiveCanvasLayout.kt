@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -38,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -45,7 +45,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
@@ -89,8 +88,7 @@ fun ImmersiveCanvasLayout(
     selectedLayout: PlayerLayout,
     onLayoutSelected: (PlayerLayout) -> Unit,
     playingAudio: AudioFile?,
-    repeatMode: RepeatMode,
-    shuffleMode: ShuffleMode
+    repeatMode: RepeatMode
 ) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -139,7 +137,7 @@ fun ImmersiveCanvasLayout(
         )
     }
 
-    var verticalDragCumulative by remember { mutableStateOf(0f) }
+    var verticalDragCumulative by remember { mutableFloatStateOf(0f) }
     val dragThreshold = 100f
 
     CompositionLocalProvider(LocalContentColor provides defaultContentColor) {
@@ -365,7 +363,7 @@ fun ImmersiveCanvasLayout(
                         }
                         Spacer(modifier = Modifier.height(spacingButtonsToSeekBar))
                         ControlBar(
-                            shuffleMode = shuffleMode,
+                            shuffleMode = uiState.shuffleMode,
                             isPlaying = uiState.isPlaying,
                             repeatMode = repeatMode,
                             onPlayPauseClick = {
@@ -544,7 +542,7 @@ fun ImmersiveCanvasLayout(
                                 }
                                 Spacer(Modifier.height(8.dp))
                                 ControlBar(
-                                    shuffleMode = shuffleMode,
+                                    shuffleMode = uiState.shuffleMode,
                                     isPlaying = uiState.isPlaying,
                                     addExtraSpaceBetweenButtons = true,
                                     repeatMode = repeatMode,

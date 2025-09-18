@@ -54,6 +54,7 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import androidx.core.net.toUri
 import com.engfred.musicplayer.core.data.SharedAudioDataSource
+import com.engfred.musicplayer.core.domain.repository.ShuffleMode
 import java.util.Locale
 
 const val MUSIC_NOTIFICATION_CHANNEL_ID = "music_playback_channel"
@@ -79,7 +80,7 @@ class PlaybackService : MediaSessionService() {
     lateinit var sharedAudioDataSource: SharedAudioDataSource
 
     @Inject
-    lateinit var settingsRepository: SettingsRepository //we need to get the last sort order/filter
+    lateinit var settingsRepository: SettingsRepository
 
     private var mediaSession: MediaSession? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -254,7 +255,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     /**
-     * UPDATED: Fixed sort application for fresh starts and resumptions.
+     * sort application for fresh starts and resumptions.
      * - Sort deviceAudios into sortedAudios FIRST, based on current filter (ensures last sort order applied).
      * - For resumption: Find target in sortedAudios by ID (unique); if not found, clear state.
      * - For fresh: Use sortedAudios.first() (ensures plays from sorted order, not raw deviceAudios order).
@@ -278,7 +279,6 @@ class PlaybackService : MediaSessionService() {
                         val filter = settingsRepository.getFilterOption().first()
                         val appSettings = settingsRepository.getAppSettings().first()
                         val repeatMode = appSettings.repeatMode
-                        val shuffleMode = appSettings.shuffleMode
                         val sortedAudios = when (filter) {
                             FilterOption.DATE_ADDED_ASC -> deviceAudios.sortedBy { it.dateAdded }
                             FilterOption.DATE_ADDED_DESC -> deviceAudios.sortedByDescending { it.dateAdded }
@@ -289,48 +289,43 @@ class PlaybackService : MediaSessionService() {
                         }
                         Log.d(TAG, "Applied sort order: $filter to create queue of ${sortedAudios.size} items")
 
-                        val isResuming = lastState.audioId != null
-                        var audioToPlay: AudioFile? = null
-                        var resumePositionMs = 0L
+                        val playingQueue = lastState.queueIds?.takeIf { it.isNotEmpty() }?.let { ids ->
+                            val idToAudio = deviceAudios.associateBy { it.id }
+                            ids.mapNotNull { idToAudio[it] }.takeIf { it.isNotEmpty() } ?: sortedAudios
+                        } ?: sortedAudios
 
-                        if (isResuming) {
-                            //Search for target in SORTED audios (ensures resumption respects current sort)
-                            val targetAudio = sortedAudios.find { it.id == lastState.audioId }
-                            if (targetAudio != null) {
-                                // Target found in sorted queue; proceed to resume
-                                audioToPlay = targetAudio
-                                resumePositionMs = lastState.positionMs
-                                Log.d(TAG, "Resuming playback for audio ID ${lastState.audioId} at ${lastState.positionMs}ms in sorted queue")
-                            } else {
-                                // Target not found (deleted/moved); clear stale state and fallback to sorted first
+                        val isResuming = lastState.audioId != null
+                        var audioToPlay: AudioFile? = lastState.audioId?.let { id ->
+                            playingQueue.find { it.id == id }
+                        }
+                        var resumePositionMs = if (audioToPlay != null) lastState.positionMs else 0L
+
+                        if (audioToPlay == null) {
+                            audioToPlay = playingQueue.firstOrNull()
+                            if (isResuming) {
                                 settingsRepository.saveLastPlaybackState(LastPlaybackState(null))
-                                Log.w(TAG, "Last audio ID ${lastState.audioId} not found in sorted queue; cleared state and falling back to first sorted song")
+                                Log.w(TAG, "Last audio ID ${lastState.audioId} not found; cleared state and falling back to first song")
                             }
                         }
 
-                        // Fallback/default: Use first in SORTED if no valid target (fixes fresh start to respect sort)
-                        if (audioToPlay == null) {
-                            audioToPlay = sortedAudios.first()
-                            Log.d(TAG, "Starting fresh playback from first sorted song")
-                        }
+                        if (audioToPlay != null) {
+                            sharedAudioDataSource.setPlayingQueue(playingQueue)
+                            playbackController.setRepeatMode(repeatMode)
+                            playbackController.setShuffleMode(ShuffleMode.OFF)
+                            Log.d(TAG, "Set repeat: $repeatMode, shuffle: OFF for playback")
 
-                        //Set queue and modes BEFORE initiation (ensures repeat/shuffle applied before playback starts)
-                        sharedAudioDataSource.setPlayingQueue(sortedAudios)
-                        playbackController.setRepeatMode(repeatMode)
-                        playbackController.setShuffleMode(shuffleMode)
-                        Log.d(TAG, "Set repeat: $repeatMode, shuffle: $shuffleMode for playback")
+                            playbackController.initiatePlayback(audioToPlay.uri) // Starts at correct index in queue, plays from 0
 
-                        playbackController.initiatePlayback(audioToPlay.uri) // Starts at correct index in sorted queue, plays from 0
-
-                        //For resumption, seek to saved position after player is ready
-                        if (isResuming && audioToPlay.id == lastState.audioId) {
-                            if (playbackController.waitUntilReady(3000L)) { // 3s timeout for prepare/seek
-                                withContext(Dispatchers.Main) {
-                                    playbackController.seekTo(resumePositionMs)
+                            //For resumption, seek to saved position after player is ready
+                            if (resumePositionMs > 0) {
+                                if (playbackController.waitUntilReady(3000L)) { // 3s timeout for prepare/seek
+                                    withContext(Dispatchers.Main) {
+                                        playbackController.seekTo(resumePositionMs)
+                                    }
+                                    Log.d(TAG, "Seeked to resume position ${resumePositionMs}ms")
+                                } else {
+                                    Log.w(TAG, "Player not ready in time for resume seek; continuing from start")
                                 }
-                                Log.d(TAG, "Seeked to resume position ${resumePositionMs}ms")
-                            } else {
-                                Log.w(TAG, "Player not ready in time for resume seek; continuing from start")
                             }
                         }
                         // If no songs or error, do nothing (widget remains "No song playing" until user adds songs via app)
@@ -399,24 +394,12 @@ class PlaybackService : MediaSessionService() {
             //Save last state synchronously before cleanup
             runBlocking {
                 val currentItem = exoPlayer.currentMediaItem
-                val state = if (currentItem != null) {
-                    val idStr = currentItem.mediaId
-                    val id = idStr.toLongOrNull() // mediaId is id.toString()
-                    if (id != null) {
-                        LastPlaybackState(id, exoPlayer.currentPosition.coerceAtLeast(0L))
-                    } else {
-                        null
-                    }
-                } else {
-                    null
-                }
-                if (state != null) {
-                    settingsRepository.saveLastPlaybackState(state)
-                    Log.d(TAG, "Saved last playback state: ID=${state.audioId}, pos=${state.positionMs}ms")
-                } else {
-                    settingsRepository.saveLastPlaybackState(LastPlaybackState(null))
-                    Log.d(TAG, "Cleared last playback state (no current item)")
-                }
+                val audioId = currentItem?.mediaId?.toLongOrNull()
+                val positionMs = exoPlayer.currentPosition.coerceAtLeast(0L)
+                val queueIds = (0 until exoPlayer.mediaItemCount).mapNotNull { exoPlayer.getMediaItemAt(it).mediaId.toLongOrNull() }
+                val state = if (audioId != null && queueIds.isNotEmpty()) LastPlaybackState(audioId, positionMs, queueIds) else LastPlaybackState(null)
+                settingsRepository.saveLastPlaybackState(state)
+                Log.d(TAG, "Saved last playback state: ID=${state.audioId}, pos=${state.positionMs}ms, queue size=${state.queueIds?.size ?: 0}")
             }
 
             serviceScope.cancel()

@@ -10,6 +10,7 @@ import androidx.media3.session.SessionToken
 import com.engfred.musicplayer.core.data.SharedAudioDataSource
 import com.engfred.musicplayer.core.domain.repository.PlaybackController
 import com.engfred.musicplayer.core.domain.repository.PlaylistRepository
+import com.engfred.musicplayer.core.domain.repository.SettingsRepository
 import com.engfred.musicplayer.core.domain.usecases.PermissionHandlerUseCase
 import com.engfred.musicplayer.feature_player.data.service.PlaybackService
 import com.engfred.musicplayer.core.mapper.AudioFileMapper
@@ -70,6 +71,7 @@ object PlayerModule {
         playlistRepository: PlaylistRepository,
         @ApplicationContext context: Context,
         sessionToken: SessionToken,
+        settingsRepository: SettingsRepository
     ): PlaybackController {
         return PlaybackControllerImpl(
             sharedAudioDataSource,
@@ -78,6 +80,7 @@ object PlayerModule {
             playlistRepository,
             context,
             sessionToken,
+            settingsRepository
         )
     }
 }

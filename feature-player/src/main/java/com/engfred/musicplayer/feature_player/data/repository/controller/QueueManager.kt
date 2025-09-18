@@ -30,8 +30,6 @@ class QueueManager(
     private val stateUpdater: PlaybackStateUpdater,
     private val progressTracker: PlaybackProgressTracker,
     private val setRepeatCallback: suspend (RepeatMode) -> Unit,
-    private val setShuffleCallback: suspend (ShuffleMode) -> Unit,
-    // FIX: Added to manage restoring shuffle mode after play next insertion.
     private val pendingPlayNextMediaId: MutableStateFlow<String?>,
 ) {
     /**
@@ -39,7 +37,7 @@ class QueueManager(
      * If the queue doesn't match the controller's queue, it will be set.
      * @param initialAudioFileUri The [android.net.Uri] of the audio file to start playback from.
      */
-    suspend fun initiatePlayback(initialAudioFileUri: android.net.Uri, intendedRepeat: RepeatMode, intendedShuffle: ShuffleMode) {
+    suspend fun initiatePlayback(initialAudioFileUri: android.net.Uri, intendedRepeat: RepeatMode) {
         withContext(Dispatchers.Main) {
             val controller = mediaController.value
             if (controller == null) {
@@ -113,7 +111,6 @@ class QueueManager(
 
                     // Re-apply stored repeat and shuffle modes
                     setRepeatCallback(intendedRepeat)
-                    setShuffleCallback(intendedShuffle)
 
                     controller.prepare()
                     controller.play()

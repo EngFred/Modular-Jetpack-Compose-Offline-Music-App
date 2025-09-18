@@ -27,10 +27,6 @@ interface SettingsRepository {
 
     suspend fun updateRepeatMode(repeatMode: RepeatMode)
 
-    suspend fun updateShuffleMode(shuffleMode: ShuffleMode)
-
-    suspend fun updateCrossfadeEnabled(enabled: Boolean)
-
     suspend fun updateAudioPreset(preset: AudioPreset)
     fun getLastPlaybackState(): Flow<LastPlaybackState>
     suspend fun saveLastPlaybackState(state: LastPlaybackState)

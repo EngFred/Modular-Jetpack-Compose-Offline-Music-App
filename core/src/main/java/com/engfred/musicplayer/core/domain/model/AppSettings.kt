@@ -1,7 +1,6 @@
 package com.engfred.musicplayer.core.domain.model
 
 import com.engfred.musicplayer.core.domain.repository.RepeatMode
-import com.engfred.musicplayer.core.domain.repository.ShuffleMode
 import com.engfred.musicplayer.core.ui.theme.AppThemeType
 
 /**
@@ -13,7 +12,5 @@ data class AppSettings(
     val selectedPlayerLayout: PlayerLayout,
     val playlistLayoutType: PlaylistLayoutType,
     val repeatMode: RepeatMode = RepeatMode.OFF,
-    val shuffleMode: ShuffleMode = ShuffleMode.OFF,
-    val crossfadeEnabled: Boolean = false,
     val audioPreset: AudioPreset = AudioPreset.NONE
 )

@@ -54,7 +54,6 @@ fun NowPlayingScreen(
                         }
                     },
                     repeatMode = uiState.repeatMode,
-                    shuffleMode = uiState.shuffleMode
                 )
             }
             PlayerLayout.IMMERSIVE_CANVAS -> selectedLayout?.let {
@@ -78,7 +77,6 @@ fun NowPlayingScreen(
                         }
                     },
                     repeatMode = uiState.repeatMode,
-                    shuffleMode = uiState.shuffleMode
                 )
             }
             PlayerLayout.MINIMALIST_GROOVE -> selectedLayout?.let {
@@ -97,7 +95,6 @@ fun NowPlayingScreen(
                         viewModel.onEvent(PlayerEvent.PlayAudioFile(audio))
                     },
                     repeatMode = uiState.repeatMode,
-                    shuffleMode = uiState.shuffleMode,
                     onRemoveQueueItem = { audio ->
                         if(uiState.playingQueue.size > 1) {
                             viewModel.onEvent(PlayerEvent.RemovedFromQueue(audio))

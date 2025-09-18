@@ -27,12 +27,15 @@ import com.engfred.musicplayer.core.data.SharedAudioDataSource
 import com.engfred.musicplayer.core.domain.model.AppSettings
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.domain.model.FilterOption
+import com.engfred.musicplayer.core.domain.model.LastPlaybackState
 import com.engfred.musicplayer.core.domain.repository.LibraryRepository
 import com.engfred.musicplayer.core.domain.repository.PlaybackController
 import com.engfred.musicplayer.core.domain.repository.PlaybackState
 import com.engfred.musicplayer.core.domain.repository.SettingsRepository
+import com.engfred.musicplayer.core.domain.repository.ShuffleMode
 import com.engfred.musicplayer.core.ui.theme.AppThemeType
 import com.engfred.musicplayer.core.ui.theme.MusicPlayerAppTheme
+import com.engfred.musicplayer.feature_player.data.service.PlaybackService
 import com.engfred.musicplayer.feature_settings.domain.usecases.GetAppSettingsUseCase
 import com.engfred.musicplayer.navigation.AppDestinations
 import com.engfred.musicplayer.navigation.AppNavHost
@@ -41,6 +44,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
@@ -106,8 +110,7 @@ class MainActivity : ComponentActivity() {
                     initialAppSettings = settings
                     appSettingsLoaded = true
                     playbackController.setRepeatMode(settings.repeatMode)
-                    playbackController.setShuffleMode(settings.shuffleMode)
-                    Log.d(TAG, "App settings loaded. repeat=${settings.repeatMode}, shuffle=${settings.shuffleMode}")
+                    Log.d(TAG, "App settings loaded. repeat=${settings.repeatMode}")
                 }
             } catch (t: Throwable) {
                 Log.w(TAG, "Failed to observe app settings: ${t.message}")
@@ -139,14 +142,12 @@ class MainActivity : ComponentActivity() {
 
                 AppNavHost(
                     rootNavController = navController,
-                    isPlayerActive = playbackState.currentAudioFile != null,
                     onPlayPause = { uiScope.launch { playbackController.playPause() } },
                     onPlayNext = { uiScope.launch { playbackController.skipToNext() } },
                     onPlayPrev = { uiScope.launch { playbackController.skipToPrevious() } },
-                    isPlaying = playbackState.isPlaying,
                     playingAudioFile = playbackState.currentAudioFile,
+                    isPlaying = playbackState.isPlaying,
                     context = this,
-                    isPlayingExternalUri = externalPlaybackUri != null,
                     onNavigateToNowPlaying = {
                         if (playbackState.currentAudioFile != null) {
                             navController.navigate(AppDestinations.NowPlaying.route)
@@ -154,6 +155,8 @@ class MainActivity : ComponentActivity() {
                             Toast.makeText(this, "No active playback", Toast.LENGTH_SHORT).show()
                         }
                     },
+                    isPlayerActive = playbackState.currentAudioFile != null,
+                    isPlayingExternalUri = externalPlaybackUri != null,
                     onPlayAll = { playAll() },
                     onShuffleAll = { shuffleAll() },
                     audioItems = audioItems,
@@ -192,33 +195,36 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private suspend fun preparePlayback(audioFiles: List<AudioFile>): List<AudioFile> {
-        // Consolidate settings fetch to avoid repeated retrievals
-        val appSettings = settingsRepository.getAppSettings().first()
-        val filter = settingsRepository.getFilterOption().first()
-
-        val sortedAudios = when (filter) {
-            FilterOption.DATE_ADDED_ASC -> audioFiles.sortedBy { it.dateAdded }
-            FilterOption.DATE_ADDED_DESC -> audioFiles.sortedByDescending { it.dateAdded }
-            FilterOption.LENGTH_ASC -> audioFiles.sortedBy { it.duration }
-            FilterOption.LENGTH_DESC -> audioFiles.sortedByDescending { it.duration }
-            FilterOption.ALPHABETICAL_ASC -> audioFiles.sortedBy { it.title.lowercase() }
-            FilterOption.ALPHABETICAL_DESC -> audioFiles.sortedByDescending { it.title.lowercase() }
-        }
-
-        // Ensure controller reflects settings
-        playbackController.setRepeatMode(appSettings.repeatMode)
-        playbackController.setShuffleMode(appSettings.shuffleMode)
-        return sortedAudios
-    }
-
     private fun playAll() {
         uiScope.launch {
             val audioFiles = sharedAudioDataSource.deviceAudioFiles.value
-            if (audioFiles.isNotEmpty()) {
-                val sorted = preparePlayback(audioFiles)
-                sharedAudioDataSource.setPlayingQueue(sorted)
-                playbackController.initiatePlayback(sorted.first().uri)
+            if (audioFiles.isEmpty()) {
+                Toast.makeText(this@MainActivity, "No audio files found", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            val lastState = settingsRepository.getLastPlaybackState().first()
+            val appSettings = settingsRepository.getAppSettings().first()
+            val repeat = appSettings.repeatMode
+            val filter = settingsRepository.getFilterOption().first()
+            val sorted = sortAudioFiles(audioFiles, filter)
+            val playingQueue = lastState.queueIds?.takeIf { it.isNotEmpty() }?.let { ids ->
+                val idToAudio = audioFiles.associateBy { it.id }
+                ids.mapNotNull { idToAudio[it] }.takeIf { it.isNotEmpty() } ?: sorted
+            } ?: sorted
+            sharedAudioDataSource.setPlayingQueue(playingQueue)
+            playbackController.setRepeatMode(repeat)
+            playbackController.setShuffleMode(ShuffleMode.OFF)
+            val startAudio = lastState.audioId?.let { id ->
+                playingQueue.find { it.id == id }
+            }
+            val startUri = startAudio?.uri ?: playingQueue.firstOrNull()?.uri
+            if (startUri != null) {
+                Log.d(TAG, "Starting playback with URI: $startUri")
+                playbackController.initiatePlayback(startUri)
+                if (startAudio != null && lastState.positionMs > 0) {
+                    Log.d(TAG, "Seeking to last position: ${lastState.positionMs}")
+                    playbackController.seekTo(lastState.positionMs)
+                }
             } else {
                 Toast.makeText(this@MainActivity, "No audio files found", Toast.LENGTH_SHORT).show()
             }
@@ -228,12 +234,44 @@ class MainActivity : ComponentActivity() {
     private fun shuffleAll() {
         uiScope.launch {
             val audioFiles = sharedAudioDataSource.deviceAudioFiles.value
-            if (audioFiles.isNotEmpty()) {
-                val sorted = preparePlayback(audioFiles)
-                playbackController.initiateShufflePlayback(sorted)
+            if (audioFiles.isEmpty()) {
+                Toast.makeText(this@MainActivity, "No audio files found", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            val lastState = settingsRepository.getLastPlaybackState().first()
+            val appSettings = settingsRepository.getAppSettings().first()
+            val repeat = appSettings.repeatMode
+            val filter = settingsRepository.getFilterOption().first()
+            val sorted = sortAudioFiles(audioFiles, filter)
+            val playingQueue = lastState.queueIds?.takeIf { it.isNotEmpty() }?.let { ids ->
+                val idToAudio = audioFiles.associateBy { it.id }
+                ids.mapNotNull { idToAudio[it] }.takeIf { it.isNotEmpty() } ?: sorted
+            } ?: sorted
+            sharedAudioDataSource.setPlayingQueue(playingQueue)
+            playbackController.setRepeatMode(repeat)
+            val startAudio = lastState.audioId?.let { id ->
+                playingQueue.find { it.id == id }
+            }
+            val startUri = startAudio?.uri ?: playingQueue.firstOrNull()?.uri
+            if (startUri != null) {
+                playbackController.initiateShufflePlayback(playingQueue)
+                if (startAudio != null && lastState.positionMs > 0) {
+                    playbackController.seekTo(lastState.positionMs)
+                }
             } else {
                 Toast.makeText(this@MainActivity, "No audio files found", Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+
+    private fun sortAudioFiles(audioFiles: List<AudioFile>, filter: FilterOption): List<AudioFile> {
+        return when (filter) {
+            FilterOption.DATE_ADDED_ASC -> audioFiles.sortedBy { it.dateAdded }
+            FilterOption.DATE_ADDED_DESC -> audioFiles.sortedByDescending { it.dateAdded }
+            FilterOption.LENGTH_ASC -> audioFiles.sortedBy { it.duration }
+            FilterOption.LENGTH_DESC -> audioFiles.sortedByDescending { it.duration }
+            FilterOption.ALPHABETICAL_ASC -> audioFiles.sortedBy { it.title.lowercase() }
+            FilterOption.ALPHABETICAL_DESC -> audioFiles.sortedByDescending { it.title.lowercase() }
         }
     }
 
@@ -366,4 +404,42 @@ class MainActivity : ComponentActivity() {
             return false
         }
     }
+
+    override fun onDestroy() {
+        super.onDestroy()
+
+        try {
+            // Best-effort synchronous save to persist only the playing queue IDs before the activity is destroyed.
+            runBlocking {
+                try {
+                    // Read current playing queue from shared data source (StateFlow)
+                    val currentQueue: List<AudioFile> = try {
+                        sharedAudioDataSource.playingQueueAudioFiles.value
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to read playingQueueAudioFiles.value, falling back to emptyList(): ${e.message}")
+                        emptyList()
+                    }
+
+                    // Convert to IDs (persist only IDs — minimal)
+                    val queueIds: List<Long> = currentQueue.mapNotNull { it.id }
+
+                    // Save minimal LastPlaybackState that contains only the queue (no current audio, no position)
+                    val stateToSave = if (queueIds.isNotEmpty()) {
+                        LastPlaybackState(audioId = null, positionMs = 0L, queueIds = queueIds)
+                    } else {
+                        // explicit cleared state
+                        LastPlaybackState(null)
+                    }
+
+                    settingsRepository.saveLastPlaybackState(stateToSave)
+                    Log.d(TAG, "Saved playing queue on Activity.onDestroy: queue size=${queueIds.size}")
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error saving playing queue in onDestroy: ${e.message}", e)
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "runBlocking save failure in onDestroy: ${e.message}", e)
+        }
+    }
+
 }

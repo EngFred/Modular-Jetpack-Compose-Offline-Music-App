@@ -42,7 +42,6 @@ class NowPlayingViewModel @Inject constructor(
     private var favoritesId: Long = -1L
 
     init {
-        // --- Initialization block ---
         viewModelScope.launch {
             // Ensure a "Favorites" playlist exists and retrieve its ID
             favoritesId = ensureFavoritesPlaylist()
@@ -125,7 +124,6 @@ class NowPlayingViewModel @Inject constructor(
                     }
                     is PlayerEvent.SetShuffleMode -> {
                         playbackController.setShuffleMode(event.mode)
-                        settingsRepository.updateShuffleMode(event.mode)
                         Log.d("NowPlayingViewModel", "Shuffle mode set to ${event.mode}")
                     }
                     PlayerEvent.ReleasePlayer -> playbackController.releasePlayer()

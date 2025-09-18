@@ -16,7 +16,6 @@ import com.engfred.musicplayer.core.domain.model.PlayerLayout
 import com.engfred.musicplayer.core.domain.model.PlaylistLayoutType
 import com.engfred.musicplayer.core.domain.repository.RepeatMode
 import com.engfred.musicplayer.core.domain.repository.SettingsRepository
-import com.engfred.musicplayer.core.domain.repository.ShuffleMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -37,18 +36,17 @@ class SettingsRepositoryImpl @Inject constructor(
         private val SELECTED_THEME = stringPreferencesKey("selected_theme")
         private val SELECTED_PLAYER_LAYOUT = stringPreferencesKey("selected_player_layout")
         private val PLAYLIST_LAYOUT_TYPE = stringPreferencesKey("playlist_layout_type")
-        private val CROSSFADE_ENABLED = booleanPreferencesKey("crossfade_enabled")
         private val SELECTED_FILTER_OPTION = stringPreferencesKey("selected_filter_option")
         private val REPEAT_MODE = stringPreferencesKey("repeat_mode")
-        private val SHUFFLE_MODE = stringPreferencesKey("shuffle_mode")
         private val SELECTED_AUDIO_PRESET = stringPreferencesKey("selected_audio_preset")
 
         /**
-         * NEW: Keys for transient last playback state (audio ID and position).
+         * Keys for transient last playback state (audio ID and position).
          * Stored as Long for efficiency; null ID clears the state.
          */
         private val LAST_PLAYED_AUDIO_ID = longPreferencesKey("last_played_audio_id")
         private val LAST_POSITION_MS = longPreferencesKey("last_position_ms")
+        private val LAST_QUEUE_IDS = stringPreferencesKey("last_queue_ids")
     }
 
     override fun getAppSettings(): Flow<AppSettings> {
@@ -70,12 +68,8 @@ class SettingsRepositoryImpl @Inject constructor(
                 val playlistLayoutType = PlaylistLayoutType.valueOf(
                     preferences[PLAYLIST_LAYOUT_TYPE] ?: PlaylistLayoutType.LIST.name
                 )
-                val crossfadeEnabled = preferences[CROSSFADE_ENABLED] ?: false
                 val repeatMode = RepeatMode.valueOf(
                     preferences[REPEAT_MODE] ?: RepeatMode.OFF.name
-                )
-                val shuffleMode = ShuffleMode.valueOf(
-                    preferences[SHUFFLE_MODE] ?: ShuffleMode.OFF.name
                 )
                 val selectedAudioPreset = AudioPreset.valueOf(
                     preferences[SELECTED_AUDIO_PRESET] ?: AudioPreset.NONE.name
@@ -84,9 +78,7 @@ class SettingsRepositoryImpl @Inject constructor(
                     selectedTheme = selectedTheme,
                     selectedPlayerLayout = selectedPlayerLayout,
                     playlistLayoutType = playlistLayoutType,
-                    crossfadeEnabled = crossfadeEnabled,
                     repeatMode = repeatMode,
-                    shuffleMode = shuffleMode,
                     audioPreset = selectedAudioPreset
                 )
             }
@@ -109,7 +101,7 @@ class SettingsRepositoryImpl @Inject constructor(
     }
 
     /**
-     * NEW: Flow for last playback state, with error handling (emits default null state on IO error).
+     *Flow for last playback state, with error handling (emits default null state on IO error).
      * This enables resumption: if audioId is non-null, rebuild queue and seek to positionMs.
      */
     override fun getLastPlaybackState(): Flow<LastPlaybackState> {
@@ -122,29 +114,52 @@ class SettingsRepositoryImpl @Inject constructor(
                 }
             }
             .map { preferences ->
+                val queueIds = preferences[LAST_QUEUE_IDS]?.takeIf { it.isNotBlank() }?.split(",")?.mapNotNull { it.trim().toLongOrNull() } ?: null
                 LastPlaybackState(
                     audioId = preferences[LAST_PLAYED_AUDIO_ID],
-                    positionMs = preferences[LAST_POSITION_MS] ?: 0L
+                    positionMs = preferences[LAST_POSITION_MS] ?: 0L,
+                    queueIds = queueIds
                 )
             }
     }
 
     /**
-     * NEW: Suspend func to save last state (or clear if audioId null).
+     * Suspend func to save last state (or clear if audioId null).
      * Async IO via DataStore; called from service onDestroy for best-effort persistence.
      */
     override suspend fun saveLastPlaybackState(state: LastPlaybackState) {
         dataStore.edit { preferences ->
+            // Save audioId and positionMs only if audioId is provided
             if (state.audioId != null) {
                 preferences[LAST_PLAYED_AUDIO_ID] = state.audioId!!
                 preferences[LAST_POSITION_MS] = state.positionMs
             } else {
-                // Clear stale state (e.g., file deleted)
                 preferences.remove(LAST_PLAYED_AUDIO_ID)
                 preferences.remove(LAST_POSITION_MS)
             }
+            // Save queueIds independently (always, if provided)
+            val queueStr = state.queueIds?.joinToString(",")
+            if (queueStr != null && queueStr.isNotEmpty()) {
+                preferences[LAST_QUEUE_IDS] = queueStr
+            } else {
+                preferences.remove(LAST_QUEUE_IDS)
+            }
         }
     }
+//    override suspend fun saveLastPlaybackState(state: LastPlaybackState) {
+//        dataStore.edit { preferences ->
+//            if (state.audioId != null) {
+//                preferences[LAST_PLAYED_AUDIO_ID] = state.audioId!!
+//                preferences[LAST_POSITION_MS] = state.positionMs
+//                preferences[LAST_QUEUE_IDS] = state.queueIds?.joinToString(",") ?: ""
+//            } else {
+//                // Clear stale state (e.g., file deleted)
+//                preferences.remove(LAST_PLAYED_AUDIO_ID)
+//                preferences.remove(LAST_POSITION_MS)
+//                preferences.remove(LAST_QUEUE_IDS)
+//            }
+//        }
+//    }
 
     override suspend fun updateTheme(theme: AppThemeType) {
         dataStore.edit { preferences ->
@@ -164,11 +179,6 @@ class SettingsRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun updateCrossfadeEnabled(enabled: Boolean) {
-        dataStore.edit { preferences ->
-            preferences[CROSSFADE_ENABLED] = enabled
-        }
-    }
 
     override suspend fun updateFilterOption(filterOption: FilterOption) {
         dataStore.edit { preferences ->
@@ -179,12 +189,6 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun updateRepeatMode(repeatMode: RepeatMode) {
         dataStore.edit { preferences ->
             preferences[REPEAT_MODE] = repeatMode.name
-        }
-    }
-
-    override suspend fun updateShuffleMode(shuffleMode: ShuffleMode) {
-        dataStore.edit { preferences ->
-            preferences[SHUFFLE_MODE] = shuffleMode.name
         }
     }
 

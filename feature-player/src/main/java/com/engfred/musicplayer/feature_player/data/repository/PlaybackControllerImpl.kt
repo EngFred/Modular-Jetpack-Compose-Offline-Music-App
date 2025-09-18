@@ -20,16 +20,18 @@ import com.engfred.musicplayer.feature_player.data.repository.controller.MediaCo
 import com.engfred.musicplayer.feature_player.data.repository.controller.PlaybackProgressTracker
 import com.engfred.musicplayer.feature_player.data.repository.controller.PlaybackStateUpdater
 import com.engfred.musicplayer.feature_player.data.repository.controller.QueueManager
+import com.engfred.musicplayer.core.domain.repository.SettingsRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -37,6 +39,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val TAG = "PlayerControllerImpl"
+
 @UnstableApi
 @Singleton
 class PlaybackControllerImpl @Inject constructor(
@@ -46,15 +49,21 @@ class PlaybackControllerImpl @Inject constructor(
     playlistRepository: PlaylistRepository,
     @ApplicationContext private val context: Context,
     sessionToken: SessionToken,
+    private val settingsRepository: SettingsRepository
 ) : PlaybackController {
+
     private val mediaController = MutableStateFlow<MediaController?>(null)
     private val _playbackState = MutableStateFlow(PlaybackState())
-    override fun getPlaybackState(): Flow<PlaybackState> = _playbackState.asStateFlow()
+    override fun getPlaybackState(): kotlinx.coroutines.flow.Flow<PlaybackState> = _playbackState.asStateFlow()
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var attachedController: MediaController? = null
-    private var intendedRepeatMode: RepeatMode = RepeatMode.OFF
-    private var intendedShuffleMode: ShuffleMode = ShuffleMode.OFF
     private val pendingPlayNextMediaId = MutableStateFlow<String?>(null)
+
+    // Keep the last "intended" repeat mode (comes from preferences or user action)
+    // This is applied to the controller as soon as it is available.
+    @Volatile
+    private var intendedRepeatMode: RepeatMode = RepeatMode.OFF
+
     // Helpers
     private val stateUpdater = PlaybackStateUpdater(_playbackState, mediaController, sharedAudioDataSource, audioFileMapper)
     private val progressTracker = PlaybackProgressTracker(mediaController, stateUpdater)
@@ -68,6 +77,7 @@ class PlaybackControllerImpl @Inject constructor(
         _playbackState
     )
     private val mediaControllerBuilder = MediaControllerBuilder(context, sessionToken, mediaController, _playbackState)
+
     private val queueManager = QueueManager(
         sharedAudioDataSource,
         audioFileMapper,
@@ -78,14 +88,31 @@ class PlaybackControllerImpl @Inject constructor(
         stateUpdater,
         progressTracker,
         setRepeatCallback = ::setRepeatMode,
-        setShuffleCallback = ::setShuffleMode,
         pendingPlayNextMediaId = pendingPlayNextMediaId
     )
+
     init {
         Log.d(TAG, "Initializing PlayerControllerImpl")
+
+        // 1) Start collecting settings first so intendedRepeatMode is known early.
+        repositoryScope.launch {
+            settingsRepository.getAppSettings()
+                .map { it.repeatMode } // map to RepeatMode
+                .distinctUntilChanged()
+                .collectLatest { mode ->
+                    Log.d(TAG, "Settings repository emitted repeat mode: $mode")
+                    intendedRepeatMode = mode
+                    // Apply to controller if available; if not available, setRepeatMode will store for later application.
+                    setRepeatMode(mode)
+                }
+        }
+
+        // 2) Build and connect the media controller after we've started listening to settings.
         repositoryScope.launch {
             mediaControllerBuilder.buildAndConnectController()
         }
+
+        // 3) React to mediaController changes (attach/detach) on Main thread
         repositoryScope.launch {
             mediaController.collectLatest { newController ->
                 withContext(Dispatchers.Main) {
@@ -94,8 +121,12 @@ class PlaybackControllerImpl @Inject constructor(
                         newController.addListener(controllerCallback)
                         attachedController = newController
                         Log.d(TAG, "PlayerControllerImpl received and attached to shared MediaController.")
+
+                        // Apply the intended repeat mode (whatever was read from prefs or previously set)
+                        // We call the suspend setRepeatMode which will apply to the attached controller.
                         setRepeatMode(intendedRepeatMode)
-                        setShuffleMode(intendedShuffleMode)
+
+                        // Update other state and start tracking progress
                         stateUpdater.updatePlaybackState()
                         progressTracker.updateCurrentAudioFilePlaybackProgress(newController)
                     } else {
@@ -108,13 +139,16 @@ class PlaybackControllerImpl @Inject constructor(
                 }
             }
         }
+
+        // 4) Start progress tracker loop
         repositoryScope.launch {
             progressTracker.playEventRecorder = controllerCallback
             progressTracker.startPlaybackPositionUpdates()
         }
     }
+
     override suspend fun initiatePlayback(initialAudioFileUri: android.net.Uri) {
-        queueManager.initiatePlayback(initialAudioFileUri, intendedRepeatMode, intendedShuffleMode)
+        queueManager.initiatePlayback(initialAudioFileUri, intendedRepeatMode)
     }
 
     override suspend fun initiateShufflePlayback(playingQueue: List<AudioFile>) {
@@ -123,20 +157,8 @@ class PlaybackControllerImpl @Inject constructor(
             return
         }
 
-        // Create a deterministic shuffled queue (a full permutation).
-        // This ensures every song appears exactly once in the queue.
         val shuffledQueue = playingQueue.shuffled()
-
-        // Set the playing queue to the shuffled permutation so the QueueManager
-        // and sharedAudioDataSource reflect the actual order we want to play.
         sharedAudioDataSource.setPlayingQueue(shuffledQueue)
-
-        // IMPORTANT: disable ExoPlayer's internal shuffle to avoid double-shuffling
-        // and unexpected skip behavior. We'll manage order via the shuffledQueue.
-        setShuffleMode(ShuffleMode.OFF)
-
-        // Start playback at the first item of the shuffled queue.
-        // initiatePlayback will set the controller queue and begin playback.
         initiatePlayback(shuffledQueue.first().uri)
     }
 
@@ -147,16 +169,19 @@ class PlaybackControllerImpl @Inject constructor(
             } ?: Log.w(TAG, "MediaController not set when trying to play/pause.")
         }
     }
+
     override suspend fun skipToNext() {
         withContext(Dispatchers.Main) {
             mediaController.value?.seekToNextMediaItem() ?: Log.w(TAG, "MediaController not set when trying to skip next.")
         }
     }
+
     override suspend fun skipToPrevious() {
         withContext(Dispatchers.Main) {
             mediaController.value?.seekToPreviousMediaItem() ?: Log.w(TAG, "MediaController not set when trying to skip previous.")
         }
     }
+
     override suspend fun seekTo(positionMs: Long) {
         withContext(Dispatchers.Main) {
             mediaController.value?.let { controller ->
@@ -166,31 +191,45 @@ class PlaybackControllerImpl @Inject constructor(
             } ?: Log.w(TAG, "MediaController not set when trying to seek.")
         }
     }
+
+    /**
+     * Sets repeat mode on the MediaController if available, otherwise stores it to apply later.
+     *
+     * NOTE: This function applies the *intended* repeat mode but does NOT persist it to preferences.
+     * Persisting should be done by the settings UI (call settingsRepository.updateRepeatMode(mode)).
+     */
     override suspend fun setRepeatMode(mode: RepeatMode) {
+        // remember intention immediately (helps avoid races)
+        intendedRepeatMode = mode
+
         withContext(Dispatchers.Main) {
-            intendedRepeatMode = mode
             mediaController.value?.let { controller ->
                 controller.repeatMode = when (mode) {
                     RepeatMode.OFF -> Player.REPEAT_MODE_OFF
                     RepeatMode.ONE -> Player.REPEAT_MODE_ONE
                     RepeatMode.ALL -> Player.REPEAT_MODE_ALL
                 }
-                Log.d(TAG, "Set repeat mode to $mode")
+                Log.d(TAG, "Set repeat mode to $mode on MediaController")
+                // Optionally update playback state object so UI reads the current mode immediately
+                _playbackState.update { it.copy(repeatMode = mode) }
             } ?: Log.w(TAG, "MediaController not set when trying to set repeat mode. Stored $mode for later.")
         }
     }
+
     override suspend fun setShuffleMode(mode: ShuffleMode) {
         withContext(Dispatchers.Main) {
-            intendedShuffleMode = mode
-            mediaController.value?.let { controller ->
-                controller.shuffleModeEnabled = (mode == ShuffleMode.ON)
+            mediaController.value?.let {
+                it.shuffleModeEnabled = mode == ShuffleMode.ON
                 Log.d(TAG, "Set shuffle mode to $mode")
-            } ?: Log.w(TAG, "MediaController not set when trying to set shuffle mode. Stored $mode for later.")
+                _playbackState.update { it.copy(shuffleMode = mode) }
+            } ?: Log.w(TAG, "MediaController not set when trying to set shuffle mode.")
         }
     }
+
     override suspend fun addAudioToQueueNext(audioFile: AudioFile) {
         queueManager.addAudioToQueueNext(audioFile)
     }
+
     override suspend fun releasePlayer() {
         val controllerToRelease = mediaController.value
         repositoryScope.cancel()
@@ -209,12 +248,15 @@ class PlaybackControllerImpl @Inject constructor(
             }
         }
     }
+
     override fun clearPlaybackError() {
         _playbackState.update { it.copy(error = null) }
     }
+
     override suspend fun onAudioFileRemoved(deletedAudioFile: AudioFile) {
         queueManager.onAudioFileRemoved(deletedAudioFile)
     }
+
     override suspend fun removeFromQueue(audioFile: AudioFile) {
         queueManager.removeFromQueue(audioFile)
     }

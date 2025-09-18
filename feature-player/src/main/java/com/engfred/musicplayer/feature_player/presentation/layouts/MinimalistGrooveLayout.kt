@@ -69,8 +69,7 @@ fun MinimalistGrooveLayout(
     playingQueue: List<AudioFile>,
     onPlayQueueItem: (AudioFile) -> Unit,
     onRemoveQueueItem: (AudioFile) -> Unit,
-    repeatMode: RepeatMode,
-    shuffleMode: ShuffleMode
+    repeatMode: RepeatMode
 ) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -203,7 +202,7 @@ fun MinimalistGrooveLayout(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         ControlBar(
-                            shuffleMode = shuffleMode,
+                            shuffleMode = uiState.shuffleMode,
                             isPlaying = uiState.isPlaying,
                             repeatMode = repeatMode,
                             onPlayPauseClick = {
@@ -267,7 +266,7 @@ fun MinimalistGrooveLayout(
                             modifier = Modifier.fillMaxWidth()
                         )
                         ControlBar(
-                            shuffleMode = shuffleMode,
+                            shuffleMode = uiState.shuffleMode,
                             isPlaying = uiState.isPlaying,
                             repeatMode = repeatMode,
                             onPlayPauseClick = {

@@ -62,6 +62,7 @@ object PlaybackQueueHelper {
                 val resumePosition = if (startAudio != null && lastState.positionMs > 0) lastState.positionMs else C.TIME_UNSET
                 Log.d(TAG, "Starting playback with URI: $startUri (resumePos=$resumePosition)")
                 playbackController.initiatePlayback(startUri, resumePosition)
+                Toast.makeText(context, "Resumed playback", Toast.LENGTH_SHORT).show()
             } else {
                 Toast.makeText(context, "No audio files found", Toast.LENGTH_SHORT).show()
             }
@@ -92,8 +93,8 @@ object PlaybackQueueHelper {
             sharedAudioDataSource.setPlayingQueue(playingQueue)
             playbackController.setRepeatMode(repeat)
             // pass resume position into shuffle initiation
-            val resumePosition = if (lastState.positionMs > 0) lastState.positionMs else C.TIME_UNSET
-            playbackController.initiateShufflePlayback(playingQueue, resumePosition)
+//            val resumePosition = if (lastState.positionMs > 0) lastState.positionMs else C.TIME_UNSET
+            playbackController.initiateShufflePlayback(playingQueue)
         }
     }
 }

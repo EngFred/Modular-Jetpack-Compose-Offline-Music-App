@@ -172,7 +172,7 @@ class ControllerCallback(
                             try {
                                 sharedAudioDataSource.deleteAudioFile(dummyAudioFile)
                                 Log.d(TAG, "Deleted inaccessible audio file (ID: $failedId) from shared data source.")
-                            } catch (e: Throwable) {
+                            } catch (_: Throwable) {
                                 // fallback
                                 try {
                                     sharedAudioDataSource.removeAudioFileFromPlayingQueue(dummyAudioFile)

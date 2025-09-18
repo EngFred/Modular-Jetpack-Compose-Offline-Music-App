@@ -2,6 +2,7 @@ package com.engfred.musicplayer.feature_player.data.repository
 
 import android.content.Context
 import android.util.Log
+import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
@@ -139,7 +140,7 @@ class PlaybackControllerImpl @Inject constructor(
         queueManager.initiatePlayback(initialAudioFileUri, intendedRepeatMode, startPositionMs)
     }
 
-    override suspend fun initiateShufflePlayback(playingQueue: List<AudioFile>, startPositionMs: Long) {
+    override suspend fun initiateShufflePlayback(playingQueue: List<AudioFile>) {
         if (playingQueue.isEmpty()) {
             Log.w(TAG, "Cannot initiate shuffle playback: empty queue.")
             return
@@ -147,7 +148,7 @@ class PlaybackControllerImpl @Inject constructor(
         val shuffledQueue = playingQueue.shuffled()
         sharedAudioDataSource.setPlayingQueue(shuffledQueue)
         // start playback at shuffledQueue.first() and apply startPositionMs
-        initiatePlayback(shuffledQueue.first().uri, startPositionMs)
+        initiatePlayback(shuffledQueue.first().uri, C.TIME_UNSET)
     }
 
     override suspend fun playPause() {

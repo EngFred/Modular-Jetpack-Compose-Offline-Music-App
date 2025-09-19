@@ -22,7 +22,6 @@ import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.ScreenRotation
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -38,12 +37,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.DpOffset
@@ -69,11 +66,8 @@ fun TopBar(
     onShareAudio: (() -> Unit)? = null
 ) {
     var showLayoutMenu by remember { mutableStateOf(false) }
-    val context = LocalContext.current
-    val view = LocalView.current
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    val screenWidthDp = configuration.screenWidthDp
 
     val currentSongI = currentSongIndex + 1
     val currentSongNumText = if(currentSongI > totalQueueSize) "" else currentSongI.toString()
@@ -82,25 +76,6 @@ fun TopBar(
     val contentColor = when (selectedLayout) {
         PlayerLayout.IMMERSIVE_CANVAS -> dynamicContentColor ?: MaterialTheme.colorScheme.onBackground
         else -> LocalContentColor.current // Use LocalContentColor for ETHEREAL_FLOW and MINIMALIST_GROOVE
-    }
-
-    // Function to toggle device orientation
-    fun toggleOrientation() {
-        val activity = context as? Activity
-        if (activity != null) {
-            try {
-                activity.requestedOrientation = if (isLandscape) {
-                    ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                } else {
-                    ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-                }
-                view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-            } catch (e: Exception) {
-                Toast.makeText(context, "Unable to change orientation", Toast.LENGTH_SHORT).show()
-            }
-        } else {
-            Toast.makeText(context, "Orientation change not supported", Toast.LENGTH_SHORT).show()
-        }
     }
 
     when (selectedLayout) {
@@ -138,27 +113,6 @@ fun TopBar(
                             contentDescription = if (isFavorite) "Remove from Favorites" else "Add to Favorites",
                             tint = if (isFavorite) Color(0xFFFF5252) else contentColor.copy(alpha = 0.7f),
                             modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    IconButton(
-                        onClick = { toggleOrientation() },
-                        modifier = Modifier.semantics {
-                            customActions = listOf(
-                                CustomAccessibilityAction(
-                                    label = if (isLandscape) "Switch to portrait" else "Switch to landscape",
-                                    action = {
-                                        toggleOrientation()
-                                        true
-                                    }
-                                )
-                            )
-                        }
-                    ) {
-                        Icon(
-                            Icons.Rounded.ScreenRotation,
-                            contentDescription = if (isLandscape) "Switch to portrait" else "Switch to landscape",
-                            tint = contentColor,
-                            modifier = Modifier.rotate(if (isLandscape) 90f else 0f)
                         )
                     }
                     IconButton(onClick = { showLayoutMenu = true }) {
@@ -209,27 +163,6 @@ fun TopBar(
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(
-                        onClick = { toggleOrientation() },
-                        modifier = Modifier.semantics {
-                            customActions = listOf(
-                                CustomAccessibilityAction(
-                                    label = if (isLandscape) "Switch to portrait" else "Switch to landscape",
-                                    action = {
-                                        toggleOrientation()
-                                        true
-                                    }
-                                )
-                            )
-                        }
-                    ) {
-                        Icon(
-                            Icons.Rounded.ScreenRotation,
-                            contentDescription = if (isLandscape) "Switch to portrait" else "Switch to landscape",
-                            tint = contentColor,
-                            modifier = Modifier.rotate(if (isLandscape) 90f else 0f)
-                        )
-                    }
                     IconButton(onClick = { showLayoutMenu = true }) {
                         Icon(
                             Icons.Rounded.MoreVert,
@@ -277,7 +210,7 @@ fun TopBar(
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (isLandscape.not() || screenWidthDp < 900) {
+                    if (isLandscape.not()) {
                         IconButton(onClick = onOpenQueue) {
                             Icon(
                                 Icons.AutoMirrored.Rounded.QueueMusic,
@@ -287,30 +220,6 @@ fun TopBar(
                         }
                     }
 
-//                    if (screenWidthDp < 900) {
-//
-//                    }
-                    IconButton(
-                        onClick = { toggleOrientation() },
-                        modifier = Modifier.semantics {
-                            customActions = listOf(
-                                CustomAccessibilityAction(
-                                    label = if (isLandscape) "Switch to portrait" else "Switch to landscape",
-                                    action = {
-                                        toggleOrientation()
-                                        true
-                                    }
-                                )
-                            )
-                        }
-                    ) {
-                        Icon(
-                            Icons.Rounded.ScreenRotation,
-                            contentDescription = if (isLandscape) "Switch to portrait" else "Switch to landscape",
-                            tint = contentColor,
-                            modifier = Modifier.rotate(if (isLandscape) 90f else 0f)
-                        )
-                    }
                     IconButton(onClick = { showLayoutMenu = true }) {
                         Icon(
                             Icons.Rounded.MoreVert,
@@ -435,4 +344,3 @@ private fun LayoutDropdownMenu(
         }
     }
 }
-

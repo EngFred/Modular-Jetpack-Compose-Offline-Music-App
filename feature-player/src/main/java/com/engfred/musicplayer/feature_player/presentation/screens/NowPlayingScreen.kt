@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -17,6 +18,7 @@ import com.engfred.musicplayer.feature_player.presentation.layouts.ImmersiveCanv
 import com.engfred.musicplayer.feature_player.presentation.layouts.MinimalistGrooveLayout
 import com.engfred.musicplayer.feature_player.presentation.viewmodel.PlayerEvent
 import com.engfred.musicplayer.feature_player.presentation.viewmodel.NowPlayingViewModel
+import kotlinx.coroutines.delay
 
 @UnstableApi
 @Composable

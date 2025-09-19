@@ -80,19 +80,10 @@ fun PlaylistDetailScreen(
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val screenWidthDp = configuration.screenWidthDp
-    val screenHeightDp = configuration.screenHeightDp
     val density = LocalDensity.current
 
-    // responsive breakpoints
-    val isTablet = screenWidthDp >= 900
-
-    // left pane fraction: tablet vs landscape phone vs portrait (portrait uses single-column)
-    val leftPaneFraction = when {
-        isTablet -> 0.35f
-        isLandscape -> 0.40f
-        else -> 1f
-    }
+    // left/right pane fraction: in landscape make each side exactly half
+    val leftPaneFraction = if (isLandscape) 0.5f else 1f
     val rightPaneFraction = 1f - leftPaneFraction
 
     var moreMenuExpanded by rememberSaveable { mutableStateOf(false) }
@@ -121,8 +112,8 @@ fun PlaylistDetailScreen(
         )
     }
 
-    // threshold based on screen height (12% of height) converted to pixels
-    val thresholdPx = with(density) { (screenHeightDp * 0.12f).dp.toPx().toInt() }
+    // Use a fixed threshold (48.dp) to decide when header is scrolled past.
+    val thresholdPx = with(density) { 48.dp.toPx().toInt() }
 
     // scrolledPastHeader now uses the relevant list state depending on layout
     val scrolledPastHeader by remember {
@@ -305,14 +296,14 @@ fun PlaylistDetailScreen(
             }
         } else {
             // Landscape / wide layout: split into left details and right songs.
-            Row(modifier = mainContentModifier.padding(horizontal = if (isTablet) 40.dp else 28.dp)) {
+            Row(modifier = mainContentModifier.padding(start = 30.dp, end = 8.dp)) {
                 // Left pane: header + actions. Use LazyColumn so it can scroll independently.
                 LazyColumn(
                     state = leftListState,
                     modifier = Modifier
                         .weight(leftPaneFraction)
                         .fillMaxHeight()
-                        .padding(end = if (isTablet) 28.dp else 24.dp),
+                        .padding(end = 24.dp),
                     contentPadding = PaddingValues(vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
@@ -350,7 +341,7 @@ fun PlaylistDetailScreen(
                         .fillMaxHeight()
                         .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.18f))
                         .clip(MaterialTheme.shapes.medium)
-                        .padding(start = if (isTablet) 28.dp else 24.dp, end = 16.dp, top = 16.dp, bottom = 16.dp)
+                        .padding(start = 0.dp, end = 0.dp, top = 0.dp, bottom = 0.dp)
                 ) {
                     when {
                         uiState.isLoading || uiState.isCleaningMissingSongs -> LoadingIndicator(modifier = Modifier.fillMaxSize())

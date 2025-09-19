@@ -18,8 +18,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Repeat
-import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
@@ -35,8 +33,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.engfred.musicplayer.feature_player.R
 import com.engfred.musicplayer.core.domain.repository.RepeatMode
 import com.engfred.musicplayer.core.domain.repository.ShuffleMode
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
@@ -67,7 +67,8 @@ fun ControlBar(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 PlaybackControlIconButton(
-                    icon = Icons.Rounded.Shuffle,
+                    iconVector = Icons.Rounded.Shuffle,
+                    iconResId = null,
                     contentDescription = "Toggle Shuffle Mode",
                     onClick = {
                         val newMode = if (shuffleMode == ShuffleMode.ON) ShuffleMode.OFF else ShuffleMode.ON
@@ -81,7 +82,8 @@ fun ControlBar(
                     Spacer(modifier = Modifier.width(16.dp))
                 }
                 PlaybackControlIconButton(
-                    icon = Icons.Rounded.SkipPrevious,
+                    iconVector = Icons.Rounded.SkipPrevious,
+                    iconResId = null,
                     contentDescription = "Skip Previous Song",
                     onClick = onSkipPreviousClick,
                     tint = LocalContentColor.current,
@@ -92,7 +94,8 @@ fun ControlBar(
                     Spacer(modifier = Modifier.width(16.dp))
                 }
                 PlaybackControlIconButton(
-                    icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                    iconVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                    iconResId = null,
                     contentDescription = if (isPlaying) "Pause Playback" else "Play Playback",
                     onClick = onPlayPauseClick,
                     tint = MaterialTheme.colorScheme.onPrimary,
@@ -106,7 +109,8 @@ fun ControlBar(
                     Spacer(modifier = Modifier.width(16.dp))
                 }
                 PlaybackControlIconButton(
-                    icon = Icons.Rounded.SkipNext,
+                    iconVector = Icons.Rounded.SkipNext,
+                    iconResId = null,
                     contentDescription = "Skip Next Song",
                     onClick = onSkipNextClick,
                     tint = LocalContentColor.current,
@@ -116,12 +120,16 @@ fun ControlBar(
                 if (addExtraSpaceBetweenButtons) {
                     Spacer(modifier = Modifier.width(16.dp))
                 }
+
+                // Immersive uses vector icons (unchanged)
                 PlaybackControlIconButton(
-                    icon = when (repeatMode) {
-                        RepeatMode.OFF -> Icons.Rounded.Repeat
-                        RepeatMode.ALL -> Icons.Rounded.Repeat
-                        RepeatMode.ONE -> Icons.Rounded.RepeatOne
+                    iconVector = when (repeatMode) {
+                        RepeatMode.OFF -> Icons.Rounded.Shuffle /* placeholder - will be tinted off; replaced below with Repeat vector */
+                        RepeatMode.ALL -> Icons.Rounded.Shuffle
+                        RepeatMode.ONE -> Icons.Rounded.Shuffle
                     },
+                    // we want the Immersive layout to use vector Repeat icons; choose proper vectors inline
+                    iconResId = null,
                     contentDescription = "Toggle Repeat Mode",
                     onClick = {
                         val newMode = when (repeatMode) {
@@ -138,6 +146,12 @@ fun ControlBar(
             }
         }
         PlayerLayout.MINIMALIST_GROOVE -> {
+            // For Minimalist: use your drawable repeat icons (repeat.png / repeat_once.png)
+            val repeatDrawable = when (repeatMode) {
+                RepeatMode.ONE -> R.drawable.repeat_once
+                else -> R.drawable.repeat
+            }
+
             Row(
                 modifier = modifier
                     .fillMaxWidth()
@@ -147,7 +161,8 @@ fun ControlBar(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 PlaybackControlIconButton(
-                    icon = Icons.Rounded.Shuffle,
+                    iconVector = Icons.Rounded.Shuffle,
+                    iconResId = null,
                     contentDescription = "Toggle Shuffle Mode",
                     onClick = {
                         val newMode = if (shuffleMode == ShuffleMode.ON) ShuffleMode.OFF else ShuffleMode.ON
@@ -158,7 +173,8 @@ fun ControlBar(
                     buttonSize = 40.dp,
                 )
                 PlaybackControlIconButton(
-                    icon = Icons.Rounded.SkipPrevious,
+                    iconVector = Icons.Rounded.SkipPrevious,
+                    iconResId = null,
                     contentDescription = "Skip Previous Song",
                     onClick = onSkipPreviousClick,
                     tint = LocalContentColor.current,
@@ -166,7 +182,8 @@ fun ControlBar(
                     buttonSize = 52.dp
                 )
                 PlaybackControlIconButton(
-                    icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                    iconVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                    iconResId = null,
                     contentDescription = if (isPlaying) "Pause Playback" else "Play Playback",
                     onClick = onPlayPauseClick,
                     tint = MaterialTheme.colorScheme.onPrimary,
@@ -177,19 +194,18 @@ fun ControlBar(
                     isPlaying = isPlaying
                 )
                 PlaybackControlIconButton(
-                    icon = Icons.Rounded.SkipNext,
+                    iconVector = Icons.Rounded.SkipNext,
+                    iconResId = null,
                     contentDescription = "Skip Next Song",
                     onClick = onSkipNextClick,
                     tint = LocalContentColor.current,
                     size = 40.dp,
                     buttonSize = 52.dp
                 )
+
                 PlaybackControlIconButton(
-                    icon = when (repeatMode) {
-                        RepeatMode.OFF -> Icons.Rounded.Repeat
-                        RepeatMode.ALL -> Icons.Rounded.Repeat
-                        RepeatMode.ONE -> Icons.Rounded.RepeatOne
-                    },
+                    iconVector = null,
+                    iconResId = repeatDrawable,
                     contentDescription = "Toggle Repeat Mode",
                     onClick = {
                         val newMode = when (repeatMode) {
@@ -200,12 +216,17 @@ fun ControlBar(
                         onSetRepeatMode(newMode)
                     },
                     tint = if (repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.primary else LocalContentColor.current.copy(alpha = 0.7f),
-                    size = 24.dp,
+                    size = 27.dp,
                     buttonSize = 40.dp,
                 )
             }
         }
         else -> {
+            // This branch covers Ethereal (and other non-immersive) — use drawable repeat icons here too.
+            val repeatDrawable = when (repeatMode) {
+                RepeatMode.ONE -> R.drawable.repeat_once
+                else -> R.drawable.repeat
+            }
 
             Box(
                 modifier = modifier
@@ -221,7 +242,8 @@ fun ControlBar(
                 ) {
                     // Shuffle with smaller white circular background
                     PlaybackControlIconButton(
-                        icon = Icons.Rounded.Shuffle,
+                        iconVector = Icons.Rounded.Shuffle,
+                        iconResId = null,
                         contentDescription = "Toggle Shuffle Mode",
                         onClick = {
                             val newShuffleMode = if (shuffleMode == ShuffleMode.ON) ShuffleMode.OFF else ShuffleMode.ON
@@ -234,7 +256,8 @@ fun ControlBar(
                     )
 
                     PlaybackControlIconButton(
-                        icon = Icons.Rounded.SkipPrevious,
+                        iconVector = Icons.Rounded.SkipPrevious,
+                        iconResId = null,
                         contentDescription = "Skip Previous Song",
                         onClick = onSkipPreviousClick,
                         tint = LocalContentColor.current,
@@ -243,7 +266,8 @@ fun ControlBar(
                     )
 
                     PlaybackControlIconButton(
-                        icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        iconVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        iconResId = null,
                         contentDescription = if (isPlaying) "Pause Playback" else "Play Playback",
                         onClick = onPlayPauseClick,
                         tint = LocalContentColor.current,
@@ -255,7 +279,8 @@ fun ControlBar(
                     )
 
                     PlaybackControlIconButton(
-                        icon = Icons.Rounded.SkipNext,
+                        iconVector = Icons.Rounded.SkipNext,
+                        iconResId = null,
                         contentDescription = "Skip Next Song",
                         onClick = onSkipNextClick,
                         tint = LocalContentColor.current,
@@ -263,13 +288,10 @@ fun ControlBar(
                         buttonSize = 52.dp
                     )
 
-                    // Repeat with smaller white circular background
+                    // Repeat uses drawable in Ethereal/other branch
                     PlaybackControlIconButton(
-                        icon = when (repeatMode) {
-                            RepeatMode.OFF -> Icons.Rounded.Repeat
-                            RepeatMode.ALL -> Icons.Rounded.Repeat
-                            RepeatMode.ONE -> Icons.Rounded.RepeatOne
-                        },
+                        iconVector = null,
+                        iconResId = repeatDrawable,
                         contentDescription = "Toggle Repeat Mode",
                         onClick = {
                             val newRepeatMode = when (repeatMode) {
@@ -280,7 +302,7 @@ fun ControlBar(
                             onSetRepeatMode(newRepeatMode)
                         },
                         tint = LocalContentColor.current,
-                        size = 24.dp,
+                        size = 27.dp,
                         buttonSize = 40.dp,
                         backgroundColor = if(repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.primary else Color.Transparent
                     )
@@ -292,7 +314,8 @@ fun ControlBar(
 
 @Composable
 private fun PlaybackControlIconButton(
-    icon: ImageVector,
+    iconVector: ImageVector? = null,
+    iconResId: Int? = null,
     contentDescription: String,
     onClick: () -> Unit,
     tint: Color,
@@ -322,11 +345,25 @@ private fun PlaybackControlIconButton(
                 }
             }
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = tint,
-            modifier = Modifier.size(size)
-        )
+        if (iconResId != null) {
+            // Drawable painter (PNG)
+            Icon(
+                painter = painterResource(id = iconResId),
+                contentDescription = contentDescription,
+                tint = tint,
+                modifier = Modifier.size(size)
+            )
+        } else if (iconVector != null) {
+            // Vector
+            Icon(
+                imageVector = iconVector,
+                contentDescription = contentDescription,
+                tint = tint,
+                modifier = Modifier.size(size)
+            )
+        } else {
+            // Fallback empty space (shouldn't happen)
+            Spacer(modifier = Modifier.size(size))
+        }
     }
 }

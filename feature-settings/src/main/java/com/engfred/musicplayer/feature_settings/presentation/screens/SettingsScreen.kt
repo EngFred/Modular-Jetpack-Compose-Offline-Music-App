@@ -90,36 +90,6 @@ fun SettingsScreen(
                 onSelect = { viewModel.onEvent(SettingsEvent.UpdateTheme(it)) }
             )
 
-            SettingsSection(
-                title = "Now Playing Layout",
-                subtitle = "Layout shown on the player screen",
-                icon = Icons.Rounded.PlayArrow,
-                items = PlayerLayout.entries,
-                selectedItem = uiState.selectedPlayerLayout,
-                displayName = { it.name.replace("_", " ").lowercase().replaceFirstChar { c -> c.titlecase() } },
-                onSelect = { viewModel.onEvent(SettingsEvent.UpdatePlayerLayout(it)) }
-            )
-
-            SettingsSection(
-                title = "Playlist Layout",
-                subtitle = "How your playlists are displayed",
-                icon = Icons.AutoMirrored.Rounded.QueueMusic,
-                items = PlaylistLayoutType.entries,
-                selectedItem = uiState.playlistLayoutType,
-                displayName = { it.name.replace("_", " ").lowercase().replaceFirstChar { c -> c.titlecase() } },
-                onSelect = { viewModel.onEvent(SettingsEvent.UpdatePlaylistLayout(it)) }
-            )
-
-            SettingsSection(
-                title = "Audio Preset",
-                subtitle = "Select an equalizer preset for playback",
-                icon = Icons.Rounded.Equalizer,
-                items = AudioPreset.entries,
-                selectedItem = uiState.audioPreset,
-                displayName = { it.name.replace("_", " ").lowercase().replaceFirstChar { c -> c.titlecase() } },
-                onSelect = { viewModel.onEvent(SettingsEvent.UpdateAudioPreset(it)) }
-            )
-
             //Widget background toggle
             Card(
                 modifier = Modifier
@@ -158,6 +128,36 @@ fun SettingsScreen(
                     )
                 }
             }
+
+            SettingsSection(
+                title = "Now Playing Layout",
+                subtitle = "Layout shown on the player screen",
+                icon = Icons.Rounded.PlayArrow,
+                items = PlayerLayout.entries,
+                selectedItem = uiState.selectedPlayerLayout,
+                displayName = { it.name.replace("_", " ").lowercase().replaceFirstChar { c -> c.titlecase() } },
+                onSelect = { viewModel.onEvent(SettingsEvent.UpdatePlayerLayout(it)) }
+            )
+
+            SettingsSection(
+                title = "Playlist Layout",
+                subtitle = "How your playlists are displayed",
+                icon = Icons.AutoMirrored.Rounded.QueueMusic,
+                items = PlaylistLayoutType.entries,
+                selectedItem = uiState.playlistLayoutType,
+                displayName = { it.name.replace("_", " ").lowercase().replaceFirstChar { c -> c.titlecase() } },
+                onSelect = { viewModel.onEvent(SettingsEvent.UpdatePlaylistLayout(it)) }
+            )
+
+            SettingsSection(
+                title = "Audio Preset",
+                subtitle = "Select an equalizer preset for playback",
+                icon = Icons.Rounded.Equalizer,
+                items = AudioPreset.entries,
+                selectedItem = uiState.audioPreset,
+                displayName = { it.name.replace("_", " ").lowercase().replaceFirstChar { c -> c.titlecase() } },
+                onSelect = { viewModel.onEvent(SettingsEvent.UpdateAudioPreset(it)) }
+            )
 
             Spacer(modifier = Modifier.width(8.dp))
 

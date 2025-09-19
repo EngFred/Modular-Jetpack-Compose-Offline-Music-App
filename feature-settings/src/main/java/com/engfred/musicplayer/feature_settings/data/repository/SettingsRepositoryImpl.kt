@@ -14,6 +14,7 @@ import com.engfred.musicplayer.core.domain.model.FilterOption
 import com.engfred.musicplayer.core.domain.model.LastPlaybackState
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
 import com.engfred.musicplayer.core.domain.model.PlaylistLayoutType
+import com.engfred.musicplayer.core.domain.model.WidgetBackgroundMode
 import com.engfred.musicplayer.core.domain.repository.RepeatMode
 import com.engfred.musicplayer.core.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
@@ -23,10 +24,6 @@ import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * Implementation of SettingsRepository using DataStore.
- * Handles defaults and error recovery for production robustness.
- */
 @Singleton
 class SettingsRepositoryImpl @Inject constructor(
     private val dataStore: DataStore<Preferences>
@@ -39,6 +36,7 @@ class SettingsRepositoryImpl @Inject constructor(
         private val SELECTED_FILTER_OPTION = stringPreferencesKey("selected_filter_option")
         private val REPEAT_MODE = stringPreferencesKey("repeat_mode")
         private val SELECTED_AUDIO_PRESET = stringPreferencesKey("selected_audio_preset")
+        private val SELECT_WIDGET_BACKGROUND_MODE = stringPreferencesKey("widget_background_mode")
 
         /**
          * Keys for transient last playback state (audio ID and position).
@@ -74,12 +72,20 @@ class SettingsRepositoryImpl @Inject constructor(
                 val selectedAudioPreset = AudioPreset.valueOf(
                     preferences[SELECTED_AUDIO_PRESET] ?: AudioPreset.NONE.name
                 )
+
+                val widgetMode = preferences[SELECT_WIDGET_BACKGROUND_MODE]?.let {
+                    try {
+                        WidgetBackgroundMode.valueOf(it)
+                    } catch (_: Exception) { WidgetBackgroundMode.STATIC }
+                } ?: WidgetBackgroundMode.STATIC
+
                 AppSettings(
                     selectedTheme = selectedTheme,
                     selectedPlayerLayout = selectedPlayerLayout,
                     playlistLayoutType = playlistLayoutType,
                     repeatMode = repeatMode,
-                    audioPreset = selectedAudioPreset
+                    audioPreset = selectedAudioPreset,
+                    widgetBackgroundMode = widgetMode
                 )
             }
     }
@@ -100,10 +106,6 @@ class SettingsRepositoryImpl @Inject constructor(
             }
     }
 
-    /**
-     *Flow for last playback state, with error handling (emits default null state on IO error).
-     * This enables resumption: if audioId is non-null, rebuild queue and seek to positionMs.
-     */
     override fun getLastPlaybackState(): Flow<LastPlaybackState> {
         return dataStore.data
             .catch { exception ->
@@ -123,13 +125,8 @@ class SettingsRepositoryImpl @Inject constructor(
             }
     }
 
-    /**
-     * Suspend func to save last state (or clear if audioId null).
-     * Async IO via DataStore; called from service onDestroy for best-effort persistence.
-     */
     override suspend fun saveLastPlaybackState(state: LastPlaybackState) {
         dataStore.edit { preferences ->
-            // Save audioId and positionMs only if audioId is provided
             if (state.audioId != null) {
                 preferences[LAST_PLAYED_AUDIO_ID] = state.audioId!!
                 preferences[LAST_POSITION_MS] = state.positionMs
@@ -137,7 +134,6 @@ class SettingsRepositoryImpl @Inject constructor(
                 preferences.remove(LAST_PLAYED_AUDIO_ID)
                 preferences.remove(LAST_POSITION_MS)
             }
-            // Save queueIds independently (always, if provided)
             val queueStr = state.queueIds?.joinToString(",")
             if (queueStr != null && queueStr.isNotEmpty()) {
                 preferences[LAST_QUEUE_IDS] = queueStr
@@ -165,7 +161,6 @@ class SettingsRepositoryImpl @Inject constructor(
         }
     }
 
-
     override suspend fun updateFilterOption(filterOption: FilterOption) {
         dataStore.edit { preferences ->
             preferences[SELECTED_FILTER_OPTION] = filterOption.name
@@ -181,6 +176,12 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun updateAudioPreset(preset: AudioPreset) {
         dataStore.edit { preferences ->
             preferences[SELECTED_AUDIO_PRESET] = preset.name
+        }
+    }
+
+    override suspend fun updateWidgetBackgroundMode(mode: WidgetBackgroundMode) {
+        dataStore.edit { preferences ->
+            preferences[SELECT_WIDGET_BACKGROUND_MODE] = mode.name
         }
     }
 }

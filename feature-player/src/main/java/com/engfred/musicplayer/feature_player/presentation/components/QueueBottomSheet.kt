@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
@@ -120,18 +121,16 @@ fun QueueBottomSheet(
                     modifier = Modifier.fillMaxWidth(),
                     state = lazyListState
                 ) {
-                    items(
-                        count = playingQueue.size,
-                        key = { playingQueue[it].id}
-                    ) { i ->
-                        val audioFile = playingQueue[i]
+                    itemsIndexed(playingQueue){ index, audioFile ->
                         QueueItem(
                             audioFile = audioFile,
                             isCurrentlyPlaying = audioFile.id == playingAudio?.id,
                             onPlayClick = { onPlayQueueItem(audioFile) },
                             onRemoveClick = { onRemoveQueueItem(audioFile) },
+                            isLastItem = index == playingQueue.lastIndex,
                             isPlaying = isPlaying
                         )
+
                     }
                 }
             }

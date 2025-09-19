@@ -13,9 +13,25 @@ import androidx.media3.common.util.UnstableApi
 import com.engfred.musicplayer.R
 import com.engfred.musicplayer.feature_player.data.service.PlaybackService
 import androidx.core.net.toUri
+import com.engfred.musicplayer.core.domain.repository.SettingsRepository
+import com.engfred.musicplayer.core.domain.repository.LibraryRepository
+import com.engfred.musicplayer.feature_player.data.service.WidgetDisplayInfo
+import com.engfred.musicplayer.feature_player.data.service.WidgetUpdater
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.InstallIn
+import dagger.hilt.EntryPoint
+import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
+import androidx.media3.common.Player
+import com.engfred.musicplayer.core.domain.repository.RepeatMode
+import com.engfred.musicplayer.core.domain.model.WidgetBackgroundMode
 
 private const val TAG = "PlayerWidgetProvider"
 
+@OptIn(UnstableApi::class)
 class PlayerWidgetProvider : AppWidgetProvider() {
 
     companion object {
@@ -24,6 +40,14 @@ class PlayerWidgetProvider : AppWidgetProvider() {
         const val ACTION_WIDGET_PREV = "com.engfred.musicplayer.ACTION_WIDGET_PREV"
         const val ACTION_UPDATE_WIDGET = "com.engfred.musicplayer.ACTION_UPDATE_WIDGET"
         const val ACTION_WIDGET_REPEAT = "com.engfred.musicplayer.ACTION_WIDGET_REPEAT"
+    }
+
+    // Hilt entrypoint to fetch repositories from onReceive
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    interface WidgetEntryPoint {
+        fun settingsRepository(): SettingsRepository
+        fun libraryRepository(): LibraryRepository
     }
 
     @OptIn(UnstableApi::class)
@@ -55,6 +79,61 @@ class PlayerWidgetProvider : AppWidgetProvider() {
                 }
             }
             ACTION_UPDATE_WIDGET -> {
+                // Quick non-blocking attempt to show last playback idle info (if available)
+                try {
+                    val entry = EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
+                    val settingsRepo = entry.settingsRepository()
+                    val libRepo = entry.libraryRepository()
+
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try {
+                            val lastState = settingsRepo.getLastPlaybackState().first()
+                            val appSettings = settingsRepo.getAppSettings().first()
+                            val useThemeAware = appSettings.widgetBackgroundMode == WidgetBackgroundMode.THEME_AWARE
+
+                            if (lastState.audioId != null) {
+                                // try to resolve the audio and build idle display info
+                                val audios = libRepo.getAllAudioFiles().first()
+                                val audio = audios.find { it.id == lastState.audioId }
+                                if (audio != null) {
+                                    val display = WidgetDisplayInfo(
+                                        title = audio.title,
+                                        artist = audio.artist ?: "Unknown Artist",
+                                        durationMs = audio.duration,
+                                        positionMs = lastState.positionMs.coerceAtLeast(0L).coerceAtMost(audio.duration),
+                                        artworkUri = audio.albumArtUri
+                                    )
+
+                                    val idleRepeat = when (appSettings.repeatMode) {
+                                        RepeatMode.OFF -> Player.REPEAT_MODE_OFF
+                                        RepeatMode.ONE -> Player.REPEAT_MODE_ONE
+                                        RepeatMode.ALL -> Player.REPEAT_MODE_ALL
+                                    }
+
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                                        WidgetUpdater.updateWidget(context, null, display, idleRepeat, useThemeAware)
+                                    }
+                                } else {
+                                    // last audio id not present on device -> plain compact idle
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                                        WidgetUpdater.updateWidget(context, null, null, Player.REPEAT_MODE_OFF, useThemeAware)
+                                    }
+                                }
+                            } else {
+                                // no last state -> plain compact idle
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                                    WidgetUpdater.updateWidget(context, null, null, Player.REPEAT_MODE_OFF, useThemeAware)
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Quick widget update failed in onReceive: ${e.message}")
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Widget quick-update entrypoint failed: ${e.message}")
+                }
+
+                // keep existing behavior as fallback (service will refresh with live player state)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     requestServiceRefresh(context)
                 }
@@ -66,7 +145,8 @@ class PlayerWidgetProvider : AppWidgetProvider() {
         super.onUpdate(context, appWidgetManager, appWidgetIds)
         Log.d(TAG, "onUpdate widgets count=${appWidgetIds.size}")
 
-        // Update each widget individually with per-widget unique pending intents
+        // For initial updates, show the compact idle layout (no placeholders)
+        // and attach per-widget pending intents. The WidgetUpdater will later replace with full info if available.
         appWidgetIds.forEach { appWidgetId ->
             try {
                 val views = buildRemoteViews(context, appWidgetId)
@@ -77,6 +157,7 @@ class PlayerWidgetProvider : AppWidgetProvider() {
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            // Let the service refresh with authoritative live state (if it is running).
             requestServiceRefresh(context)
         }
     }
@@ -97,10 +178,22 @@ class PlayerWidgetProvider : AppWidgetProvider() {
         }
     }
 
-    // Build RemoteViews per widget instance so we can create unique PendingIntents per widgetId
+    // Build RemoteViews per widget instance so we can create unique PendingIntents per widgetId.
+    // Key: inflate compact idle layout (widget_player_idle) when available so we don't show placeholders.
     private fun buildRemoteViews(context: Context, appWidgetId: Int): RemoteViews {
         val pkg = context.packageName
-        val views = RemoteViews(pkg, R.layout.widget_player)
+        val resources = context.resources
+
+        // Prefer a compact idle layout if present, otherwise fall back to full layout.
+        val idleLayoutId = resources.getIdentifier("widget_player_idle", "layout", pkg)
+        val fullLayoutId = resources.getIdentifier("widget_player", "layout", pkg)
+        val layoutToInflate = when {
+            idleLayoutId != 0 -> idleLayoutId
+            fullLayoutId != 0 -> fullLayoutId
+            else -> R.layout.widget_player // fallback resource id (should exist)
+        }
+
+        val views = RemoteViews(pkg, layoutToInflate)
 
         fun pendingIntentFor(action: String, widgetId: Int): PendingIntent {
             val i = Intent(context, PlayerWidgetProvider::class.java).apply {
@@ -115,6 +208,7 @@ class PlayerWidgetProvider : AppWidgetProvider() {
         }
 
         try {
+            // These ids may or may not exist depending on chosen layout — RemoteViews ignores calls for missing ids.
             views.setOnClickPendingIntent(R.id.widget_play_pause, pendingIntentFor(ACTION_WIDGET_PLAY_PAUSE, appWidgetId))
             views.setOnClickPendingIntent(R.id.widget_next, pendingIntentFor(ACTION_WIDGET_NEXT, appWidgetId))
             views.setOnClickPendingIntent(R.id.widget_prev, pendingIntentFor(ACTION_WIDGET_PREV, appWidgetId))
@@ -129,6 +223,7 @@ class PlayerWidgetProvider : AppWidgetProvider() {
             it.data = "app://widget/open/$appWidgetId".toUri()
             val flags = PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
             val openPending = PendingIntent.getActivity(context, appWidgetId, it, flags)
+            // safe to call even when ids not present (ignored)
             views.setOnClickPendingIntent(R.id.widget_album_art, openPending)
             views.setOnClickPendingIntent(R.id.widget_title, openPending)
             views.setOnClickPendingIntent(R.id.widget_artist, openPending)

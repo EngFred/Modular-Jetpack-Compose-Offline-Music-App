@@ -4,13 +4,12 @@ import com.engfred.musicplayer.core.domain.model.AudioPreset
 import com.engfred.musicplayer.core.ui.theme.AppThemeType
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
 import com.engfred.musicplayer.core.domain.model.PlaylistLayoutType
+import com.engfred.musicplayer.core.domain.model.WidgetBackgroundMode
 
-/**
- * Sealed class representing user-initiated events on the Settings Screen.
- */
 sealed class SettingsEvent {
     data class UpdateTheme(val theme: AppThemeType) : SettingsEvent()
     data class UpdatePlayerLayout(val layout: PlayerLayout) : SettingsEvent()
     data class UpdatePlaylistLayout(val layout: PlaylistLayoutType) : SettingsEvent()
     data class UpdateAudioPreset(val preset: AudioPreset) : SettingsEvent()
+    data class UpdateWidgetBackgroundMode(val mode: WidgetBackgroundMode) : SettingsEvent()
 }

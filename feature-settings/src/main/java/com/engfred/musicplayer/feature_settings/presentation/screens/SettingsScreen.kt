@@ -2,10 +2,12 @@ package com.engfred.musicplayer.feature_settings.presentation.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,13 +17,18 @@ import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Brush
 import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -30,17 +37,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.engfred.musicplayer.core.domain.model.AudioPreset
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
 import com.engfred.musicplayer.core.domain.model.PlaylistLayoutType
+import com.engfred.musicplayer.core.domain.model.WidgetBackgroundMode
 import com.engfred.musicplayer.core.ui.theme.AppThemeType
 import com.engfred.musicplayer.feature_settings.presentation.components.AppVersionSection
 import com.engfred.musicplayer.feature_settings.presentation.components.SettingsSection
 import com.engfred.musicplayer.feature_settings.presentation.viewmodel.SettingsEvent
 import com.engfred.musicplayer.feature_settings.presentation.viewmodel.SettingsViewModel
 
-/**
- * SettingsScreen — accepts optional drawable resource IDs for social icons and an avatar drawable.
- *
- * Host (app) should call this and pass R.drawable.* icons and avatar from the app module.
- */
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
@@ -115,6 +118,45 @@ fun SettingsScreen(
                 onSelect = { viewModel.onEvent(SettingsEvent.UpdateAudioPreset(it)) }
             )
 
+            //Widget background toggle
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Widget Background",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Let the home screen widget follow system light/dark mode",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    // Switch: ON => THEME_AWARE, OFF => STATIC
+                    val checked = uiState.widgetBackgroundMode == WidgetBackgroundMode.THEME_AWARE
+                    Switch(
+                        checked = checked,
+                        onCheckedChange = { isChecked ->
+                            val newMode = if (isChecked) WidgetBackgroundMode.THEME_AWARE else WidgetBackgroundMode.STATIC
+                            viewModel.onEvent(SettingsEvent.UpdateWidgetBackgroundMode(newMode))
+                        },
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.width(8.dp))
 
             Text(
@@ -125,19 +167,6 @@ fun SettingsScreen(
                 fontSize = 12.sp,
                 modifier = Modifier.padding(start = 4.dp)
             )
-
-            // Developer info: forward drawables and optional avatar
-            // DeveloperInfoSection(
-            //     developerName = "Engineer Fred",
-            //     developerRole = "Software Engineer | Software Developer",
-            //     email = "engfred88@gmail.com",
-            //     githubUrl = "https://github.com/EngFred",
-            //     linkedInUrl = "https://www.linkedin.com/in/fred-omongole-a5943b2b0/",
-            //     githubIconRes = githubIconRes,
-            //     linkedInIconRes = linkedInIconRes,
-            //     emailIconRes = emailIconRes,
-            //     developerAvatarRes = developerAvatarRes // host provides avatar drawable id
-            // )
 
             //app version + copyright section
             AppVersionSection(

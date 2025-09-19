@@ -12,5 +12,6 @@ data class AppSettings(
     val selectedPlayerLayout: PlayerLayout,
     val playlistLayoutType: PlaylistLayoutType,
     val repeatMode: RepeatMode = RepeatMode.OFF,
-    val audioPreset: AudioPreset = AudioPreset.NONE
+    val audioPreset: AudioPreset = AudioPreset.NONE,
+    val widgetBackgroundMode: WidgetBackgroundMode = WidgetBackgroundMode.STATIC
 )

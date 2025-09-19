@@ -8,6 +8,7 @@ import com.engfred.musicplayer.feature_settings.domain.usecases.UpdateAudioPrese
 import com.engfred.musicplayer.feature_settings.domain.usecases.UpdatePlayerLayoutUseCase
 import com.engfred.musicplayer.feature_settings.domain.usecases.UpdatePlaylistLayoutUseCase
 import com.engfred.musicplayer.feature_settings.domain.usecases.UpdateThemeUseCase
+import com.engfred.musicplayer.feature_settings.domain.usecases.UpdateWidgetBackgroundModeUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,20 +19,16 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/**
- * ViewModel for the Settings Screen.
- * Manages UI state related to app settings and handles user interactions.
- */
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     getAppSettingsUseCase: GetAppSettingsUseCase,
     private val updateThemeUseCase: UpdateThemeUseCase,
     private val updatePlayerLayoutUseCase: UpdatePlayerLayoutUseCase,
     private val updatePlaylistLayoutUseCase: UpdatePlaylistLayoutUseCase,
-    private val updateAudioPresetUseCase: UpdateAudioPresetUseCase
+    private val updateAudioPresetUseCase: UpdateAudioPresetUseCase,
+    private val updateWidgetBackgroundModeUseCase: UpdateWidgetBackgroundModeUseCase
 ) : ViewModel() {
 
-    // Change from 'var uiState by mutableStateOf' to MutableStateFlow
     private val _uiState = MutableStateFlow(SettingsScreenState())
     val uiState: StateFlow<SettingsScreenState> = _uiState.asStateFlow()
 
@@ -44,6 +41,7 @@ class SettingsViewModel @Inject constructor(
                     selectedPlayerLayout = appSettings.selectedPlayerLayout,
                     playlistLayoutType = appSettings.playlistLayoutType,
                     audioPreset = appSettings.audioPreset,
+                    widgetBackgroundMode = appSettings.widgetBackgroundMode,
                     isLoading = false, // Settings loaded, so not loading
                     error = null // Clear any previous error
                 )
@@ -51,17 +49,13 @@ class SettingsViewModel @Inject constructor(
         }.launchIn(viewModelScope) // Launch collection in ViewModel's scope
     }
 
-    /**
-     * Processes events from the UI and updates the ViewModel's state or triggers actions.
-     */
     fun onEvent(event: SettingsEvent) {
         viewModelScope.launch {
             when (event) {
                 is SettingsEvent.UpdateTheme -> {
-                    _uiState.update { it.copy(isLoading = true, error = null) } // Indicate saving
+                    _uiState.update { it.copy(isLoading = true, error = null) }
                     try {
                         updateThemeUseCase(event.theme)
-                        // UI state will be updated by the Flow observation in init block
                     } catch (e: Exception) {
                         _uiState.update {
                             it.copy(
@@ -105,6 +99,20 @@ class SettingsViewModel @Inject constructor(
                         _uiState.update {
                             it.copy(
                                 error = "Failed to update audio preset: ${e.localizedMessage}",
+                                isLoading = false
+                            )
+                        }
+                    }
+                }
+                is SettingsEvent.UpdateWidgetBackgroundMode -> {
+                    _uiState.update { it.copy(isLoading = true, error = null) }
+                    try {
+                        updateWidgetBackgroundModeUseCase(event.mode)
+                        // uiState will be refreshed by the getAppSettings flow
+                    } catch (e: Exception) {
+                        _uiState.update {
+                            it.copy(
+                                error = "Failed to update widget mode: ${e.localizedMessage}",
                                 isLoading = false
                             )
                         }

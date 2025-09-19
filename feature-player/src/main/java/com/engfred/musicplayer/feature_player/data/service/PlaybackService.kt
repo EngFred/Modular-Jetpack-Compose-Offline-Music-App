@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.feature_player.data.service
 
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -23,6 +24,7 @@ import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.domain.model.AudioPreset
 import com.engfred.musicplayer.core.domain.model.FilterOption
 import com.engfred.musicplayer.core.domain.model.LastPlaybackState
+import com.engfred.musicplayer.core.domain.model.WidgetBackgroundMode
 import com.engfred.musicplayer.core.domain.repository.LibraryRepository
 import com.engfred.musicplayer.core.domain.repository.PlaybackController
 import com.engfred.musicplayer.core.domain.repository.RepeatMode
@@ -67,6 +69,7 @@ class PlaybackService : MediaSessionService() {
     private var equalizer: Equalizer? = null
     private var lastIdleDisplayInfo: WidgetDisplayInfo? = null
     private var preferredRepeatMode: RepeatMode = RepeatMode.OFF
+    private var widgetThemeAware: Boolean = false
 
     companion object {
         const val ACTION_WIDGET_PLAY_PAUSE = "com.engfred.musicplayer.ACTION_WIDGET_PLAY_PAUSE"
@@ -76,7 +79,7 @@ class PlaybackService : MediaSessionService() {
         const val ACTION_WIDGET_REPEAT = "com.engfred.musicplayer.ACTION_WIDGET_REPEAT"
         const val WIDGET_PROVIDER_CLASS = "com.engfred.musicplayer.widget.PlayerWidgetProvider"
         private const val TAG = "PlaybackService"
-        private const val PERIODIC_SAVE_INTERVAL_MS = 5000L
+        private const val PERIODIC_SAVE_INTERVAL_MS = 10000L
     }
 
     @OptIn(UnstableApi::class)
@@ -152,7 +155,8 @@ class PlaybackService : MediaSessionService() {
                     val idleInfo = if (exoPlayer.currentMediaItem == null) lastIdleDisplayInfo else null
                     val idleRepeat = if (exoPlayer.currentMediaItem == null) getIdleRepeatMode() else Player.REPEAT_MODE_OFF
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                        WidgetUpdater.updateWidget(this@PlaybackService, exoPlayer, idleInfo, idleRepeat)
+                        // user interactions are debounced in WidgetUpdater; don't force immediate here
+                        WidgetUpdater.updateWidget(this@PlaybackService, exoPlayer, idleInfo, idleRepeat, widgetThemeAware)
                     }
                 }
             })
@@ -165,7 +169,7 @@ class PlaybackService : MediaSessionService() {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                             val idleInfo = if (exoPlayer.currentMediaItem == null) lastIdleDisplayInfo else null
                             val idleRepeat = if (exoPlayer.currentMediaItem == null) getIdleRepeatMode() else Player.REPEAT_MODE_OFF
-                            WidgetUpdater.updateWidget(this@PlaybackService, exoPlayer, idleInfo, idleRepeat)
+                            WidgetUpdater.updateWidget(this@PlaybackService, exoPlayer, idleInfo, idleRepeat, widgetThemeAware)
                         }
                     }
                 }
@@ -188,10 +192,19 @@ class PlaybackService : MediaSessionService() {
                 loadLastIdleDisplayInfo()
                 val appSettings = settingsRepository.getAppSettings().first()
                 preferredRepeatMode = appSettings.repeatMode
+                widgetThemeAware = (appSettings.widgetBackgroundMode == WidgetBackgroundMode.THEME_AWARE)
                 val idleInfo = if (exoPlayer.currentMediaItem == null) lastIdleDisplayInfo else null
                 val idleRepeat = if (exoPlayer.currentMediaItem == null) getIdleRepeatMode() else Player.REPEAT_MODE_OFF
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    WidgetUpdater.updateWidget(this@PlaybackService, exoPlayer, idleInfo, idleRepeat)
+                    // Initial startup: bypass debounce so widget is set immediately with last state.
+                    WidgetUpdater.updateWidget(
+                        this@PlaybackService,
+                        exoPlayer,
+                        idleInfo,
+                        idleRepeat,
+                        widgetThemeAware,
+                        forceImmediate = true
+                    )
                 }
             }
 
@@ -200,13 +213,18 @@ class PlaybackService : MediaSessionService() {
                 settingsRepository.getAppSettings().collect { settings ->
                     val oldRepeat = preferredRepeatMode
                     preferredRepeatMode = settings.repeatMode
+                    val oldWidgetTheme = widgetThemeAware
+                    widgetThemeAware = (settings.widgetBackgroundMode == WidgetBackgroundMode.THEME_AWARE)
                     applyAudioPreset(settings.audioPreset)
-                    // Update widget if idle and repeat changed
-                    if (oldRepeat != preferredRepeatMode && exoPlayer.currentMediaItem == null && lastIdleDisplayInfo != null) {
+
+                    // Update widget when repeat or widget-mode changed.
+                    // IMPORTANT: always trigger update so theme changes are visible even when player is idle
+                    if (oldRepeat != preferredRepeatMode || oldWidgetTheme != widgetThemeAware) {
                         val idleInfo = lastIdleDisplayInfo
                         val idleRepeat = getIdleRepeatMode()
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                            WidgetUpdater.updateWidget(this@PlaybackService, exoPlayer, idleInfo, idleRepeat)
+                            // Do not forceImmediate — allow coalescing for rapid UI toggles.
+                            WidgetUpdater.updateWidget(this@PlaybackService, exoPlayer, idleInfo, idleRepeat, widgetThemeAware)
                         }
                     }
                 }
@@ -350,7 +368,8 @@ class PlaybackService : MediaSessionService() {
                         handleWidgetPlayPause()
                         val idleInfo = if (exoPlayer.currentMediaItem == null) lastIdleDisplayInfo else null
                         val idleRepeat = if (exoPlayer.currentMediaItem == null) getIdleRepeatMode() else Player.REPEAT_MODE_OFF
-                        WidgetUpdater.updateWidget(this@PlaybackService, exoPlayer, idleInfo, idleRepeat)
+                        // debounced update for user interactions
+                        WidgetUpdater.updateWidget(this@PlaybackService, exoPlayer, idleInfo, idleRepeat, widgetThemeAware)
                     }
                 }
                 ACTION_WIDGET_NEXT -> {
@@ -359,7 +378,7 @@ class PlaybackService : MediaSessionService() {
                     } catch (_: Exception) {}
                     val idleInfo = if (exoPlayer.currentMediaItem == null) lastIdleDisplayInfo else null
                     val idleRepeat = if (exoPlayer.currentMediaItem == null) getIdleRepeatMode() else Player.REPEAT_MODE_OFF
-                    WidgetUpdater.updateWidget(this, exoPlayer, idleInfo, idleRepeat)
+                    WidgetUpdater.updateWidget(this, exoPlayer, idleInfo, idleRepeat, widgetThemeAware)
                 }
                 ACTION_WIDGET_PREV -> {
                     try {
@@ -367,19 +386,19 @@ class PlaybackService : MediaSessionService() {
                     } catch (_: Exception) {}
                     val idleInfo = if (exoPlayer.currentMediaItem == null) lastIdleDisplayInfo else null
                     val idleRepeat = if (exoPlayer.currentMediaItem == null) getIdleRepeatMode() else Player.REPEAT_MODE_OFF
-                    WidgetUpdater.updateWidget(this, exoPlayer, idleInfo, idleRepeat)
+                    WidgetUpdater.updateWidget(this, exoPlayer, idleInfo, idleRepeat, widgetThemeAware)
                 }
                 ACTION_REFRESH_WIDGET -> {
                     val idleInfo = if (exoPlayer.currentMediaItem == null) lastIdleDisplayInfo else null
                     val idleRepeat = if (exoPlayer.currentMediaItem == null) getIdleRepeatMode() else Player.REPEAT_MODE_OFF
-                    WidgetUpdater.updateWidget(this, exoPlayer, idleInfo, idleRepeat)
+                    WidgetUpdater.updateWidget(this, exoPlayer, idleInfo, idleRepeat, widgetThemeAware)
                 }
                 ACTION_WIDGET_REPEAT -> {
                     // reuse existing repeat toggle
                     PlaybackActions.handleRepeatToggle(exoPlayer, settingsRepository, serviceScope)
                     val idleInfo = if (exoPlayer.currentMediaItem == null) lastIdleDisplayInfo else null
                     val idleRepeat = if (exoPlayer.currentMediaItem == null) getIdleRepeatMode() else Player.REPEAT_MODE_OFF
-                    WidgetUpdater.updateWidget(this, exoPlayer, idleInfo, idleRepeat)
+                    WidgetUpdater.updateWidget(this, exoPlayer, idleInfo, idleRepeat, widgetThemeAware)
                 }
             }
         } catch (e: Exception) {
@@ -420,15 +439,6 @@ class PlaybackService : MediaSessionService() {
             }
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.createNotificationChannel(channel)
-        }
-    }
-
-    // small helper to update widget after actions
-    private fun updateWidgetWithInfo() {
-        val idleInfo = if (exoPlayer.currentMediaItem == null) lastIdleDisplayInfo else null
-        val idleRepeat = if (exoPlayer.currentMediaItem == null) getIdleRepeatMode() else Player.REPEAT_MODE_OFF
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            WidgetUpdater.updateWidget(this@PlaybackService, exoPlayer, idleInfo, idleRepeat)
         }
     }
 }

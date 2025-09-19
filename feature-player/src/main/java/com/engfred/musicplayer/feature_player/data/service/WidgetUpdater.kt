@@ -74,6 +74,11 @@ object WidgetUpdater {
 
     private val lastReqRef = AtomicReference<Req?>(null)
 
+    // Keep last known positive duration so we don't flash 00:00 while the player warms up.
+    // This is a simple global fallback. If you prefer per-track durations, replace with a Map<mediaId, Long>.
+    private var lastKnownDurationMs: Long = 0L
+    private const val UNKNOWN_DURATION_TEXT = "00:00"
+
     /**
      * Public API.
      *
@@ -228,9 +233,28 @@ object WidgetUpdater {
             val metadata: androidx.media3.common.MediaMetadata? = if (!isIdle) current?.mediaMetadata else null
             val title = if (!isIdle) (metadata?.title?.toString() ?: getStringSafe(context, "app_name")) else req.idleDisplayInfo!!.title
             val artist = if (!isIdle) (metadata?.artist?.toString() ?: getStringSafe(context, "app_name")) else req.idleDisplayInfo!!.artist
+
             val currentPositionMs = if (!isIdle) req.exoPlayer?.currentPosition?.coerceAtLeast(0L) ?: 0L else req.idleDisplayInfo!!.positionMs
-            val totalDurationMs = if (!isIdle) req.exoPlayer?.duration?.takeIf { it > 0L } ?: 0L else req.idleDisplayInfo!!.durationMs
-            val durationText = "${formatDuration(currentPositionMs)} / ${formatDuration(totalDurationMs)}"
+
+            // Player sometimes reports duration as 0 or an "unset" value when playback just started.
+            // Only accept a duration > 0 as valid and update lastKnownDurationMs. Otherwise reuse lastKnownDurationMs.
+            val candidateDurationMs = if (!isIdle) (req.exoPlayer?.duration ?: 0L) else req.idleDisplayInfo!!.durationMs
+
+            val totalDurationMs = when {
+                // Prefer a valid positive duration from the player / idle info
+                candidateDurationMs > 0L -> {
+                    lastKnownDurationMs = candidateDurationMs
+                    candidateDurationMs
+                }
+                // Fallback to the last known positive duration (if any)
+                lastKnownDurationMs > 0L -> lastKnownDurationMs
+                // No known duration yet
+                else -> 0L
+            }
+
+            // Build duration text: when we don't have a valid total duration show 00:00
+            val totalDurationText = if (totalDurationMs > 0L) formatDuration(totalDurationMs) else UNKNOWN_DURATION_TEXT
+            val durationText = "${formatDuration(currentPositionMs)} / $totalDurationText"
 
             val baseViews = RemoteViews(context.packageName, fullLayoutId)
 

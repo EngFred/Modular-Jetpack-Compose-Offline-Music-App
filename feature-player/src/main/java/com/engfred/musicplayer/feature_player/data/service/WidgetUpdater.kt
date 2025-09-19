@@ -15,6 +15,7 @@ import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
+import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
@@ -24,6 +25,8 @@ import android.view.View
 import android.widget.RemoteViews
 import androidx.annotation.OptIn
 import androidx.annotation.RequiresApi
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.DrawableCompat
 import androidx.core.net.toUri
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -260,19 +263,16 @@ object WidgetUpdater {
             if (artBitmap == null) {
                 val defaultId = resources.getIdentifier("ic_music_note_24", "drawable", context.packageName)
                 if (defaultId != 0) {
-                    artBitmap = BitmapFactory.decodeResource(resources, defaultId)
+                    val tintColor = if (req.useThemeAware) {
+                        if (isSystemDark) Color.WHITE else Color.BLACK
+                    } else Color.WHITE
+                    artBitmap = getTintedBitmap(context, defaultId, tintColor)
                     isUsingDefaultIcon = true
                 }
             }
             if (artBitmap != null && idAlbumArt != 0) {
                 val circular = createCircularBitmap(artBitmap)
                 baseViews.setImageViewBitmap(idAlbumArt, circular)
-                if (isUsingDefaultIcon) {
-                    val albumTint = if (req.useThemeAware) {
-                        if (isSystemDark) Color.WHITE else Color.BLACK
-                    } else Color.WHITE
-                    baseViews.setInt(idAlbumArt, "setColorFilter", albumTint)
-                }
             }
 
             // tint next/prev icons
@@ -440,5 +440,19 @@ object WidgetUpdater {
         paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
         canvas.drawBitmap(bitmap, rect, rect, paint)
         return output
+    }
+
+    private fun getTintedBitmap(context: Context, drawableId: Int, tintColor: Int): Bitmap? {
+        val drawable: Drawable? = ContextCompat.getDrawable(context, drawableId)
+        drawable?.let {
+            val wrapped = DrawableCompat.wrap(it.mutate())
+            DrawableCompat.setTint(wrapped, tintColor)
+            wrapped.setBounds(0, 0, wrapped.intrinsicWidth, wrapped.intrinsicHeight)
+            val bitmap = Bitmap.createBitmap(wrapped.intrinsicWidth, wrapped.intrinsicHeight, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            wrapped.draw(canvas)
+            return bitmap
+        }
+        return null
     }
 }

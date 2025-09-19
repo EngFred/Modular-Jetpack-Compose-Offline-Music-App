@@ -52,13 +52,14 @@ data class WidgetDisplayInfo(
 object WidgetUpdater {
 
     // Debounce window for coalescing rapid updates (milliseconds).
-    private const val DEBOUNCE_MS: Long = 200L
+    // private const val DEBOUNCE_MS: Long = 200L
 
     // Main thread handler for scheduling updates.
     private val handler = Handler(Looper.getMainLooper())
 
     // Keep last scheduled runnable (so we can cancel when new update arrives).
-    private val lastRunnableRef: AtomicReference<Runnable?> = AtomicReference(null)
+    // Debounce disabled: comment out lastRunnableRef that was used for cancellation.
+    // private val lastRunnableRef: AtomicReference<Runnable?> = AtomicReference(null)
 
     // Keep most recent request params
     private data class Req(
@@ -74,10 +75,10 @@ object WidgetUpdater {
     private val lastReqRef = AtomicReference<Req?>(null)
 
     /**
-     * Public API - unchanged signature except for optional forceImmediate flag.
+     * Public API.
      *
-     * If forceImmediate == true, the update bypasses debounce and runs immediately.
-     * Otherwise updates are coalesced into a single update executed after DEBOUNCE_MS.
+     * Debounce has been removed — updates are posted immediately to the main thread.
+     * The original debounce code (DEBOUNCE_MS and cancellation) is retained as comments.
      */
     fun updateWidget(
         context: Context,
@@ -99,29 +100,29 @@ object WidgetUpdater {
                 forceImmediate = forceImmediate
             )
 
-            // store latest request
+            // store latest request (kept for debugging / fallback)
             lastReqRef.set(req)
 
             val runnable = Runnable {
                 try {
-                    val last = lastReqRef.getAndSet(null)
-                    if (last != null) {
-                        performUpdate(context.applicationContext, last)
-                    }
+                    // Previously: val last = lastReqRef.getAndSet(null)
+                    // Now: execute immediately using the captured req (or fallback to lastReqRef)
+                    val last = lastReqRef.getAndSet(null) ?: req
+                    performUpdate(context.applicationContext, last)
                 } catch (t: Throwable) {
                     Log.w(TAG, "Scheduled widget update failed: ${t.message}")
                 }
             }
 
-            // cancel previous scheduled update and schedule a new one
-            val previous = lastRunnableRef.getAndSet(runnable)
-            previous?.let { handler.removeCallbacks(it) }
+            // Debounce cancellation logic removed (commented for reference)
+            // val previous = lastRunnableRef.getAndSet(runnable)
+            // previous?.let { handler.removeCallbacks(it) }
 
-            if (forceImmediate) {
-                handler.post(runnable)
-            } else {
-                handler.postDelayed(runnable, DEBOUNCE_MS)
-            }
+            // Always post immediately on main thread (debounce removed).
+            handler.post(runnable)
+
+            // If you want to preserve "forceImmediate" semantics in future, you can keep it
+            // to decide whether to post immediately or after a delay. For now, everything runs immediately.
         } catch (e: Exception) {
             Log.w(TAG, "updateWidget enqueue failed: ${e.message}")
         }

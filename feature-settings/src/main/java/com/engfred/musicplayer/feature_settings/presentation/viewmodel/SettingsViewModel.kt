@@ -1,5 +1,8 @@
 package com.engfred.musicplayer.feature_settings.presentation.viewmodel
 
+import android.content.ComponentName
+import android.content.Intent
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.engfred.musicplayer.core.domain.model.AudioPreset
@@ -105,10 +108,26 @@ class SettingsViewModel @Inject constructor(
                     }
                 }
                 is SettingsEvent.UpdateWidgetBackgroundMode -> {
+                    val appContext = event.context
                     _uiState.update { it.copy(isLoading = true, error = null) }
                     try {
                         updateWidgetBackgroundModeUseCase(event.mode)
-                        // uiState will be refreshed by the getAppSettings flow
+                        // Notify widget provider in the app module. Use strings so we don't depend on that module.
+                        try {
+                            val intent = Intent().apply {
+                                // explicit ComponentName (package, fully-qualified receiver class name)
+                                component = ComponentName(
+                                    appContext.packageName,
+                                    "com.engfred.musicplayer.widget.PlayerWidgetProvider"
+                                )
+                                action = "com.engfred.musicplayer.ACTION_UPDATE_WIDGET"
+                                `package` = appContext.packageName
+                            }
+                            appContext.sendBroadcast(intent)
+                        } catch (bex: Exception) {
+                            Log.w("SettingsViewModel", "Failed to notify widget provider: ${bex.message}")
+                        }
+
                     } catch (e: Exception) {
                         _uiState.update {
                             it.copy(
@@ -118,6 +137,7 @@ class SettingsViewModel @Inject constructor(
                         }
                     }
                 }
+
             }
         }
     }

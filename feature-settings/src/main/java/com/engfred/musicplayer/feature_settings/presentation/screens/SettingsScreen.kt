@@ -30,6 +30,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -49,6 +50,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -151,7 +153,7 @@ fun SettingsScreen(
                         checked = checked,
                         onCheckedChange = { isChecked ->
                             val newMode = if (isChecked) WidgetBackgroundMode.THEME_AWARE else WidgetBackgroundMode.STATIC
-                            viewModel.onEvent(SettingsEvent.UpdateWidgetBackgroundMode(newMode))
+                            viewModel.onEvent(SettingsEvent.UpdateWidgetBackgroundMode(newMode, context))
                         },
                     )
                 }

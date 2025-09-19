@@ -69,17 +69,26 @@ class PlayerWidgetProvider : AppWidgetProvider() {
                     } else {
                         context.startService(svcIntent)
                     }
+                } catch (e: IllegalStateException) {
+                    // Foreground start not allowed (e.g. during boot). Fall back to safe broadcast:
+                    Log.w(TAG, "startForegroundService refused (IllegalState) - falling back to broadcast action: ${e.message}")
+                    // Broadcast to provider itself so it can update widgets without requiring the service
+                    safeSendUpdateBroadcast(context)
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to start service for widget action: ${e.message}", e)
                 }
             }
+
             Intent.ACTION_BOOT_COMPLETED -> {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    requestServiceRefresh(context)
-                }
+                Log.i(TAG, "Received BOOT_COMPLETED")
+                // DO NOT force-start a foreground service at boot time.
+                // Instead request a safe widget refresh. requestServiceRefresh will itself try service start
+                // and fallback if not allowed.
+                requestServiceRefresh(context)
             }
+
             ACTION_UPDATE_WIDGET -> {
-                // Quick non-blocking attempt to show last playback idle info (if available)
+                // existing ACTION_UPDATE_WIDGET code (unchanged)
                 try {
                     val entry = EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
                     val settingsRepo = entry.settingsRepository()
@@ -114,13 +123,11 @@ class PlayerWidgetProvider : AppWidgetProvider() {
                                         WidgetUpdater.updateWidget(context, null, display, idleRepeat, useThemeAware)
                                     }
                                 } else {
-                                    // last audio id not present on device -> plain compact idle
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                                         WidgetUpdater.updateWidget(context, null, null, Player.REPEAT_MODE_OFF, useThemeAware)
                                     }
                                 }
                             } else {
-                                // no last state -> plain compact idle
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                                     WidgetUpdater.updateWidget(context, null, null, Player.REPEAT_MODE_OFF, useThemeAware)
                                 }
@@ -132,12 +139,52 @@ class PlayerWidgetProvider : AppWidgetProvider() {
                 } catch (e: Exception) {
                     Log.w(TAG, "Widget quick-update entrypoint failed: ${e.message}")
                 }
+            }
+        }
+    }
 
-                // keep existing behavior as fallback (service will refresh with live player state)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    requestServiceRefresh(context)
+    /**
+     * Try to request the service to refresh the widget. If startForegroundService is refused (boot, restricted),
+     * fallback to sending ACTION_UPDATE_WIDGET broadcast which updates widgets without requiring the service.
+     */
+    private fun requestServiceRefresh(context: Context) {
+        try {
+            val refresh = Intent(context, PlaybackService::class.java).apply {
+                action = PlaybackService.ACTION_REFRESH_WIDGET
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                try {
+                    context.startForegroundService(refresh)
+                } catch (ise: IllegalStateException) {
+                    // Foreground start refused (common during boot). Fallback to safe approach.
+                    Log.w(TAG, "startForegroundService refused in requestServiceRefresh: ${ise.message}")
+                    safeSendUpdateBroadcast(context)
+                }
+            } else {
+                try {
+                    context.startService(refresh)
+                } catch (e: Exception) {
+                    Log.w(TAG, "startService failed in requestServiceRefresh: ${e.message}")
+                    safeSendUpdateBroadcast(context)
                 }
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "requestServiceRefresh failed: ${e.message}", e)
+            safeSendUpdateBroadcast(context)
+        }
+    }
+
+    /** Sends ACTION_UPDATE_WIDGET as a broadcast to this Provider — safe fallback when service cannot start. */
+    private fun safeSendUpdateBroadcast(context: Context) {
+        try {
+            val b = Intent(context, PlayerWidgetProvider::class.java).apply {
+                action = ACTION_UPDATE_WIDGET
+            }
+            // Use sendBroadcast; AppWidgetProvider.onReceive will be called
+            context.sendBroadcast(b)
+        } catch (e: Exception) {
+            Log.w(TAG, "safeSendUpdateBroadcast failed: ${e.message}")
         }
     }
 
@@ -159,22 +206,6 @@ class PlayerWidgetProvider : AppWidgetProvider() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             // Let the service refresh with authoritative live state (if it is running).
             requestServiceRefresh(context)
-        }
-    }
-
-    @OptIn(UnstableApi::class)
-    private fun requestServiceRefresh(context: Context) {
-        try {
-            val refresh = Intent(context, PlaybackService::class.java).apply {
-                action = PlaybackService.ACTION_REFRESH_WIDGET
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(refresh)
-            } else {
-                context.startService(refresh)
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "requestServiceRefresh failed: ${e.message}", e)
         }
     }
 

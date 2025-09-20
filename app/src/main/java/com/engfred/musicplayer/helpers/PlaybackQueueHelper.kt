@@ -14,21 +14,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import androidx.media3.common.C
+import com.engfred.musicplayer.core.util.sortAudioFiles
 
 private const val TAG = "PlaybackQueueHelper"
 
 object PlaybackQueueHelper {
-
-    fun sortAudioFiles(audioFiles: List<AudioFile>, filter: FilterOption): List<AudioFile> {
-        return when (filter) {
-            FilterOption.DATE_ADDED_ASC -> audioFiles.sortedBy { it.dateAdded }
-            FilterOption.DATE_ADDED_DESC -> audioFiles.sortedByDescending { it.dateAdded }
-            FilterOption.LENGTH_ASC -> audioFiles.sortedBy { it.duration }
-            FilterOption.LENGTH_DESC -> audioFiles.sortedByDescending { it.duration }
-            FilterOption.ALPHABETICAL_ASC -> audioFiles.sortedBy { it.title.lowercase() }
-            FilterOption.ALPHABETICAL_DESC -> audioFiles.sortedByDescending { it.title.lowercase() }
-        }
-    }
 
     fun playAll(
         context: Context,

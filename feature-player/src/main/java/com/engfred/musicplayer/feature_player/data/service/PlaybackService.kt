@@ -22,10 +22,12 @@ import com.engfred.musicplayer.core.data.SharedAudioDataSource
 import com.engfred.musicplayer.core.domain.model.AudioPreset
 import com.engfred.musicplayer.core.domain.model.LastPlaybackState
 import com.engfred.musicplayer.core.domain.model.WidgetBackgroundMode
+import com.engfred.musicplayer.core.domain.model.WidgetDisplayInfo
 import com.engfred.musicplayer.core.domain.repository.LibraryRepository
 import com.engfred.musicplayer.core.domain.repository.PlaybackController
 import com.engfred.musicplayer.core.domain.repository.RepeatMode
 import com.engfred.musicplayer.core.domain.repository.SettingsRepository
+import com.engfred.musicplayer.core.util.sortAudioFiles
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +37,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 
 const val MUSIC_NOTIFICATION_CHANNEL_ID = "music_playback_channel"
@@ -68,6 +71,7 @@ class PlaybackService : MediaSessionService() {
     private var preferredRepeatMode: RepeatMode = RepeatMode.OFF
     private var widgetThemeAware: Boolean = false
     private var lastAppliedPreset: AudioPreset? = null  // To avoid redundant applies
+    private var isFullShown: Boolean = false  //Track if full was rendered to prevent idle reversion
 
     companion object {
         const val ACTION_WIDGET_PLAY_PAUSE = "com.engfred.musicplayer.ACTION_WIDGET_PLAY_PAUSE"
@@ -122,6 +126,18 @@ class PlaybackService : MediaSessionService() {
 
             setMediaNotificationProvider(musicNotificationProvider)
 
+            //Load last info BLOCKING to ensure it's ready before any updates
+            runBlocking {
+                loadLastIdleDisplayInfo()
+                if (sharedAudioDataSource.playingQueueAudioFiles.value.isEmpty()) {
+                    Log.d(TAG, "Playing queue was empty loading songs....")
+                    loadPlayingQueue()
+                } else{
+                    Log.d(TAG, "QUEUE IS SET. READY TO PLAY!!!!!.")
+                }
+            }
+            isFullShown = lastIdleDisplayInfo != null  // Set flag based on load
+
             // listen for player changes and update widget
             exoPlayer.addListener(object : Player.Listener {
                 @RequiresApi(Build.VERSION_CODES.P)
@@ -173,20 +189,20 @@ class PlaybackService : MediaSessionService() {
 
             equalizer = Equalizer(0, exoPlayer.audioSessionId)
 
-            // Load last idle display info, preferred repeat, and initial widget update
+            // Load preferred repeat and widget mode (async, as less critical)
             serviceScope.launch {
-                loadLastIdleDisplayInfo()
                 val appSettings = settingsRepository.getAppSettings().first()
                 preferredRepeatMode = appSettings.repeatMode
                 widgetThemeAware = (appSettings.widgetBackgroundMode == WidgetBackgroundMode.THEME_AWARE)
-                // Only update if has last info (avoids flashing to idle on new playback)
-                if (lastIdleDisplayInfo != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                // Initial update now that load is done
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     WidgetUpdater.updateWidget(
                         this@PlaybackService,
                         exoPlayer,
                         lastIdleDisplayInfo,
                         getIdleRepeatMode(),
-                        widgetThemeAware
+                        widgetThemeAware,
+                        isInitial = true  // Force full rebuild on boot/refresh
                     )
                 }
             }
@@ -236,7 +252,8 @@ class PlaybackService : MediaSessionService() {
                     title = audio.title,
                     artist = audio.artist ?: UNKNOWN_ARTIST,
                     durationMs = audio.duration,
-                    positionMs = lastState.positionMs.coerceAtLeast(0L).coerceAtMost(audio.duration),
+                    positionMs = lastState.positionMs.coerceAtLeast(0L)
+                        .coerceAtMost(audio.duration),
                     artworkUri = audio.albumArtUri
                 )
                 Log.d(TAG, "Cached last idle display info: ${audio.title} by ${audio.artist}")
@@ -249,6 +266,22 @@ class PlaybackService : MediaSessionService() {
         } else {
             lastIdleDisplayInfo = null
         }
+    }
+
+    //Added this function to load the playing queue
+    private suspend fun loadPlayingQueue() {
+        val lastState = settingsRepository.getLastPlaybackState().first()
+        val deviceAudios = libRepo.getAllAudioFiles().first()
+
+        val filter = settingsRepository.getFilterOption().first()
+        val sorted = sortAudioFiles(deviceAudios, filter)
+        val playingQueue = lastState.queueIds?.takeIf { it.isNotEmpty() }?.let { ids ->
+            val idToAudio = deviceAudios.associateBy { it.id }
+            ids.mapNotNull { idToAudio[it] }.takeIf { it.isNotEmpty() } ?: sorted
+        } ?: sorted
+
+        sharedAudioDataSource.setPlayingQueue(playingQueue)
+        Log.d(TAG, "Loaded ${playingQueue.size} songs into playing queue on service create")
     }
 
     private fun applyAudioPreset(preset: AudioPreset) {
@@ -293,6 +326,7 @@ class PlaybackService : MediaSessionService() {
             } else {
                 playbackController.playPause()
             }
+            isFullShown = true  //Mark full as shown after playback init
         } catch (e: Exception) {
             Log.e(TAG, "handleWidgetPlayPause error: ${e.message}", e)
         }
@@ -326,6 +360,11 @@ class PlaybackService : MediaSessionService() {
     @RequiresApi(Build.VERSION_CODES.P)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         try {
+            //Check if exoPlayer is initialized before using
+            if (!::exoPlayer.isInitialized) {
+                Log.w(TAG, "exoPlayer not initialized yet in onStartCommand; skipping action")
+                return START_STICKY
+            }
             when (intent?.action) {
                 ACTION_WIDGET_PLAY_PAUSE -> {
                     serviceScope.launch {
@@ -343,7 +382,15 @@ class PlaybackService : MediaSessionService() {
                     } catch (_: Exception) {}
                 }
                 ACTION_REFRESH_WIDGET -> {
-                    WidgetUpdater.updateWidget(this, exoPlayer, lastIdleDisplayInfo,  getIdleRepeatMode(), widgetThemeAware)
+                    // NEW: Brief delay if load not done (should be rare since blocking in onCreate)
+                    if (lastIdleDisplayInfo == null && isFullShown) {
+                        serviceScope.launch {
+                            delay(200)  // Wait for any pending load
+                            WidgetUpdater.updateWidget(this@PlaybackService, exoPlayer, lastIdleDisplayInfo, getIdleRepeatMode(), widgetThemeAware, isInitial = true)
+                        }
+                    } else {
+                        WidgetUpdater.updateWidget(this, exoPlayer, lastIdleDisplayInfo, getIdleRepeatMode(), widgetThemeAware, isInitial = true)
+                    }
                 }
                 ACTION_WIDGET_REPEAT -> {
                     PlaybackActions.handleRepeatToggle(exoPlayer, settingsRepository, serviceScope)
@@ -392,7 +439,10 @@ class PlaybackService : MediaSessionService() {
 
     fun updateWidgetWithInfo() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            WidgetUpdater.updateWidget(this, exoPlayer, lastIdleDisplayInfo,  getIdleRepeatMode(), widgetThemeAware)
+            //Skip if would revert to idle when full is shown
+            if (lastIdleDisplayInfo == null && exoPlayer.currentMediaItem == null && isFullShown) return
+            WidgetUpdater.updateWidget(this, exoPlayer, lastIdleDisplayInfo, getIdleRepeatMode(), widgetThemeAware)
+            isFullShown = (lastIdleDisplayInfo != null || exoPlayer.currentMediaItem != null)
         }
     }
 }

@@ -30,19 +30,11 @@ import androidx.core.graphics.drawable.DrawableCompat
 import androidx.core.net.toUri
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import com.engfred.musicplayer.core.domain.model.WidgetDisplayInfo
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicReference
 
 private const val TAG = "WidgetUpdater"
-
-data class WidgetDisplayInfo(
-    val title: String,
-    val artist: String,
-    val durationMs: Long,
-    val positionMs: Long,
-    val artworkUri: Uri?
-)
-
 @SuppressLint("UseKtx")
 @OptIn(UnstableApi::class)
 @RequiresApi(Build.VERSION_CODES.P)
@@ -58,16 +50,19 @@ object WidgetUpdater {
         val exoPlayer: Player?, // nullable so callers can update without a running player
         val idleDisplayInfo: WidgetDisplayInfo?,
         val idleRepeatMode: Int,
-        val useThemeAware: Boolean
+        val useThemeAware: Boolean,
+        val isInitial: Boolean = false  // For full vs partial
     )
 
     private val lastReqRef = AtomicReference<Req?>(null)
+    private var lastUpdateRunnable: Runnable? = null  // NEW: For debounce
 
     // Keep last known positive duration so we don't flash 00:00 while the player warms up.
     private var lastKnownDurationMs: Long = 0L
     private const val UNKNOWN_DURATION_TEXT = "00:00"
     private const val DEFAULT_TITLE = "Music Player"
     private const val DEFAULT_ARTIST = "Unknown Artist"
+    private var wasFullShown: Boolean = false  //Global flag to prevent idle reversion
 
     fun updateWidget(
         context: Context,
@@ -75,6 +70,7 @@ object WidgetUpdater {
         idleDisplayInfo: WidgetDisplayInfo? = null,
         idleRepeatMode: Int = Player.REPEAT_MODE_OFF,
         useThemeAware: Boolean = false, // whether to adapt to system theme
+        isInitial: Boolean = false
     ) {
         try {
             // Build a compact request and store as last.
@@ -85,11 +81,14 @@ object WidgetUpdater {
                 idleDisplayInfo = idleDisplayInfo,
                 idleRepeatMode = idleRepeatMode,
                 useThemeAware = useThemeAware,
+                isInitial = isInitial
             )
 
             // store latest request (kept for debugging / fallback)
             lastReqRef.set(req)
 
+            // Debounce - remove previous and post new
+            lastUpdateRunnable?.let { handler.removeCallbacks(it) }
             val runnable = Runnable {
                 try {
                     val last = lastReqRef.getAndSet(null) ?: req
@@ -98,7 +97,8 @@ object WidgetUpdater {
                     Log.w(TAG, "Scheduled widget update failed: ${t.message}")
                 }
             }
-            handler.post(runnable)
+            lastUpdateRunnable = runnable
+            handler.postDelayed(runnable, if (isInitial) 0 else 100)  // Slight delay for non-initial to batch
         } catch (e: Exception) {
             Log.w(TAG, "updateWidget enqueue failed: ${e.message}")
         }
@@ -125,7 +125,13 @@ object WidgetUpdater {
 
             val current = req.exoPlayer?.currentMediaItem
             val isIdle = (req.exoPlayer == null) || (current == null)
-            val showFullInfo = !isIdle || (req.idleDisplayInfo != null)
+            var showFullInfo = !isIdle || (req.idleDisplayInfo != null)
+
+            //Prevent reversion to idle if full was shown
+            if (!showFullInfo && wasFullShown) {
+                Log.d(TAG, "Skipping idle update as full was already shown")
+                return
+            }
 
             val idRoot = resources.getIdentifier("widget_root", "id", context.packageName)
             val idIdleContainer = resources.getIdentifier("idle_container", "id", context.packageName)
@@ -168,158 +174,160 @@ object WidgetUpdater {
                 if (isSystemDark) Color.LTGRAY else Color.DKGRAY
             } else 0xFFCCCCCC.toInt()
 
-            val baseViews = RemoteViews(context.packageName, layoutId)
-
-            if (idRoot != 0 && bgResToUse != 0) baseViews.setInt(idRoot, "setBackgroundResource", bgResToUse)
-
-            if (!showFullInfo) {
-                // Idle mode: show idle container, hide full
-                if (idIdleContainer != 0) baseViews.setViewVisibility(idIdleContainer, View.VISIBLE)
-                if (idFullContainer != 0) baseViews.setViewVisibility(idFullContainer, View.GONE)
-
-                val playDrawableId = resources.getIdentifier("ic_play_arrow_24", "drawable", context.packageName)
-                if (idPlayPauseIdle != 0 && playDrawableId != 0) {
-                    baseViews.setImageViewResource(idPlayPauseIdle, playDrawableId)
-                    baseViews.setInt(idPlayPauseIdle, "setColorFilter", playPauseTint)
-                }
-            } else {
-                // Full mode: show full container, hide idle
-                if (idIdleContainer != 0) baseViews.setViewVisibility(idIdleContainer, View.GONE)
-                if (idFullContainer != 0) baseViews.setViewVisibility(idFullContainer, View.VISIBLE)
-
-                // Show full info (use player if active, else idle info)
-                val metadata: androidx.media3.common.MediaMetadata? = if (!isIdle) current?.mediaMetadata else null
-                val title = if (!isIdle) (metadata?.title?.toString() ?: DEFAULT_TITLE) else req.idleDisplayInfo!!.title
-                val artist = if (!isIdle) (metadata?.artist?.toString() ?: DEFAULT_ARTIST) else req.idleDisplayInfo!!.artist
-
-                val currentPositionMs = if (!isIdle) req.exoPlayer?.currentPosition?.coerceAtLeast(0L) ?: 0L else req.idleDisplayInfo!!.positionMs
-
-                val candidateDurationMs = if (!isIdle) (req.exoPlayer?.duration ?: 0L) else req.idleDisplayInfo!!.durationMs
-
-                val totalDurationMs = when {
-                    candidateDurationMs > 0L -> {
-                        lastKnownDurationMs = candidateDurationMs
-                        candidateDurationMs
-                    }
-                    lastKnownDurationMs > 0L -> lastKnownDurationMs
-                    else -> 0L
-                }
-
-                val totalDurationText = if (totalDurationMs > 0L) formatDuration(totalDurationMs) else UNKNOWN_DURATION_TEXT
-                val durationText = "${formatDuration(currentPositionMs)} / $totalDurationText"
-
-                if (idTitle != 0) {
-                    baseViews.setTextViewText(idTitle, title)
-                    if (req.useThemeAware) baseViews.setTextColor(idTitle, textColorPrimary)
-                }
-                if (idArtist != 0) {
-                    baseViews.setTextViewText(idArtist, artist)
-                    if (req.useThemeAware) baseViews.setTextColor(idArtist, textColorSecondary)
-                }
-                if (idDuration != 0) {
-                    baseViews.setTextViewText(idDuration, durationText)
-                    if (req.useThemeAware) baseViews.setTextColor(idDuration, textColorSecondary)
-                }
-
-                val isPlaying = req.exoPlayer?.isPlaying ?: false
-                val playDrawableResName = if (isPlaying) "ic_pause_24" else "ic_play_arrow_24"
-                val playDrawableId = resources.getIdentifier(playDrawableResName, "drawable", context.packageName)
-                if (idPlayPauseFull != 0 && playDrawableId != 0) {
-                    baseViews.setImageViewResource(idPlayPauseFull, playDrawableId)
-                    baseViews.setInt(idPlayPauseFull, "setColorFilter", playPauseTint) // always black
-                }
-
-                // load artwork
-                val artworkUri: Uri? = if (!isIdle) metadata?.artworkUri else req.idleDisplayInfo!!.artworkUri
-                var artBitmap = tryLoadArtwork(context, artworkUri)
-                if (artBitmap == null) {
-                    val defaultId = resources.getIdentifier("ic_music_note_24", "drawable", context.packageName)
-                    if (defaultId != 0) {
-                        val tintColor = if (req.useThemeAware) {
-                            if (isSystemDark) Color.WHITE else Color.BLACK
-                        } else Color.WHITE
-                        artBitmap = getTintedBitmap(context, defaultId, tintColor)
-                    }
-                }
-                if (artBitmap != null && idAlbumArt != 0) {
-                    val circular = createCircularBitmap(artBitmap)
-                    baseViews.setImageViewBitmap(idAlbumArt, circular)
-                }
-
-                // tint next/prev icons
-                if (idPrev != 0) baseViews.setInt(idPrev, "setColorFilter", defaultIconTint)
-                if (idNext != 0) baseViews.setInt(idNext, "setColorFilter", defaultIconTint)
-
-                val repeatMode = if (!isIdle) req.exoPlayer?.repeatMode ?: Player.REPEAT_MODE_OFF else req.idleRepeatMode
-                val repeatDrawableResName = if (repeatMode == Player.REPEAT_MODE_ONE) "repeat_once" else "repeat"
-                var repeatDrawableId = resources.getIdentifier(repeatDrawableResName, "drawable", context.packageName)
-                if (repeatDrawableId == 0) {
-                    repeatDrawableId = resources.getIdentifier(
-                        when (repeatMode) {
-                            Player.REPEAT_MODE_ONE -> "ic_repeat_one_24"
-                            Player.REPEAT_MODE_ALL -> "ic_repeat_on_24"
-                            else -> "ic_repeat_24"
-                        }, "drawable", context.packageName
-                    )
-                }
-                if (idRepeat != 0 && repeatDrawableId != 0) {
-                    baseViews.setImageViewResource(idRepeat, repeatDrawableId)
-                    val tintColor = when (repeatMode) {
-                        Player.REPEAT_MODE_OFF -> Color.GRAY
-                        else -> defaultIconTint
-                    }
-                    baseViews.setInt(idRepeat, "setColorFilter", tintColor)
-                }
-            }
-
             ids.forEach { appWidgetId ->
                 try {
+                    val partialViews = RemoteViews(context.packageName, layoutId)
+                    val usePartial = !req.isInitial  // Partial for non-initial to minimize redraw
+
+                    if (idRoot != 0 && bgResToUse != 0) partialViews.setInt(idRoot, "setBackgroundResource", bgResToUse)
+
+                    if (!showFullInfo) {
+                        // Idle mode: show idle container, hide full
+                        if (idIdleContainer != 0) partialViews.setViewVisibility(idIdleContainer, View.VISIBLE)
+                        if (idFullContainer != 0) partialViews.setViewVisibility(idFullContainer, View.GONE)
+
+                        val playDrawableId = resources.getIdentifier("ic_play_arrow_24", "drawable", context.packageName)
+                        if (idPlayPauseIdle != 0 && playDrawableId != 0) {
+                            partialViews.setImageViewResource(idPlayPauseIdle, playDrawableId)
+                            partialViews.setInt(idPlayPauseIdle, "setColorFilter", playPauseTint)
+                        }
+                        wasFullShown = false  // Reset flag
+                    } else {
+                        // Full mode: show full container, hide idle
+                        if (idIdleContainer != 0) partialViews.setViewVisibility(idIdleContainer, View.GONE)
+                        if (idFullContainer != 0) partialViews.setViewVisibility(idFullContainer, View.VISIBLE)
+
+                        // Show full info (use player if active, else idle info)
+                        val metadata: androidx.media3.common.MediaMetadata? = if (!isIdle) current?.mediaMetadata else null
+                        val title = if (!isIdle) (metadata?.title?.toString() ?: DEFAULT_TITLE) else req.idleDisplayInfo!!.title
+                        val artist = if (!isIdle) (metadata?.artist?.toString() ?: DEFAULT_ARTIST) else req.idleDisplayInfo!!.artist
+
+                        val currentPositionMs = if (!isIdle) req.exoPlayer?.currentPosition?.coerceAtLeast(0L) ?: 0L else req.idleDisplayInfo!!.positionMs
+
+                        val candidateDurationMs = if (!isIdle) (req.exoPlayer?.duration ?: 0L) else req.idleDisplayInfo!!.durationMs
+
+                        val totalDurationMs = when {
+                            candidateDurationMs > 0L -> {
+                                lastKnownDurationMs = candidateDurationMs
+                                candidateDurationMs
+                            }
+                            lastKnownDurationMs > 0L -> lastKnownDurationMs
+                            else -> 0L
+                        }
+
+                        val totalDurationText = if (totalDurationMs > 0L) formatDuration(totalDurationMs) else UNKNOWN_DURATION_TEXT
+                        val durationText = "${formatDuration(currentPositionMs)} / $totalDurationText"
+
+                        if (idTitle != 0) {
+                            partialViews.setTextViewText(idTitle, title)
+                            if (req.useThemeAware) partialViews.setTextColor(idTitle, textColorPrimary)
+                        }
+                        if (idArtist != 0) {
+                            partialViews.setTextViewText(idArtist, artist)
+                            if (req.useThemeAware) partialViews.setTextColor(idArtist, textColorSecondary)
+                        }
+                        if (idDuration != 0) {
+                            partialViews.setTextViewText(idDuration, durationText)
+                            if (req.useThemeAware) partialViews.setTextColor(idDuration, textColorSecondary)
+                        }
+
+                        val isPlaying = req.exoPlayer?.isPlaying ?: false
+                        val playDrawableResName = if (isPlaying) "ic_pause_24" else "ic_play_arrow_24"
+                        val playDrawableId = resources.getIdentifier(playDrawableResName, "drawable", context.packageName)
+                        if (idPlayPauseFull != 0 && playDrawableId != 0) {
+                            partialViews.setImageViewResource(idPlayPauseFull, playDrawableId)
+                            partialViews.setInt(idPlayPauseFull, "setColorFilter", playPauseTint) // always black
+                        }
+
+                        // load artwork
+                        val artworkUri: Uri? = if (!isIdle) metadata?.artworkUri else req.idleDisplayInfo!!.artworkUri
+                        var artBitmap = tryLoadArtwork(context, artworkUri)
+                        if (artBitmap == null) {
+                            val defaultId = resources.getIdentifier("ic_music_note_24", "drawable", context.packageName)
+                            if (defaultId != 0) {
+                                val tintColor = if (req.useThemeAware) {
+                                    if (isSystemDark) Color.WHITE else Color.BLACK
+                                } else Color.WHITE
+                                artBitmap = getTintedBitmap(context, defaultId, tintColor)
+                            }
+                        }
+                        if (artBitmap != null && idAlbumArt != 0) {
+                            val circular = createCircularBitmap(artBitmap)
+                            partialViews.setImageViewBitmap(idAlbumArt, circular)
+                        }
+
+                        // tint next/prev icons
+                        if (idPrev != 0) partialViews.setInt(idPrev, "setColorFilter", defaultIconTint)
+                        if (idNext != 0) partialViews.setInt(idNext, "setColorFilter", defaultIconTint)
+
+                        val repeatMode = if (!isIdle) req.exoPlayer?.repeatMode ?: Player.REPEAT_MODE_OFF else req.idleRepeatMode
+                        val repeatDrawableResName = if (repeatMode == Player.REPEAT_MODE_ONE) "repeat_once" else "repeat"
+                        var repeatDrawableId = resources.getIdentifier(repeatDrawableResName, "drawable", context.packageName)
+                        if (repeatDrawableId == 0) {
+                            repeatDrawableId = resources.getIdentifier(
+                                when (repeatMode) {
+                                    Player.REPEAT_MODE_ONE -> "ic_repeat_one_24"
+                                    Player.REPEAT_MODE_ALL -> "ic_repeat_on_24"
+                                    else -> "ic_repeat_24"
+                                }, "drawable", context.packageName
+                            )
+                        }
+                        if (idRepeat != 0 && repeatDrawableId != 0) {
+                            partialViews.setImageViewResource(idRepeat, repeatDrawableId)
+                            val tintColor = when (repeatMode) {
+                                Player.REPEAT_MODE_OFF -> Color.GRAY
+                                else -> defaultIconTint
+                            }
+                            partialViews.setInt(idRepeat, "setColorFilter", tintColor)
+                        }
+                        wasFullShown = true  // Set flag
+                    }
+
                     val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
                     val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
-                    val viewsCopy = RemoteViews(baseViews)
-
-                    val playReq = PlaybackService.ACTION_WIDGET_PLAY_PAUSE.hashCode() xor appWidgetId
-                    val nextReq = PlaybackService.ACTION_WIDGET_NEXT.hashCode() xor appWidgetId
-                    val prevReq = PlaybackService.ACTION_WIDGET_PREV.hashCode() xor appWidgetId
-                    val repeatReq = PlaybackService.ACTION_WIDGET_REPEAT.hashCode() xor appWidgetId
-
-                    if (idPlayPauseFull != 0) viewsCopy.setOnClickPendingIntent(idPlayPauseFull, perWidgetBroadcast(context, PlaybackService.ACTION_WIDGET_PLAY_PAUSE, playReq, appWidgetId))
-                    if (idPlayPauseIdle != 0) viewsCopy.setOnClickPendingIntent(idPlayPauseIdle, perWidgetBroadcast(context, PlaybackService.ACTION_WIDGET_PLAY_PAUSE, playReq, appWidgetId))
-                    if (idNext != 0) viewsCopy.setOnClickPendingIntent(idNext, perWidgetBroadcast(context, PlaybackService.ACTION_WIDGET_NEXT, nextReq, appWidgetId))
-                    if (idPrev != 0) viewsCopy.setOnClickPendingIntent(idPrev, perWidgetBroadcast(context, PlaybackService.ACTION_WIDGET_PREV, prevReq, appWidgetId))
-                    if (idRepeat != 0) viewsCopy.setOnClickPendingIntent(idRepeat, perWidgetBroadcast(context, PlaybackService.ACTION_WIDGET_REPEAT, repeatReq, appWidgetId))
-
-                    if (idAlbumArt != 0) {
-                        val openAppIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-                        openAppIntent?.data = "app://widget/open/$appWidgetId".toUri()
-                        val openFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                        val openPending = PendingIntent.getActivity(context, appWidgetId, openAppIntent, openFlags)
-                        viewsCopy.setOnClickPendingIntent(idAlbumArt, openPending)
-                    }
-                    if (idTitle != 0) {
-                        val openAppIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-                        openAppIntent?.data = "app://widget/open/$appWidgetId/title".toUri()
-                        val openFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                        val openPending = PendingIntent.getActivity(context, appWidgetId + 1, openAppIntent, openFlags)
-                        viewsCopy.setOnClickPendingIntent(idTitle, openPending)
-                    }
-                    if (idArtist != 0) {
-                        val openAppIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-                        openAppIntent?.data = "app://widget/open/$appWidgetId/artist".toUri()
-                        val openFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                        val openPending = PendingIntent.getActivity(context, appWidgetId + 2, openAppIntent, openFlags)
-                        viewsCopy.setOnClickPendingIntent(idArtist, openPending)
-                    }
 
                     if (minWidth < 250) {
-                        if (idPrev != 0) viewsCopy.setViewVisibility(idPrev, View.GONE)
-                        if (idArtist != 0) viewsCopy.setViewVisibility(idArtist, View.GONE)
+                        if (idPrev != 0) partialViews.setViewVisibility(idPrev, View.GONE)
+                        if (idArtist != 0) partialViews.setViewVisibility(idArtist, View.GONE)
                     } else {
-                        if (idPrev != 0) viewsCopy.setViewVisibility(idPrev, View.VISIBLE)
-                        if (idArtist != 0) viewsCopy.setViewVisibility(idArtist, View.VISIBLE)
+                        if (idPrev != 0) partialViews.setViewVisibility(idPrev, View.VISIBLE)
+                        if (idArtist != 0) partialViews.setViewVisibility(idArtist, View.VISIBLE)
                     }
 
-                    appWidgetManager.updateAppWidget(appWidgetId, viewsCopy)
+                    // Set PendingIntents for clicks (copied from buildRemoteViews)
+                    fun pendingIntentFor(action: String, widgetId: Int): PendingIntent {
+                        val i = Intent().apply {
+                            component = ComponentName(context.packageName, PlaybackService.WIDGET_PROVIDER_CLASS)
+                            this.action = action
+                            data = "app://widget/$action/$widgetId".toUri()
+                            `package` = context.packageName
+                        }
+                        val requestCode = (action.hashCode() xor widgetId)
+                        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                        return PendingIntent.getBroadcast(context, requestCode, i, flags)
+                    }
+
+                    partialViews.setOnClickPendingIntent(idPlayPauseIdle, pendingIntentFor(PlaybackService.ACTION_WIDGET_PLAY_PAUSE, appWidgetId))
+                    partialViews.setOnClickPendingIntent(idPlayPauseFull, pendingIntentFor(PlaybackService.ACTION_WIDGET_PLAY_PAUSE, appWidgetId))
+                    partialViews.setOnClickPendingIntent(idNext, pendingIntentFor(PlaybackService.ACTION_WIDGET_NEXT, appWidgetId))
+                    partialViews.setOnClickPendingIntent(idPrev, pendingIntentFor(PlaybackService.ACTION_WIDGET_PREV, appWidgetId))
+                    partialViews.setOnClickPendingIntent(idRepeat, pendingIntentFor(PlaybackService.ACTION_WIDGET_REPEAT, appWidgetId))
+
+                    val openAppIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+                    openAppIntent?.let {
+                        it.data = "app://widget/open/$appWidgetId".toUri()
+                        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                        val openPending = PendingIntent.getActivity(context, appWidgetId, it, flags)
+                        partialViews.setOnClickPendingIntent(idAlbumArt, openPending)
+                        partialViews.setOnClickPendingIntent(idTitle, openPending)
+                        partialViews.setOnClickPendingIntent(idArtist, openPending)
+                    }
+
+                    if (usePartial) {
+                        appWidgetManager.partiallyUpdateAppWidget(appWidgetId, partialViews)
+                    } else {
+                        appWidgetManager.updateAppWidget(appWidgetId, partialViews)
+                    }
                 } catch (_: Throwable) {
                     // ignore per-widget failures (do not crash service)
                 }
@@ -338,17 +346,6 @@ object WidgetUpdater {
         } catch (_: Exception) {
             null
         }
-    }
-
-    private fun perWidgetBroadcast(context: Context, action: String, requestCode: Int, widgetId: Int): PendingIntent {
-        val i = Intent().apply {
-            component = ComponentName(context.packageName, PlaybackService.WIDGET_PROVIDER_CLASS)
-            this.action = action
-            data = "app://widget/$action/$widgetId".toUri()
-            `package` = context.packageName
-        }
-        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        return PendingIntent.getBroadcast(context, requestCode, i, flags)
     }
 
     private fun formatDuration(ms: Long): String {

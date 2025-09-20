@@ -7,6 +7,7 @@ import com.engfred.musicplayer.core.domain.model.LastPlaybackState
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
 import com.engfred.musicplayer.core.domain.model.PlaylistLayoutType
 import com.engfred.musicplayer.core.domain.model.WidgetBackgroundMode
+import com.engfred.musicplayer.core.domain.model.WidgetDisplayInfo
 import com.engfred.musicplayer.core.ui.theme.AppThemeType
 import kotlinx.coroutines.flow.Flow
 
@@ -32,4 +33,7 @@ interface SettingsRepository {
     fun getLastPlaybackState(): Flow<LastPlaybackState>
     suspend fun saveLastPlaybackState(state: LastPlaybackState)
     suspend fun updateWidgetBackgroundMode(mode: WidgetBackgroundMode)
+
+//    suspend fun saveLastWidgetInfo(info: WidgetDisplayInfo?)
+//    suspend fun getLastWidgetInfo(): WidgetDisplayInfo?
 }

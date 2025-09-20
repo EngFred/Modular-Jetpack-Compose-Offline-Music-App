@@ -62,7 +62,9 @@ object PlaybackQueueHelper {
                 val resumePosition = if (startAudio != null && lastState.positionMs > 0) lastState.positionMs else C.TIME_UNSET
                 Log.d(TAG, "Starting playback with URI: $startUri (resumePos=$resumePosition)")
                 playbackController.initiatePlayback(startUri, resumePosition)
-                Toast.makeText(context, "Resumed playback", Toast.LENGTH_SHORT).show()
+                if (startAudio != null) {
+                    Toast.makeText(context, "Resumed playback", Toast.LENGTH_SHORT).show()
+                }
             } else {
                 Toast.makeText(context, "No audio files found", Toast.LENGTH_SHORT).show()
             }

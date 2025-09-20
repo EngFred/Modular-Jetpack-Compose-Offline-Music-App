@@ -18,6 +18,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.RepeatOn
+import androidx.compose.material.icons.rounded.RepeatOne
+import androidx.compose.material.icons.rounded.RepeatOneOn
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
@@ -124,9 +128,9 @@ fun ControlBar(
                 // Immersive uses vector icons (unchanged)
                 PlaybackControlIconButton(
                     iconVector = when (repeatMode) {
-                        RepeatMode.OFF -> Icons.Rounded.Shuffle /* placeholder - will be tinted off; replaced below with Repeat vector */
-                        RepeatMode.ALL -> Icons.Rounded.Shuffle
-                        RepeatMode.ONE -> Icons.Rounded.Shuffle
+                        RepeatMode.OFF -> Icons.Rounded.Repeat
+                        RepeatMode.ALL -> Icons.Rounded.Repeat
+                        RepeatMode.ONE -> Icons.Rounded.RepeatOne
                     },
                     // we want the Immersive layout to use vector Repeat icons; choose proper vectors inline
                     iconResId = null,

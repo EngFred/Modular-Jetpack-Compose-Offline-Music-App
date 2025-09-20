@@ -13,21 +13,25 @@ import androidx.media3.common.util.UnstableApi
 import com.engfred.musicplayer.R
 import com.engfred.musicplayer.feature_player.data.service.PlaybackService
 import androidx.core.net.toUri
+import androidx.media3.common.Player
+import com.engfred.musicplayer.core.data.SharedAudioDataSource
+import com.engfred.musicplayer.core.domain.model.AudioFile
+import com.engfred.musicplayer.core.domain.model.LastPlaybackState
+import com.engfred.musicplayer.core.domain.model.WidgetBackgroundMode
 import com.engfred.musicplayer.core.domain.repository.SettingsRepository
 import com.engfred.musicplayer.core.domain.repository.LibraryRepository
-import com.engfred.musicplayer.feature_player.data.service.WidgetDisplayInfo
-import com.engfred.musicplayer.feature_player.data.service.WidgetUpdater
-import dagger.hilt.android.EntryPointAccessors
-import dagger.hilt.InstallIn
+import com.engfred.musicplayer.core.domain.repository.RepeatMode
 import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import com.engfred.musicplayer.feature_player.data.service.WidgetDisplayInfo
+import com.engfred.musicplayer.feature_player.data.service.WidgetUpdater
+import com.engfred.musicplayer.helpers.PlaybackQueueHelper.sortAudioFiles
+import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.flow.first
-import androidx.media3.common.Player
-import com.engfred.musicplayer.core.domain.repository.RepeatMode
-import com.engfred.musicplayer.core.domain.model.WidgetBackgroundMode
 
 private const val TAG = "PlayerWidgetProvider"
 
@@ -48,6 +52,7 @@ class PlayerWidgetProvider : AppWidgetProvider() {
     interface WidgetEntryPoint {
         fun settingsRepository(): SettingsRepository
         fun libraryRepository(): LibraryRepository
+        fun sharedDataSource(): SharedAudioDataSource
     }
 
     @OptIn(UnstableApi::class)
@@ -70,9 +75,7 @@ class PlayerWidgetProvider : AppWidgetProvider() {
                         context.startService(svcIntent)
                     }
                 } catch (e: IllegalStateException) {
-                    // Foreground start not allowed (e.g. during boot). Fall back to safe broadcast:
                     Log.w(TAG, "startForegroundService refused (IllegalState) - falling back to broadcast action: ${e.message}")
-                    // Broadcast to provider itself so it can update widgets without requiring the service
                     safeSendUpdateBroadcast(context)
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to start service for widget action: ${e.message}", e)
@@ -81,63 +84,12 @@ class PlayerWidgetProvider : AppWidgetProvider() {
 
             Intent.ACTION_BOOT_COMPLETED -> {
                 Log.i(TAG, "Received BOOT_COMPLETED")
-                // DO NOT force-start a foreground service at boot time.
-                // Instead request a safe widget refresh. requestServiceRefresh will itself try service start
-                // and fallback if not allowed.
                 requestServiceRefresh(context)
             }
 
             ACTION_UPDATE_WIDGET -> {
-                // existing ACTION_UPDATE_WIDGET code (unchanged)
-                try {
-                    val entry = EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
-                    val settingsRepo = entry.settingsRepository()
-                    val libRepo = entry.libraryRepository()
-
-                    CoroutineScope(Dispatchers.IO).launch {
-                        try {
-                            val lastState = settingsRepo.getLastPlaybackState().first()
-                            val appSettings = settingsRepo.getAppSettings().first()
-                            val useThemeAware = appSettings.widgetBackgroundMode == WidgetBackgroundMode.THEME_AWARE
-
-                            if (lastState.audioId != null) {
-                                // try to resolve the audio and build idle display info
-                                val audios = libRepo.getAllAudioFiles().first()
-                                val audio = audios.find { it.id == lastState.audioId }
-                                if (audio != null) {
-                                    val display = WidgetDisplayInfo(
-                                        title = audio.title,
-                                        artist = audio.artist ?: "Unknown Artist",
-                                        durationMs = audio.duration,
-                                        positionMs = lastState.positionMs.coerceAtLeast(0L).coerceAtMost(audio.duration),
-                                        artworkUri = audio.albumArtUri
-                                    )
-
-                                    val idleRepeat = when (appSettings.repeatMode) {
-                                        RepeatMode.OFF -> Player.REPEAT_MODE_OFF
-                                        RepeatMode.ONE -> Player.REPEAT_MODE_ONE
-                                        RepeatMode.ALL -> Player.REPEAT_MODE_ALL
-                                    }
-
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                                        WidgetUpdater.updateWidget(context, null, display, idleRepeat, useThemeAware)
-                                    }
-                                } else {
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                                        WidgetUpdater.updateWidget(context, null, null, Player.REPEAT_MODE_OFF, useThemeAware)
-                                    }
-                                }
-                            } else {
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                                    WidgetUpdater.updateWidget(context, null, null, Player.REPEAT_MODE_OFF, useThemeAware)
-                                }
-                            }
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Quick widget update failed in onReceive: ${e.message}")
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Widget quick-update entrypoint failed: ${e.message}")
+                CoroutineScope(Dispatchers.Main).launch {
+                    updateWidgetFallback(context)
                 }
             }
         }
@@ -157,7 +109,6 @@ class PlayerWidgetProvider : AppWidgetProvider() {
                 try {
                     context.startForegroundService(refresh)
                 } catch (ise: IllegalStateException) {
-                    // Foreground start refused (common during boot). Fallback to safe approach.
                     Log.w(TAG, "startForegroundService refused in requestServiceRefresh: ${ise.message}")
                     safeSendUpdateBroadcast(context)
                 }
@@ -181,8 +132,8 @@ class PlayerWidgetProvider : AppWidgetProvider() {
             val b = Intent(context, PlayerWidgetProvider::class.java).apply {
                 action = ACTION_UPDATE_WIDGET
             }
-            // Use sendBroadcast; AppWidgetProvider.onReceive will be called
             context.sendBroadcast(b)
+            Log.d(TAG, "safeSendUpdateBroadcast sent")
         } catch (e: Exception) {
             Log.w(TAG, "safeSendUpdateBroadcast failed: ${e.message}")
         }
@@ -192,8 +143,7 @@ class PlayerWidgetProvider : AppWidgetProvider() {
         super.onUpdate(context, appWidgetManager, appWidgetIds)
         Log.d(TAG, "onUpdate widgets count=${appWidgetIds.size}")
 
-        // For initial updates, show the compact idle layout (no placeholders)
-        // and attach per-widget pending intents. The WidgetUpdater will later replace with full info if available.
+        // Set initial idle views with pending intents
         appWidgetIds.forEach { appWidgetId ->
             try {
                 val views = buildRemoteViews(context, appWidgetId)
@@ -203,26 +153,20 @@ class PlayerWidgetProvider : AppWidgetProvider() {
             }
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            // Let the service refresh with authoritative live state (if it is running).
-            requestServiceRefresh(context)
+        // Prepare queue in background (no widget update here; service will handle if started)
+        CoroutineScope(Dispatchers.Main).launch {
+            preparePlayingQueue(context)
         }
+        requestServiceRefresh(context)
     }
 
     // Build RemoteViews per widget instance so we can create unique PendingIntents per widgetId.
-    // Key: inflate compact idle layout (widget_player_idle) when available so we don't show placeholders.
     private fun buildRemoteViews(context: Context, appWidgetId: Int): RemoteViews {
         val pkg = context.packageName
         val resources = context.resources
 
-        // Prefer a compact idle layout if present, otherwise fall back to full layout.
-        val idleLayoutId = resources.getIdentifier("widget_player_idle", "layout", pkg)
-        val fullLayoutId = resources.getIdentifier("widget_player", "layout", pkg)
-        val layoutToInflate = when {
-            idleLayoutId != 0 -> idleLayoutId
-            fullLayoutId != 0 -> fullLayoutId
-            else -> R.layout.widget_player // fallback resource id (should exist)
-        }
+        // Always inflate the unified layout
+        val layoutToInflate = resources.getIdentifier("widget_layout", "layout", pkg).takeIf { it != 0 } ?: R.layout.widget_layout // fallback
 
         val views = RemoteViews(pkg, layoutToInflate)
 
@@ -239,8 +183,9 @@ class PlayerWidgetProvider : AppWidgetProvider() {
         }
 
         try {
-            // These ids may or may not exist depending on chosen layout — RemoteViews ignores calls for missing ids.
-            views.setOnClickPendingIntent(R.id.widget_play_pause, pendingIntentFor(ACTION_WIDGET_PLAY_PAUSE, appWidgetId))
+            // Set pending intents for both idle and full play buttons (ignores if ID missing)
+            views.setOnClickPendingIntent(R.id.widget_play_pause_idle, pendingIntentFor(ACTION_WIDGET_PLAY_PAUSE, appWidgetId))
+            views.setOnClickPendingIntent(R.id.widget_play_pause_full, pendingIntentFor(ACTION_WIDGET_PLAY_PAUSE, appWidgetId))
             views.setOnClickPendingIntent(R.id.widget_next, pendingIntentFor(ACTION_WIDGET_NEXT, appWidgetId))
             views.setOnClickPendingIntent(R.id.widget_prev, pendingIntentFor(ACTION_WIDGET_PREV, appWidgetId))
             views.setOnClickPendingIntent(R.id.widget_repeat, pendingIntentFor(ACTION_WIDGET_REPEAT, appWidgetId))
@@ -261,5 +206,84 @@ class PlayerWidgetProvider : AppWidgetProvider() {
         }
 
         return views
+    }
+
+    private suspend fun preparePlayingQueue(context: Context) {
+        val entry = EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
+        val settingsRepository = entry.settingsRepository()
+        val libRepo = entry.libraryRepository()
+        val sharedAudioDataSource = entry.sharedDataSource()
+
+        val lastState = settingsRepository.getLastPlaybackState().first()
+        val deviceAudios = libRepo.getAllAudioFiles().first()
+
+        val filter = settingsRepository.getFilterOption().first()
+        val sorted = sortAudioFiles(deviceAudios, filter)
+        val playingQueue = lastState.queueIds?.takeIf { it.isNotEmpty() }?.let { ids ->
+            val idToAudio = deviceAudios.associateBy { it.id }
+            ids.mapNotNull { idToAudio[it] }.takeIf { it.isNotEmpty() } ?: sorted
+        } ?: sorted
+
+        val startAudio = lastState.audioId?.let { id ->
+            playingQueue.find { it.id == id }
+        }
+
+        sharedAudioDataSource.setPlayingQueue(playingQueue)
+
+        Log.d(TAG, "Added ${sharedAudioDataSource.playingQueueAudioFiles.value.size} songs in playing queue")
+    }
+
+    private suspend fun loadIdleWidgetParams(
+        context: Context,
+        lastState: LastPlaybackState,
+        startAudio: AudioFile?,
+        settingsRepository: SettingsRepository
+    ): Triple<WidgetDisplayInfo?, Int, Boolean> {
+        val appSettings = settingsRepository.getAppSettings().first()
+        val widgetThemeAware = (appSettings.widgetBackgroundMode == WidgetBackgroundMode.THEME_AWARE)
+        val repeatMode = appSettings.repeatMode
+
+        val info = if (startAudio != null && lastState.audioId != null) {
+            WidgetDisplayInfo(
+                title = startAudio.title,
+                artist = startAudio.artist ?: "<Unknown>",
+                durationMs = startAudio.duration,
+                positionMs = lastState.positionMs.coerceAtLeast(0L).coerceAtMost(startAudio.duration),
+                artworkUri = startAudio.albumArtUri
+            ).also {
+                Log.d(TAG, "Loaded idle display info: ${startAudio.title} by ${startAudio.artist}")
+            }
+        } else {
+            // Clear invalid state
+            settingsRepository.saveLastPlaybackState(LastPlaybackState(null))
+            null.also {
+                Log.w(TAG, "Last audio ID ${lastState.audioId} not found or null; cleared state")
+            }
+        }
+
+        val idleRepeatMode = when (repeatMode) {
+            RepeatMode.OFF -> Player.REPEAT_MODE_OFF
+            RepeatMode.ONE -> Player.REPEAT_MODE_ONE
+            RepeatMode.ALL -> Player.REPEAT_MODE_ALL
+        }
+
+        return Triple(info, idleRepeatMode, widgetThemeAware)
+    }
+
+    private suspend fun updateWidgetFallback(context: Context) {
+        val entry = EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
+        val settingsRepository = entry.settingsRepository()
+        val libRepo = entry.libraryRepository()
+
+        val lastState = settingsRepository.getLastPlaybackState().first()
+        val deviceAudios = libRepo.getAllAudioFiles().first()
+        val startAudio = lastState.audioId?.let { id -> deviceAudios.find { it.id == id } }
+
+        val (info, idleRepeatMode, widgetThemeAware) = loadIdleWidgetParams(context, lastState, startAudio, settingsRepository)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            WidgetUpdater.updateWidget(context, null, info, idleRepeatMode, widgetThemeAware)
+            Log.d(TAG, "Fallback widget update completed")
+        }
     }
 }

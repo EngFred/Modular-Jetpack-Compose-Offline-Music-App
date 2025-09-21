@@ -6,6 +6,7 @@ adaptive = "1.3.0-beta03"
 agp = "8.11.1" # Android Gradle Plugin version
 animation = "1.8.3"
 animationVersion = "1.6.8"
+guava = "33.5.0-android"
 kotlin = "2.1.0" # Kotlin version
 coreKtx = "1.16.0"
 junit = "4.13.2"
@@ -18,6 +19,7 @@ activityCompose = "1.10.1"
 composeBom = "2025.07.00"
 
 # Jetpack Compose
+media = "1.7.1"
 navigationCompose = "2.9.2" # For Compose navigation
 # Hilt (Dependency Injection)
 hiltAndroid = "2.55"
@@ -26,7 +28,7 @@ hiltNavigationCompose = "1.2.0" # For Hilt integration with Compose Navigation
 paletteKtx = "1.0.0"
 room = "2.6.1"
 # Media3 (Modern Media Playback Library, successor to ExoPlayer)
-media3 = "1.7.1"
+media3 = "1.8.0"
 # Kotlin Coroutines
 kotlinxCoroutines = "1.10.2"
 # Accompanist Permissions (For easier permission handling with Compose)
@@ -51,7 +53,9 @@ androidx-adaptive = { module = "androidx.compose.material3.adaptive:adaptive", v
 androidx-animation = { module = "androidx.compose.animation:animation", version.ref = "animation" }
 androidx-animation-v168 = { module = "androidx.compose.animation:animation", version.ref = "animationVersion" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-media = { module = "androidx.media:media", version.ref = "media" }
 androidx-palette-ktx = { module = "androidx.palette:palette-ktx", version.ref = "paletteKtx" }
+guava = { module = "com.google.guava:guava", version.ref = "guava" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }

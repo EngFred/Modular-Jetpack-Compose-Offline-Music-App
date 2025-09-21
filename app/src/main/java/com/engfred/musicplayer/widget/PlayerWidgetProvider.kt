@@ -47,6 +47,7 @@ class PlayerWidgetProvider : AppWidgetProvider() {
         const val ACTION_WIDGET_PREV = "com.engfred.musicplayer.ACTION_WIDGET_PREV"
         const val ACTION_UPDATE_WIDGET = "com.engfred.musicplayer.ACTION_UPDATE_WIDGET"
         const val ACTION_WIDGET_REPEAT = "com.engfred.musicplayer.ACTION_WIDGET_REPEAT"
+        const val ACTION_WIDGET_SHUFFLE = "com.engfred.musicplayer.ACTION_WIDGET_SHUFFLE"
     }
 
     // Hilt entrypoint to fetch repositories from onReceive
@@ -67,7 +68,8 @@ class PlayerWidgetProvider : AppWidgetProvider() {
             ACTION_WIDGET_PLAY_PAUSE,
             ACTION_WIDGET_NEXT,
             ACTION_WIDGET_PREV,
-            ACTION_WIDGET_REPEAT -> {
+            ACTION_WIDGET_REPEAT,
+            ACTION_WIDGET_SHUFFLE -> {
                 val svcIntent = Intent(context, PlaybackService::class.java).apply {
                     action = intent.action
                 }
@@ -220,6 +222,7 @@ class PlayerWidgetProvider : AppWidgetProvider() {
             views.setOnClickPendingIntent(R.id.widget_next, pendingIntentFor(ACTION_WIDGET_NEXT, appWidgetId))
             views.setOnClickPendingIntent(R.id.widget_prev, pendingIntentFor(ACTION_WIDGET_PREV, appWidgetId))
             views.setOnClickPendingIntent(R.id.widget_repeat, pendingIntentFor(ACTION_WIDGET_REPEAT, appWidgetId))
+            views.setOnClickPendingIntent(R.id.widget_shuffle, pendingIntentFor(ACTION_WIDGET_SHUFFLE, appWidgetId))
         } catch (e: Exception) {
             Log.e(TAG, "Failed to set button pending intents: ${e.message}", e)
         }

@@ -21,7 +21,6 @@ class MediaControllerBuilder(
     private val playbackState: MutableStateFlow<PlaybackState>,
 ) {
     /**
-     * CHANGE: Build the MediaController (Main thread) and push it into the StateFlow.
      * Uses coroutines-guava 'await' to suspend until the controller is ready.
      * Includes a small retry loop for resilience if the service isn't up yet.
      */

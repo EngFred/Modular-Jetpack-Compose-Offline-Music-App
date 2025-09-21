@@ -69,10 +69,16 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
 
-    // Media3 (Crucial for music playback)
+    // Media3 (Crucial for music playback) - Updated to latest
     implementation(libs.media3.exoplayer)
-    implementation(libs.media3.ui) // For player UI components if needed
-    implementation(libs.media3.session) // For background playback and notification integration
+    implementation(libs.media3.ui)
+    implementation(libs.media3.session)
+
+    // For MediaSessionCompat (compatibility for MediaStyle)
+    implementation(libs.androidx.media)
+
+    // Guava for ImmutableList
+    implementation(libs.guava)
 
     // DataStore (if player settings need to be persisted)
     implementation(libs.androidx.datastore.preferences)

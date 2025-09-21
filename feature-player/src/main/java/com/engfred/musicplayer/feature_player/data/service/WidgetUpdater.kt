@@ -141,6 +141,7 @@ object WidgetUpdater {
             val idNext = resources.getIdentifier("widget_next", "id", context.packageName)
             val idPrev = resources.getIdentifier("widget_prev", "id", context.packageName)
             val idRepeat = resources.getIdentifier("widget_repeat", "id", context.packageName)
+            val idShuffle = resources.getIdentifier("widget_shuffle", "id", context.packageName)
             val idAlbumArt = resources.getIdentifier("widget_album_art", "id", context.packageName)
             val idTitle = resources.getIdentifier("widget_title", "id", context.packageName)
             val idArtist = resources.getIdentifier("widget_artist", "id", context.packageName)
@@ -159,12 +160,10 @@ object WidgetUpdater {
                 resources.getIdentifier("widget_background", "drawable", context.packageName)
             }
 
-            // icon/text tints for theme-aware (but ALWAYS keep play/pause black)
+            // icon/text tints for theme-aware
             val defaultIconTint = if (req.useThemeAware) {
                 if (isSystemDark) Color.WHITE else Color.BLACK
             } else Color.WHITE
-
-            val playPauseTint = Color.BLACK // ALWAYS black per request
 
             val textColorPrimary = if (req.useThemeAware) {
                 if (isSystemDark) Color.WHITE else Color.BLACK
@@ -189,7 +188,7 @@ object WidgetUpdater {
                         val playDrawableId = resources.getIdentifier("ic_play_arrow_24", "drawable", context.packageName)
                         if (idPlayPauseIdle != 0 && playDrawableId != 0) {
                             partialViews.setImageViewResource(idPlayPauseIdle, playDrawableId)
-                            partialViews.setInt(idPlayPauseIdle, "setColorFilter", playPauseTint)
+                            partialViews.setInt(idPlayPauseIdle, "setColorFilter", Color.BLACK)
                         }
                         wasFullShown = false  // Reset flag
                     } else {
@@ -236,7 +235,7 @@ object WidgetUpdater {
                         val playDrawableId = resources.getIdentifier(playDrawableResName, "drawable", context.packageName)
                         if (idPlayPauseFull != 0 && playDrawableId != 0) {
                             partialViews.setImageViewResource(idPlayPauseFull, playDrawableId)
-                            partialViews.setInt(idPlayPauseFull, "setColorFilter", playPauseTint) // always black
+                            partialViews.setInt(idPlayPauseFull, "setColorFilter", defaultIconTint)
                         }
 
                         // load artwork
@@ -280,6 +279,14 @@ object WidgetUpdater {
                             }
                             partialViews.setInt(idRepeat, "setColorFilter", tintColor)
                         }
+
+                        val shuffleEnabled = if (!isIdle) req.exoPlayer?.shuffleModeEnabled ?: false else false
+                        val shuffleDrawableId = resources.getIdentifier("ic_shuffle_24", "drawable", context.packageName)
+                        if (idShuffle != 0 && shuffleDrawableId != 0) {
+                            partialViews.setImageViewResource(idShuffle, shuffleDrawableId)
+                            val shuffleTint = if (shuffleEnabled) defaultIconTint else Color.GRAY
+                            partialViews.setInt(idShuffle, "setColorFilter", shuffleTint)
+                        }
                         wasFullShown = true  // Set flag
                     }
 
@@ -312,6 +319,7 @@ object WidgetUpdater {
                     partialViews.setOnClickPendingIntent(idNext, pendingIntentFor(PlaybackService.ACTION_WIDGET_NEXT, appWidgetId))
                     partialViews.setOnClickPendingIntent(idPrev, pendingIntentFor(PlaybackService.ACTION_WIDGET_PREV, appWidgetId))
                     partialViews.setOnClickPendingIntent(idRepeat, pendingIntentFor(PlaybackService.ACTION_WIDGET_REPEAT, appWidgetId))
+                    partialViews.setOnClickPendingIntent(idShuffle, pendingIntentFor(PlaybackService.ACTION_WIDGET_SHUFFLE, appWidgetId))
 
                     val openAppIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
                     openAppIntent?.let {

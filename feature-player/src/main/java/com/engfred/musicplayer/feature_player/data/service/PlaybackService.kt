@@ -79,6 +79,7 @@ class PlaybackService : MediaSessionService() {
         const val ACTION_WIDGET_PREV = "com.engfred.musicplayer.ACTION_WIDGET_PREV"
         const val ACTION_REFRESH_WIDGET = "com.engfred.musicplayer.ACTION_REFRESH_WIDGET"
         const val ACTION_WIDGET_REPEAT = "com.engfred.musicplayer.ACTION_WIDGET_REPEAT"
+        const val ACTION_WIDGET_SHUFFLE = "com.engfred.musicplayer.ACTION_WIDGET_SHUFFLE"
         const val WIDGET_PROVIDER_CLASS = "com.engfred.musicplayer.widget.PlayerWidgetProvider"
         private const val TAG = "PlaybackService"
         private const val PERIODIC_SAVE_INTERVAL_MS = 10000L
@@ -382,7 +383,7 @@ class PlaybackService : MediaSessionService() {
                     } catch (_: Exception) {}
                 }
                 ACTION_REFRESH_WIDGET -> {
-                    // NEW: Brief delay if load not done (should be rare since blocking in onCreate)
+                    //Brief delay if load not done (should be rare since blocking in onCreate)
                     if (lastIdleDisplayInfo == null && isFullShown) {
                         serviceScope.launch {
                             delay(200)  // Wait for any pending load
@@ -394,6 +395,10 @@ class PlaybackService : MediaSessionService() {
                 }
                 ACTION_WIDGET_REPEAT -> {
                     PlaybackActions.handleRepeatToggle(exoPlayer, settingsRepository, serviceScope)
+                }
+                ACTION_WIDGET_SHUFFLE -> {
+                    exoPlayer.shuffleModeEnabled = !exoPlayer.shuffleModeEnabled
+                    updateWidgetWithInfo()
                 }
             }
         } catch (e: Exception) {

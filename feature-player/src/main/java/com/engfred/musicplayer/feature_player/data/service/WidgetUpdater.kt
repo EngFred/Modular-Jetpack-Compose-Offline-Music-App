@@ -219,15 +219,15 @@ object WidgetUpdater {
 
                         if (idTitle != 0) {
                             partialViews.setTextViewText(idTitle, title)
-                            if (req.useThemeAware) partialViews.setTextColor(idTitle, textColorPrimary)
+                            partialViews.setTextColor(idTitle, textColorPrimary)
                         }
                         if (idArtist != 0) {
                             partialViews.setTextViewText(idArtist, artist)
-                            if (req.useThemeAware) partialViews.setTextColor(idArtist, textColorSecondary)
+                            partialViews.setTextColor(idArtist, textColorSecondary)
                         }
                         if (idDuration != 0) {
                             partialViews.setTextViewText(idDuration, durationText)
-                            if (req.useThemeAware) partialViews.setTextColor(idDuration, textColorSecondary)
+                            partialViews.setTextColor(idDuration, textColorSecondary)
                         }
 
                         val isPlaying = req.exoPlayer?.isPlaying ?: false

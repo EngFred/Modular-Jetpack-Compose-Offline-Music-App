@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.feature_playlist.presentation.components.list
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -35,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -43,6 +45,8 @@ import com.engfred.musicplayer.core.domain.model.Playlist
 import com.engfred.musicplayer.feature_playlist.presentation.components.DeleteConfirmationDialog
 import com.skydoves.landscapist.coil.CoilImage
 import com.engfred.musicplayer.core.util.TextUtils
+import com.engfred.musicplayer.feature_playlist.R
+import com.engfred.musicplayer.feature_playlist.utils.findFirstAlbumArtUri
 import com.skydoves.landscapist.ImageOptions
 
 @Composable
@@ -80,33 +84,44 @@ fun PlaylistGridItem(
                     .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
-                val firstSongAlbumArtUri = playlist.songs.firstOrNull()?.albumArtUri
-                if (firstSongAlbumArtUri != null) {
-                    CoilImage(
-                        imageModel = { firstSongAlbumArtUri },
-                        imageOptions = ImageOptions(
-                            contentScale = ContentScale.FillBounds
-                        ),
+                // If not deletable -> show favorites drawable
+                if (!isDeletable) {
+                    Image(
+                        painter = painterResource(id = R.drawable.favorites),
+                        contentDescription = "Favorites",
                         modifier = Modifier.fillMaxSize(),
-                        loading = {
-                            Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant))
-                        },
-                        failure = {
-                            Icon(
-                                imageVector = Icons.Rounded.MusicNote,
-                                contentDescription = "No album art available",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                modifier = Modifier.fillMaxSize().padding(16.dp)
-                            )
-                        }
+                        contentScale = ContentScale.Crop
                     )
                 } else {
-                    Icon(
-                        imageVector = Icons.Rounded.MusicNote,
-                        contentDescription = "No album art available",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        modifier = Modifier.fillMaxSize().padding(16.dp)
-                    )
+                    // deletable playlists: show first song album art (Coil) or fallback icon
+                    val albumArtUri = playlist.findFirstAlbumArtUri()
+                    if (albumArtUri != null) {
+                        CoilImage(
+                            imageModel = { albumArtUri },
+                            imageOptions = ImageOptions(
+                                contentScale = ContentScale.FillBounds
+                            ),
+                            modifier = Modifier.fillMaxSize(),
+                            loading = {
+                                Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant))
+                            },
+                            failure = {
+                                Icon(
+                                    imageVector = Icons.Rounded.MusicNote,
+                                    contentDescription = "No album art available",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    modifier = Modifier.fillMaxSize().padding(16.dp)
+                                )
+                            }
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Rounded.MusicNote,
+                            contentDescription = "No album art available",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            modifier = Modifier.fillMaxSize().padding(16.dp)
+                        )
+                    }
                 }
 
                 if (isDeletable) {
@@ -142,7 +157,8 @@ fun PlaylistGridItem(
                         }
                     }
                 }
-                }
+            } // end Box (image area)
+
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(

@@ -151,13 +151,14 @@ fun TopBar(
                 }
 
                 Spacer(modifier = Modifier.size(8.dp))
-                Text(
-                    text = "${currentSongNumText}/$totalQueueSize",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = contentColor.copy(alpha = 0.8f),
-                    fontWeight = FontWeight.SemiBold
-                )
-                Spacer(modifier = Modifier.weight(1f))
+                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "${currentSongNumText}/$totalQueueSize",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = contentColor.copy(alpha = 0.8f),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
                 Spacer(modifier = Modifier.size(8.dp))
 
                 Row(

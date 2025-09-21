@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -56,13 +57,13 @@ import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.detail.Pl
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.detail.PlaylistDetailViewModel
 import androidx.compose.ui.draw.clip
 import com.engfred.musicplayer.feature_playlist.presentation.components.detail.PlaylistSongs
-import androidx.compose.ui.platform.LocalDensity
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.ui.components.AddSongToPlaylistDialog
 import com.engfred.musicplayer.core.ui.components.ConfirmationDialog
 import com.engfred.musicplayer.feature_playlist.presentation.components.detail.PlaylistDetailTopBar
 import com.engfred.musicplayer.core.domain.model.AutomaticPlaylistType
 import com.engfred.musicplayer.core.ui.components.MiniPlayer
+import com.engfred.musicplayer.feature_playlist.utils.findFirstAlbumArtUri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -164,7 +165,7 @@ fun PlaylistDetailScreen(
             Box(modifier = Modifier.fillMaxSize()) {
                 PlaylistDetailTopBar(
                     playlistName = uiState.playlist?.name,
-                    playlistArtUri = uiState.playlist?.songs?.firstOrNull()?.albumArtUri,
+                    playlistArtUri = uiState.playlist?.findFirstAlbumArtUri(),
                     scrolledPastHeader = scrolledPastHeader,
                     onNavigateBack = onNavigateBack,
                     onMoreMenuExpandedChange = { moreMenuExpanded = it },
@@ -191,7 +192,8 @@ fun PlaylistDetailScreen(
                         PlaylistDetailHeaderSection(
                             playlist = uiState.playlist,
                             isCompact = true,
-                            modifier = Modifier.padding(top = topBarPadding)
+                            modifier = Modifier.padding(top = topBarPadding),
+                            isFavPlaylist = uiState.playlist?.name.equals("Favorites", ignoreCase = true)
                         )
                     }
 
@@ -311,6 +313,7 @@ fun PlaylistDetailScreen(
                         PlaylistDetailHeaderSection(
                             playlist = uiState.playlist,
                             isCompact = false,
+                            isFavPlaylist = uiState.playlist?.name.equals("Favorites", ignoreCase = true)
                         )
                     }
 

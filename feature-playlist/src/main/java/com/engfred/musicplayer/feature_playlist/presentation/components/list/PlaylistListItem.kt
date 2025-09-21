@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.feature_playlist.presentation.components.list
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -33,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -40,6 +42,8 @@ import com.engfred.musicplayer.core.domain.model.Playlist
 import com.engfred.musicplayer.feature_playlist.utils.formatDate
 import com.engfred.musicplayer.feature_playlist.presentation.components.DeleteConfirmationDialog
 import com.engfred.musicplayer.core.util.TextUtils
+import com.engfred.musicplayer.feature_playlist.R
+import com.engfred.musicplayer.feature_playlist.utils.findFirstAlbumArtUri
 import com.skydoves.landscapist.ImageOptions
 import com.skydoves.landscapist.coil.CoilImage
 
@@ -75,39 +79,53 @@ fun PlaylistListItem(
                     .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
-                val firstSongAlbumArtUri = playlist.songs.firstOrNull()?.albumArtUri
-                if (firstSongAlbumArtUri != null) {
-                    CoilImage(
-                        imageModel = { firstSongAlbumArtUri },
+                // When not deletable -> show favorites drawable
+                if (!isDeletable) {
+                    Image(
+                        painter = painterResource(id = R.drawable.favorites),
+                        contentDescription = "Favorites",
                         modifier = Modifier
                             .fillMaxWidth()
                             .width(56.dp)
                             .height(56.dp),
-                        imageOptions = ImageOptions(
-                            contentScale = ContentScale.Crop
-                        ),
-                        loading = {
-                            Box(modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp)
-                                .background(MaterialTheme.colorScheme.surfaceVariant))
-                        },
-                        failure = {
-                            Icon(
-                                imageVector = Icons.Rounded.MusicNote,
-                                contentDescription = "No album art available",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                modifier = Modifier.size(28.dp)
-                            )
-                        }
+                        contentScale = ContentScale.Crop
                     )
                 } else {
-                    Icon(
-                        imageVector = Icons.Rounded.MusicNote,
-                        contentDescription = "No album art available",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        modifier = Modifier.size(28.dp)
-                    )
+                    // deletable: show first song album art (Coil) or fallback icon
+                    val albumArtUri = playlist.findFirstAlbumArtUri()
+                    if (albumArtUri != null) {
+                        CoilImage(
+                            imageModel = { albumArtUri },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .width(56.dp)
+                                .height(56.dp),
+                            imageOptions = ImageOptions(
+                                contentScale = ContentScale.Crop
+                            ),
+                            loading = {
+                                Box(modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant))
+                            },
+                            failure = {
+                                Icon(
+                                    imageVector = Icons.Rounded.MusicNote,
+                                    contentDescription = "No album art available",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Rounded.MusicNote,
+                            contentDescription = "No album art available",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
                 }
             }
 

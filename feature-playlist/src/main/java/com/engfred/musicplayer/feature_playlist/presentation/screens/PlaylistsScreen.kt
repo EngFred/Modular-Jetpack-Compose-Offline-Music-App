@@ -50,6 +50,7 @@ import com.engfred.musicplayer.feature_playlist.presentation.components.list.Pla
 import com.engfred.musicplayer.feature_playlist.presentation.components.list.PlaylistListItem
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.list.PlaylistEvent
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.list.PlaylistViewModel
+import com.engfred.musicplayer.feature_playlist.utils.formatDate
 import kotlin.math.max
 
 /**
@@ -195,7 +196,7 @@ fun PlaylistsScreen(
                                 }
                             }
                         } else {
-                            // GRID layout (unchanged) — chunk into rows
+                            // GRID layout
                             val chunks = uiState.userPlaylists.chunked(gridColumns)
                             itemsIndexed(chunks) { _, rowPlaylists ->
                                 Row(

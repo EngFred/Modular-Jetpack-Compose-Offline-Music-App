@@ -227,7 +227,20 @@ class PlaybackService : MediaSessionService() {
                     }
                     if (settings.audioPreset != lastPreset) {
                         lastPreset = settings.audioPreset
-                        applyAudioPreset(settings.audioPreset)
+                        EqualizerPresetApplier.applyPreset(
+                            eq = equalizer,
+                            scope = serviceScope,
+                            preset = settings.audioPreset,
+                            intensity = 1.0f,
+                            steps = 8,
+                            stepDelayMs = 30L,
+                            onApplied = { applied ->
+                                lastAppliedPreset = applied
+                            },
+                            onError = { t ->
+                                Log.w(TAG, "Failed to apply preset: ${t.message}")
+                            }
+                        )
                     }
                 }
             }
@@ -283,31 +296,6 @@ class PlaybackService : MediaSessionService() {
 
         sharedAudioDataSource.setPlayingQueue(playingQueue)
         Log.d(TAG, "Loaded ${playingQueue.size} songs into playing queue on service create")
-    }
-
-    private fun applyAudioPreset(preset: AudioPreset) {
-        try {
-            equalizer?.let { eq ->
-                eq.enabled = preset != AudioPreset.NONE
-                if (preset != AudioPreset.NONE) {
-                    val presetIndex = when (preset) {
-                        AudioPreset.ROCK -> 9
-                        AudioPreset.JAZZ -> 7
-                        AudioPreset.POP -> 8
-                        AudioPreset.CLASSICAL -> 1
-                        AudioPreset.DANCE -> 2
-                        AudioPreset.HIP_HOP -> 6
-                        else -> 0
-                    }.toShort()
-                    eq.usePreset(presetIndex)
-                    Log.d(TAG, "Applied audio preset: $preset (index: $presetIndex)")
-                } else {
-                    Log.d(TAG, "Disabled equalizer for preset: NONE")
-                }
-            } ?: Log.w(TAG, "Equalizer not initialized when applying preset.")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error applying audio preset: ${e.message}", e)
-        }
     }
 
     /**

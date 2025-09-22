@@ -180,12 +180,12 @@ fun AudioFileItem(
             )
         }
 
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(horizontalAlignment = Alignment.End) {
             Text(
                 text = MediaUtils.formatDuration(audioFile.duration),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                modifier = Modifier.padding(horizontal = 8.dp)
+                modifier = Modifier.padding(horizontal = 0.dp)
             )
             if (isCurrentPlayingAudio && isAudioPlaying) VisualizerBars()
         }

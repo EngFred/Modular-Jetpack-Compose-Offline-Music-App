@@ -23,6 +23,7 @@ import androidx.media3.common.util.UnstableApi
 import com.engfred.musicplayer.core.common.Resource
 import com.engfred.musicplayer.core.data.SharedAudioDataSource
 import com.engfred.musicplayer.core.domain.model.AppSettings
+import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.domain.repository.LibraryRepository
 import com.engfred.musicplayer.core.domain.repository.PlaybackController
 import com.engfred.musicplayer.core.domain.repository.PlaybackState
@@ -37,6 +38,7 @@ import com.engfred.musicplayer.navigation.AppNavHost
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -60,6 +62,8 @@ class MainActivity : ComponentActivity() {
     private var playbackState by mutableStateOf(PlaybackState())
     private var initialAppSettings: AppSettings? by mutableStateOf(null)
     private var appSettingsLoaded by mutableStateOf(false)
+
+    private var lastPlaybackAudio: AudioFile? by mutableStateOf(null)
 
     private val uiScope get() = lifecycleScope
 
@@ -111,6 +115,23 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        uiScope.launch {
+            try {
+                val start = withContext(Dispatchers.IO) {
+                    PlaybackQueueHelper.preparePlayingQueue(
+                        context = this@MainActivity,
+                        settingsRepository = settingsRepository,
+                        libRepo = libraryRepository,
+                        sharedAudioDataSource = sharedAudioDataSource
+                    )
+                }
+                lastPlaybackAudio = start
+                Log.d(TAG, "preparePlayingQueue returned startAudio=${start?.id}")
+            } catch (t: Throwable) {
+                Log.w(TAG, "Failed to prepare playing queue: ${t.message}")
+            }
+        }
+
         handleIncomingIntent(intent)
 
         setContent {
@@ -122,17 +143,75 @@ class MainActivity : ComponentActivity() {
 
                 AppNavHost(
                     rootNavController = navController,
-                    onPlayPause = { uiScope.launch { playbackController.playPause() } },
-                    onPlayNext = { uiScope.launch { playbackController.skipToNext() } },
-                    onPlayPrev = { uiScope.launch { playbackController.skipToPrevious() } },
+                    onPlayPause = {
+                        uiScope.launch {
+                            if (playbackState.currentAudioFile != null) {
+                                playbackController.playPause()
+                            } else {
+                                val lastState = settingsRepository.getLastPlaybackState().first()
+                                val startUri = lastPlaybackAudio?.uri
+                                if (startUri != null) {
+                                    playbackController.initiatePlayback(startUri, lastState.positionMs)
+                                }
+                            }
+                        }
+                    },
+                    onPlayNext = {
+                        uiScope.launch {
+                            if (playbackState.currentAudioFile != null) {
+                                playbackController.skipToNext()
+                            } else {
+                                val lastState = settingsRepository.getLastPlaybackState().first()
+                                val startUri = lastPlaybackAudio?.uri
+                                if (startUri != null) {
+                                    playbackController.initiatePlayback(startUri, lastState.positionMs)
+                                    if (playbackController.waitUntilReady(5000)) {
+                                        playbackController.skipToNext()
+                                    } else {
+                                        Toast.makeText(this@MainActivity, "Failed to start playback", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    onPlayPrev = {
+                        uiScope.launch {
+                            if (playbackState.currentAudioFile != null) {
+                                playbackController.skipToPrevious()
+                            } else {
+                                val lastState = settingsRepository.getLastPlaybackState().first()
+                                val startUri = lastPlaybackAudio?.uri
+                                if (startUri != null) {
+                                    playbackController.initiatePlayback(startUri, lastState.positionMs)
+                                    if (playbackController.waitUntilReady(5000)) {
+                                        playbackController.skipToPrevious()
+                                    } else {
+                                        Toast.makeText(this@MainActivity, "Failed to start playback", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                        }
+                    },
                     playingAudioFile = playbackState.currentAudioFile,
                     isPlaying = playbackState.isPlaying,
                     context = this,
                     onNavigateToNowPlaying = {
-                        if (playbackState.currentAudioFile != null) {
+                        uiScope.launch {
+                            if (playbackState.currentAudioFile == null) {
+                                val lastState = settingsRepository.getLastPlaybackState().first()
+                                val startUri = lastPlaybackAudio?.uri
+                                if (startUri != null) {
+                                    playbackController.initiatePlayback(startUri, lastState.positionMs)
+                                    if (!playbackController.waitUntilReady(5000)) {
+                                        Toast.makeText(this@MainActivity, "Failed to start playback", Toast.LENGTH_SHORT).show()
+                                        return@launch
+                                    }
+                                } else {
+                                    Toast.makeText(this@MainActivity, "No previous playback", Toast.LENGTH_SHORT).show()
+                                    return@launch
+                                }
+                            }
                             navController.navigate(AppDestinations.NowPlaying.route)
-                        } else {
-                            Toast.makeText(this, "No active playback", Toast.LENGTH_SHORT).show()
                         }
                     },
                     isPlayerActive = playbackState.currentAudioFile != null,
@@ -142,7 +221,8 @@ class MainActivity : ComponentActivity() {
                     audioItems = audioItems,
                     onReleasePlayer = {
                         uiScope.launch { playbackController.releasePlayer() }
-                    }
+                    },
+                    lastPlaybackAudio = lastPlaybackAudio
                 )
 
                 LaunchedEffect(externalPlaybackUri) {

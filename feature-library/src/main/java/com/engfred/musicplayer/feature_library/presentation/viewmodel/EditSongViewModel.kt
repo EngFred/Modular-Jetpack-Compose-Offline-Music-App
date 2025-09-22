@@ -12,6 +12,7 @@ import com.engfred.musicplayer.core.data.SharedAudioDataSource
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.domain.repository.PlaybackController
 import com.engfred.musicplayer.core.domain.repository.PlaylistRepository
+import com.engfred.musicplayer.core.util.MediaUtils
 import com.engfred.musicplayer.feature_library.domain.usecases.EditAudioMetadataUseCase
 import com.engfred.musicplayer.feature_library.domain.usecases.GetAllAudioFilesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -115,13 +116,18 @@ class EditSongViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
             val currentState = _uiState.value
-            val albumArtBytes = getAlbumArtBytes(currentState.albumArtPreviewUri, context)
+            var albumArtBytes = getAlbumArtBytes(currentState.albumArtPreviewUri, context)
 
             // Fail early if new album art cannot be read
             if (albumArtBytes == null && currentState.albumArtPreviewUri != originalAlbumArtUri) {
                 _uiState.update { it.copy(isSaving = false) }
                 _events.emit(Event.Error("Failed to read album art image."))
                 return@launch
+            }
+
+            // Compress if too large
+            if (albumArtBytes != null && albumArtBytes.size > 2 * 1024 * 1024) { // 2MB limit
+                albumArtBytes = MediaUtils.compressImage(albumArtBytes)
             }
 
             // Save pending values only if they've changed

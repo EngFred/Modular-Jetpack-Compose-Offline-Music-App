@@ -5,15 +5,19 @@ import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
 import android.content.IntentSender
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
 import android.widget.Toast
+import androidx.core.graphics.scale
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.domain.usecases.PermissionHandlerUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.io.FileNotFoundException
 import java.io.IOException
 import java.util.Locale
@@ -121,9 +125,39 @@ object MediaUtils {
         }
     }
     fun formatDuration(milliseconds: Long): String {
-        val minutes = (milliseconds / 1000) / 60
-        val seconds = (milliseconds / 1000) % 60
-        return String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
+        if (milliseconds <= 0) return "00:00"
+        val totalSeconds = milliseconds / 1000
+        val hours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600) / 60
+        val seconds = totalSeconds % 60
+        return if (hours > 0) {
+            String.format(Locale.getDefault(), "%02d:%02d:%02d", hours, minutes, seconds)
+        } else {
+            String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
+        }
+    }
+
+    fun compressImage(imageBytes: ByteArray): ByteArray {
+        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size, options)
+        val originalWidth = options.outWidth
+        val originalHeight = options.outHeight
+        val maxDimension = maxOf(originalWidth, originalHeight)
+        val targetSize = 500
+        val scaleFactor = if (maxDimension > targetSize) targetSize.toFloat() / maxDimension else 1f
+
+        val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+        val scaledBitmap = bitmap.scale(
+            (originalWidth * scaleFactor).toInt(),
+            (originalHeight * scaleFactor).toInt()
+        )
+        val outputStream = ByteArrayOutputStream()
+        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
+
+        bitmap.recycle()
+        scaledBitmap.recycle()
+
+        return outputStream.toByteArray()
     }
 
     // Existing shareAudioFile function

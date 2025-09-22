@@ -32,6 +32,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import com.engfred.musicplayer.feature_player.data.service.WidgetUpdater
+import com.engfred.musicplayer.helpers.PlaybackQueueHelper.preparePlayingQueue
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -154,11 +155,11 @@ class PlayerWidgetProvider : AppWidgetProvider() {
 
         // Not updating immediately with idle; load async and update once
         CoroutineScope(Dispatchers.Main).launch {
-            preparePlayingQueue(context)
             // Load state and update with it (avoids initial idle flash)
             val entry = EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
             val settingsRepository = entry.settingsRepository()
             val libRepo = entry.libraryRepository()
+            preparePlayingQueue(context, settingsRepository, libRepo, entry.sharedDataSource())
 
             val lastState = settingsRepository.getLastPlaybackState().first()
             val deviceAudios = libRepo.getAllAudioFiles().first()
@@ -242,31 +243,6 @@ class PlayerWidgetProvider : AppWidgetProvider() {
         return views
     }
 
-    private suspend fun preparePlayingQueue(context: Context) {
-        val entry = EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
-        val settingsRepository = entry.settingsRepository()
-        val libRepo = entry.libraryRepository()
-        val sharedAudioDataSource = entry.sharedDataSource()
-
-        val lastState = settingsRepository.getLastPlaybackState().first()
-        val deviceAudios = libRepo.getAllAudioFiles().first()
-
-        val filter = settingsRepository.getFilterOption().first()
-        val sorted = sortAudioFiles(deviceAudios, filter)
-        val playingQueue = lastState.queueIds?.takeIf { it.isNotEmpty() }?.let { ids ->
-            val idToAudio = deviceAudios.associateBy { it.id }
-            ids.mapNotNull { idToAudio[it] }.takeIf { it.isNotEmpty() } ?: sorted
-        } ?: sorted
-
-        val startAudio = lastState.audioId?.let { id ->
-            playingQueue.find { it.id == id }
-        }
-
-        sharedAudioDataSource.setPlayingQueue(playingQueue)
-
-        Log.d(TAG, "Added ${sharedAudioDataSource.playingQueueAudioFiles.value.size} songs in playing queue")
-    }
-
     private suspend fun loadIdleWidgetParams(
         context: Context,
         lastState: LastPlaybackState,
@@ -312,7 +288,7 @@ class PlayerWidgetProvider : AppWidgetProvider() {
             val settingsRepository = entry.settingsRepository()
             val libRepo = entry.libraryRepository()
 
-            preparePlayingQueue(context)  //Loading queue here to ensure it's set even in fallback
+            preparePlayingQueue(context, settingsRepository, libRepo, entry.sharedDataSource())  //Loading queue here to ensure it's set even in fallback
 
             val lastState = settingsRepository.getLastPlaybackState().first()
             val deviceAudios = libRepo.getAllAudioFiles().first()

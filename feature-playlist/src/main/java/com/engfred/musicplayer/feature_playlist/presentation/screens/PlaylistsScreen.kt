@@ -45,6 +45,7 @@ import com.engfred.musicplayer.core.domain.model.PlaylistLayoutType
 import com.engfred.musicplayer.core.ui.components.ErrorIndicator
 import com.engfred.musicplayer.core.ui.components.InfoIndicator
 import com.engfred.musicplayer.core.ui.components.LoadingIndicator
+import com.engfred.musicplayer.core.ui.components.SoundWaveLoading
 import com.engfred.musicplayer.feature_playlist.presentation.components.list.AutomaticPlaylistItem
 import com.engfred.musicplayer.feature_playlist.presentation.components.list.PlaylistGridItem
 import com.engfred.musicplayer.feature_playlist.presentation.components.list.PlaylistListItem
@@ -103,7 +104,9 @@ fun PlaylistsScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    LoadingIndicator()
+                    SoundWaveLoading(
+                        barMaxHeight = 25.dp
+                    )
                 }
             }
 

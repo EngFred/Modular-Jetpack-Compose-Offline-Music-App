@@ -31,7 +31,7 @@ import androidx.core.net.toUri
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import com.engfred.musicplayer.core.domain.model.WidgetDisplayInfo
-import java.util.Locale
+import com.engfred.musicplayer.core.util.MediaUtils
 import java.util.concurrent.atomic.AtomicReference
 
 private const val TAG = "WidgetUpdater"
@@ -214,8 +214,8 @@ object WidgetUpdater {
                             else -> 0L
                         }
 
-                        val totalDurationText = if (totalDurationMs > 0L) formatDuration(totalDurationMs) else UNKNOWN_DURATION_TEXT
-                        val durationText = "${formatDuration(currentPositionMs)} / $totalDurationText"
+                        val totalDurationText = if (totalDurationMs > 0L) MediaUtils.formatDuration(totalDurationMs) else UNKNOWN_DURATION_TEXT
+                        val durationText = "${MediaUtils.formatDuration(currentPositionMs)} / $totalDurationText"
 
                         if (idTitle != 0) {
                             partialViews.setTextViewText(idTitle, title)
@@ -354,13 +354,6 @@ object WidgetUpdater {
         } catch (_: Exception) {
             null
         }
-    }
-
-    private fun formatDuration(ms: Long): String {
-        if (ms < 0) return "00:00"
-        val seconds = (ms / 1000) % 60
-        val minutes = (ms / 1000) / 60
-        return String.format(Locale.US, "%02d:%02d", minutes, seconds)
     }
 
     private fun createCircularBitmap(bitmap: Bitmap): Bitmap {

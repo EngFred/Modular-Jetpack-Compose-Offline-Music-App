@@ -52,6 +52,7 @@ fun AppNavHost(
     onShuffleAll: () -> Unit,
     audioItems: List<AudioFile>,
     onReleasePlayer: () -> Unit,
+    lastPlaybackAudio: AudioFile?
 ) {
 
     // Set the start destination based on the condition
@@ -110,12 +111,12 @@ fun AppNavHost(
                 onReleasePlayer = onReleasePlayer,
                 onCreatePlaylist = {
                     rootNavController.navigate(AppDestinations.CreatePlaylist.route)
-                }
+                },
+                lastPlaybackAudio = lastPlaybackAudio
             )
         }
 
         // Now playing screen
-        // NOTE: keep NowPlaying animations as they were originally (we will disable animations on the originating screens instead)
         composable(
             route = AppDestinations.NowPlaying.route,
             enterTransition = {

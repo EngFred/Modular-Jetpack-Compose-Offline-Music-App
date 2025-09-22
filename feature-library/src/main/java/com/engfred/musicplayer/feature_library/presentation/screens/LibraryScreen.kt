@@ -202,12 +202,12 @@ fun LibraryScreen(
 
     // Scroll to top when a sort/filter option is applied or changes ---
     // Do not scroll if the list is already at the top.
-    LaunchedEffect(key1 = uiState.currentFilterOption) {
-        if (lazyListState.firstVisibleItemIndex > 0 || lazyListState.firstVisibleItemScrollOffset > 0) {
-            // animate for smooth UX; replace with scrollToItem(0) if you prefer an instant jump
-            lazyListState.scrollToItem(index = 0)
-        }
-    }
+//    LaunchedEffect(key1 = uiState.currentFilterOption) {
+//        if (lazyListState.firstVisibleItemIndex > 0 || lazyListState.firstVisibleItemScrollOffset > 0) {
+//            // animate for smooth UX; replace with scrollToItem(0) if you prefer an instant jump
+//            lazyListState.scrollToItem(index = 0)
+//        }
+//    }
 
     // --- UI ---
     Box(

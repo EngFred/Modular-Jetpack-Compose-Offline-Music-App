@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.engfred.musicplayer.R
+import com.engfred.musicplayer.core.ui.components.SoundWaveLoading
 
 @SuppressLint("SourceLockedOrientationActivity")
 @Composable
@@ -67,13 +68,11 @@ fun SplashScreen() {
                 .padding(bottom = 18.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            CircularProgressIndicator(
-                color = Color.White,
-                strokeWidth = 3.dp,
-                modifier = Modifier.size(28.dp)
+            SoundWaveLoading(
+                barMaxHeight = 25.dp
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             // Professional copyright line with symbol
             Text(

@@ -1,13 +1,11 @@
 package com.engfred.musicplayer.feature_settings.data.repository
 
-import android.net.Uri
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import com.engfred.musicplayer.core.ui.theme.AppThemeType
 import com.engfred.musicplayer.core.domain.model.AppSettings
 import com.engfred.musicplayer.core.domain.model.AudioPreset
 import com.engfred.musicplayer.core.domain.model.FilterOption
@@ -15,17 +13,15 @@ import com.engfred.musicplayer.core.domain.model.LastPlaybackState
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
 import com.engfred.musicplayer.core.domain.model.PlaylistLayoutType
 import com.engfred.musicplayer.core.domain.model.WidgetBackgroundMode
-import com.engfred.musicplayer.core.domain.model.WidgetDisplayInfo
 import com.engfred.musicplayer.core.domain.repository.RepeatMode
 import com.engfred.musicplayer.core.domain.repository.SettingsRepository
+import com.engfred.musicplayer.core.ui.theme.AppThemeType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
-import androidx.core.net.toUri
 
 @Singleton
 class SettingsRepositoryImpl @Inject constructor(
@@ -44,12 +40,6 @@ class SettingsRepositoryImpl @Inject constructor(
         private val LAST_PLAYED_AUDIO_ID = longPreferencesKey("last_played_audio_id")
         private val LAST_POSITION_MS = longPreferencesKey("last_position_ms")
         private val LAST_QUEUE_IDS = stringPreferencesKey("last_queue_ids")
-
-//        // New for full widget info cache (for fast load)
-//        private val LAST_TITLE = stringPreferencesKey("last_title")
-//        private val LAST_ARTIST = stringPreferencesKey("last_artist")
-//        private val LAST_DURATION_MS = longPreferencesKey("last_duration_ms")
-//        private val LAST_ARTWORK_URI = stringPreferencesKey("last_artwork_uri")
     }
 
     override fun getAppSettings(): Flow<AppSettings> {
@@ -147,43 +137,6 @@ class SettingsRepositoryImpl @Inject constructor(
             }
         }
     }
-
-//    // New: Save full widget info
-//    override suspend fun saveLastWidgetInfo(info: WidgetDisplayInfo?) {
-//        dataStore.edit { preferences ->
-//            if (info != null) {
-//                preferences[LAST_TITLE] = info.title
-//                preferences[LAST_ARTIST] = info.artist
-//                preferences[LAST_DURATION_MS] = info.durationMs
-//                preferences[LAST_POSITION_MS] = info.positionMs  // Reuse key, but okay as it's same
-//                if (info.artworkUri != null) preferences[LAST_ARTWORK_URI] = info.artworkUri.toString()
-//            } else {
-//                preferences.remove(LAST_TITLE)
-//                preferences.remove(LAST_ARTIST)
-//                preferences.remove(LAST_DURATION_MS)
-//                preferences.remove(LAST_ARTWORK_URI)
-//            }
-//        }
-//    }
-//
-//    // New: Get full widget info from prefs (fast)
-//    override suspend fun getLastWidgetInfo(): WidgetDisplayInfo? {
-//        val preferences = dataStore.data.first()
-//        val title = preferences[LAST_TITLE] ?: return null
-//        val artist = preferences[LAST_ARTIST] ?: return null
-//        val durationMs = preferences[LAST_DURATION_MS] ?: return null
-//        val positionMs = preferences[LAST_POSITION_MS] ?: 0L
-//        val artworkStr = preferences[LAST_ARTWORK_URI]
-//        val artworkUri = artworkStr?.toUri()
-//
-//        return WidgetDisplayInfo(
-//            title = title,
-//            artist = artist,
-//            durationMs = durationMs,
-//            positionMs = positionMs,
-//            artworkUri = artworkUri
-//        )
-//    }
 
     override suspend fun updateTheme(theme: AppThemeType) {
         dataStore.edit { preferences ->

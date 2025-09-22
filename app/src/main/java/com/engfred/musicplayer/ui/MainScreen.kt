@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.ui
 
+import android.util.Log
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
@@ -32,6 +33,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,6 +55,7 @@ import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.ui.components.CustomTopBar
 import com.engfred.musicplayer.core.ui.components.MiniPlayer
 import com.engfred.musicplayer.core.ui.components.PlayShuffleBar
+import com.engfred.musicplayer.core.util.TextUtils.formatCount
 import com.engfred.musicplayer.core.util.restartApp
 import com.engfred.musicplayer.feature_library.presentation.screens.LibraryScreen
 import com.engfred.musicplayer.feature_playlist.presentation.screens.PlaylistsScreen
@@ -79,6 +82,7 @@ fun MainScreen(
     audioItems: List<AudioFile>,
     onReleasePlayer: () -> Unit,
     onCreatePlaylist: () -> Unit,
+    lastPlaybackAudio: AudioFile?
 ) {
     val bottomNavController = rememberNavController()
     val bottomNavItems = listOf(
@@ -90,14 +94,19 @@ fun MainScreen(
     var showRestartDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
+    LaunchedEffect(Unit) {
+        Log.d("TESTING_1_2", "PlayingAudioFile: ${playingAudioFile?.title} | lastPlaybackAudio: ${lastPlaybackAudio?.title} | audioItems: ${audioItems.size}")
+    }
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
             // Ensure the top bar respects the status bar inset so content is NOT drawn under the system status bar.
+            val title = if (audioItems.isNotEmpty()) "Music | ${formatCount(audioItems.size)}" else "Music"
             Box(modifier = Modifier.statusBarsPadding()) {
                 CustomTopBar(
                     modifier = Modifier.padding(start = 10.dp),
-                    title = "Music",
+                    title = title,
                     showNavigationIcon = false,
                     onNavigateBack = null,
                     actions = {
@@ -132,14 +141,13 @@ fun MainScreen(
             }
         },
         bottomBar = {
-            // Use navigationBarsPadding() not systemBarsPadding() — we only need the bottom inset here.
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
                     .background(MaterialTheme.colorScheme.surface)
             ) {
-                if (playingAudioFile != null && audioItems.isNotEmpty()) {
+                if (playingAudioFile != null || lastPlaybackAudio != null) {
                     MiniPlayer(
                         onClick = onNavigateToNowPlaying,
                         modifier = Modifier.fillMaxWidth(),
@@ -147,17 +155,18 @@ fun MainScreen(
                         onPlayNext = onPlayNext,
                         onPlayPrev = onPlayPrev,
                         isPlaying = isPlaying,
-                        playingAudioFile = playingAudioFile,
+                        playingAudioFile = playingAudioFile ?: lastPlaybackAudio,
                     )
                 } else {
-                    PlayShuffleBar(
-                        onPlayAll = onPlayAll,
-                        onShuffleAll = onShuffleAll,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    if (audioItems.isNotEmpty()) {
+                        PlayShuffleBar(
+                            onPlayAll = onPlayAll,
+                            onShuffleAll = onShuffleAll,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
 
-                //removed bottom = 8.dp from the Row padding — navigationBarsPadding() already reserves safe area.
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()

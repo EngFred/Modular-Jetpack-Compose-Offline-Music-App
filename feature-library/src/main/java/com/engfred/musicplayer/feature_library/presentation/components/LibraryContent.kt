@@ -20,6 +20,7 @@ import com.engfred.musicplayer.core.ui.components.AudioFileItem
 import com.engfred.musicplayer.core.ui.components.ErrorIndicator
 import com.engfred.musicplayer.core.ui.components.InfoIndicator
 import com.engfred.musicplayer.core.ui.components.LoadingIndicator
+import com.engfred.musicplayer.core.ui.components.SoundWaveLoading
 import com.engfred.musicplayer.feature_library.presentation.viewmodel.LibraryScreenState
 
 @Composable
@@ -49,7 +50,12 @@ fun LibraryContent(
     ) {
         when {
             uiState.isLoading -> {
-                LoadingIndicator(modifier = Modifier.align(Alignment.Center))
+//                LoadingIndicator(modifier = Modifier.align(Alignment.Center))
+                SoundWaveLoading(
+                    modifier = Modifier.align(Alignment.Center),
+                    barMaxHeight = 25.dp
+                )
+
             }
             uiState.error != null -> {
                 ErrorIndicator(

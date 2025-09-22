@@ -165,6 +165,8 @@ class QueueManager(
             val newItemMediaId = mediaItemToAdd.mediaId
             Log.d(TAG, "Attempting to 'Play Next': Title='${audioFile.title}', AudioFile.ID='${audioFile.id}', NewItemMediaId='$newItemMediaId'")
 
+            val currentMediaId = controller.currentMediaItem?.mediaId
+
             val wasShuffle = controller.shuffleModeEnabled
             controller.shuffleModeEnabled = false
 
@@ -189,6 +191,30 @@ class QueueManager(
                     Log.d(TAG, "Started playback as it was the first item in the queue.")
                     progressTracker.updateCurrentAudioFilePlaybackProgress(controller)
                 }
+
+                // Sync the shared playing queue to reflect the insertion/move
+                val newQueue = sharedAudioDataSource.playingQueueAudioFiles.value.toMutableList()
+
+                // Remove if already exists (to handle move case)
+                val existingIndex = newQueue.indexOfFirst { it.id.toString() == newItemMediaId }
+                if (existingIndex != -1) {
+                    newQueue.removeAt(existingIndex)
+                    Log.d(TAG, "Moved existing song '${audioFile.title}' from index $existingIndex to play next.")
+                } else {
+                    Log.d(TAG, "Added new song '${audioFile.title}' to play next.")
+                }
+
+                // Find insert position based on current media ID
+                val currentSharedIndex = if (currentMediaId != null) {
+                    newQueue.indexOfFirst { it.id.toString() == currentMediaId }
+                } else {
+                    -1
+                }
+                val insertPos = if (currentSharedIndex == -1) 0 else currentSharedIndex + 1
+                newQueue.add(insertPos, audioFile)
+
+                // Update the shared data source
+                sharedAudioDataSource.setPlayingQueue(newQueue)
             } catch (e: Exception) {
                 Log.e(TAG, "Error adding media item to queue: ${e.message}", e)
                 playbackState.update { it.copy(error = "Error adding song to queue: ${e.message}") }
@@ -302,6 +328,26 @@ class QueueManager(
                 Log.d(TAG, "Audio file '${audioFile.title}' (ID: ${audioFile.id}) not found in active ExoPlayer queue. No action needed.")
                 playbackState.update { it.copy(error = "'${audioFile.title}' not found in queue to remove.") }
             }
+        }
+    }
+
+    suspend fun updateAudioFileInQueue(updatedAudio: AudioFile) {
+        withContext(Dispatchers.Main) {
+            val controller = mediaController.value
+            if (controller == null) {
+                Log.e(TAG, "MediaController not available. Cannot update audio metadata.")
+                return@withContext
+            }
+
+            val mediaId = updatedAudio.id.toString()
+            (0 until controller.mediaItemCount).firstOrNull { controller.getMediaItemAt(it).mediaId == mediaId }?.let { index ->
+                val newItem = audioFileMapper.mapAudioFileToMediaItem(updatedAudio)
+                controller.replaceMediaItem(index, newItem)
+                Log.d(TAG, "Updated metadata for audio ${updatedAudio.title} at queue index $index")
+                if (index == controller.currentMediaItemIndex) {
+                    stateUpdater.updatePlaybackState()
+                }
+            } ?: Log.d(TAG, "Audio ${updatedAudio.id} not found in current player queue, no update needed.")
         }
     }
 }

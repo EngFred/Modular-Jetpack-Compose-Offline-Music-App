@@ -14,6 +14,7 @@ import com.engfred.musicplayer.core.domain.repository.PlaybackState
 import com.engfred.musicplayer.core.domain.repository.PlaylistRepository
 import com.engfred.musicplayer.core.domain.repository.RepeatMode
 import com.engfred.musicplayer.core.domain.repository.ShuffleMode
+import com.engfred.musicplayer.core.domain.repository.SettingsRepository
 import com.engfred.musicplayer.core.domain.usecases.PermissionHandlerUseCase
 import com.engfred.musicplayer.core.mapper.AudioFileMapper
 import com.engfred.musicplayer.feature_player.data.repository.controller.ControllerCallback
@@ -21,7 +22,6 @@ import com.engfred.musicplayer.feature_player.data.repository.controller.MediaCo
 import com.engfred.musicplayer.feature_player.data.repository.controller.PlaybackProgressTracker
 import com.engfred.musicplayer.feature_player.data.repository.controller.PlaybackStateUpdater
 import com.engfred.musicplayer.feature_player.data.repository.controller.QueueManager
-import com.engfred.musicplayer.core.domain.repository.SettingsRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -248,5 +248,9 @@ class PlaybackControllerImpl @Inject constructor(
             delay(100)
         }
         return mediaController.value != null
+    }
+
+    override suspend fun updateAudioMetadata(updatedAudio: AudioFile) {
+        queueManager.updateAudioFileInQueue(updatedAudio)
     }
 }

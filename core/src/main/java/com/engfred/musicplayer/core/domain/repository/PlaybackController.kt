@@ -21,4 +21,5 @@ interface PlaybackController {
     suspend fun removeFromQueue(audioFile: AudioFile)
     suspend fun initiateShufflePlayback(playingQueue: List<AudioFile>)
     suspend fun waitUntilReady(timeoutMs: Long = 5000): Boolean
+    suspend fun updateAudioMetadata(updatedAudio: AudioFile)
 }

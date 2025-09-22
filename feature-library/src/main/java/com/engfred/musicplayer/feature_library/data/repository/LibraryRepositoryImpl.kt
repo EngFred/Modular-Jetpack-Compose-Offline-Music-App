@@ -4,21 +4,26 @@ import android.app.RecoverableSecurityException
 import android.content.ContentUris
 import android.content.Context
 import android.graphics.BitmapFactory
+import android.media.MediaScannerConnection
 import android.net.Uri
 import android.provider.MediaStore
 import android.util.Log
+import androidx.core.graphics.scale
 import com.engfred.musicplayer.core.common.Resource
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.domain.repository.LibraryRepository
 import com.engfred.musicplayer.feature_library.data.source.local.ContentResolverDataSource
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import java.io.*
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.io.InputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import javax.inject.Inject
-import androidx.core.graphics.scale
-import kotlinx.coroutines.flow.map
 
 class LibraryRepositoryImpl @Inject constructor(
     private val dataSource: ContentResolverDataSource
@@ -106,8 +111,7 @@ class LibraryRepositoryImpl @Inject constructor(
                 // read first 10 bytes (ID3 header) if present
                 val headerBuf = ByteArray(10)
                 val headerRead = readFully(inputStream, headerBuf, 0, 10)
-                var tagVersion = 3
-                var audioStart = 0
+                var tagVersion = 4
                 val existingFrames = mutableListOf<ByteArray>()
 
                 if (headerRead == 10 &&
@@ -154,31 +158,25 @@ class LibraryRepositoryImpl @Inject constructor(
                         pos += 10 + frameSize
                     }
 
-                    audioStart = 10 + tagSize
                     // inputStream is already positioned after header+tag because we read them.
                 } else {
-                    // no ID3 tag; inputStream is positioned at 0 (headerRead < 10 or header not ID3)
-                    // If we read bytes that are not ID3 header, we need to reset stream — easiest is reopen
-                    if (headerRead > 0 && (headerBuf[0] != 'I'.toByte() || headerBuf[1] != 'D'.toByte())) {
-                        // reopen input stream because we consumed some bytes from it that are actually audio data
-                        inputStream.close()
-                        context.contentResolver.openInputStream(uri)?.use { ins2 ->
-                            // We'll stream the entire audio payload from ins2 (we haven't consumed tag)
-                            performStreamingWrite(
-                                ins2 = ins2,
-                                preservedFrames = existingFrames,
-                                newTitle = newTitle,
-                                newArtist = newArtist,
-                                processedAlbumArt = processedAlbumArt,
-                                tagVersion = tagVersion,
-                                context = context,
-                                uri = uri
-                            )
-                        } ?: return@withContext Resource.Error("Unable to re-open input stream.")
-                        return@withContext Resource.Success(Unit)
-                    } else {
-                        audioStart = 0
-                    }
+                    // no ID3 tag; reopen stream to position 0
+                    inputStream.close()
+                    context.contentResolver.openInputStream(uri)?.use { ins2 ->
+                        // We'll stream the entire audio payload from ins2 (we haven't consumed tag)
+                        performStreamingWrite(
+                            ins2 = ins2,
+                            preservedFrames = existingFrames,
+                            newTitle = newTitle,
+                            newArtist = newArtist,
+                            processedAlbumArt = processedAlbumArt,
+                            tagVersion = tagVersion,
+                            context = context,
+                            uri = uri
+                        )
+                    } ?: return@withContext Resource.Error("Unable to re-open input stream.")
+                    scanFile(context, uri)
+                    return@withContext Resource.Success(Unit)
                 }
 
                 // At this point inputStream is positioned right after the tag (or at 0 if no tag).
@@ -195,7 +193,6 @@ class LibraryRepositoryImpl @Inject constructor(
                     return@withContext Resource.Success(Unit)
                 }
 
-                val id3Header = ByteArray(10) + ByteArray(0) // we'll create header bytes below
                 val headerBytes = byteArrayOf(
                     'I'.toByte(), 'D'.toByte(), '3'.toByte(),
                     tagVersion.toByte(), 0.toByte(), // revision=0
@@ -231,6 +228,7 @@ class LibraryRepositoryImpl @Inject constructor(
                         }
                     } ?: return@withContext Resource.Error("Unable to open output stream to write audio file.")
 
+                    scanFile(context, uri)
                     return@withContext Resource.Success(Unit)
                 } finally {
                     try { tempFile.delete() } catch (_: Exception) { /* ignore */ }
@@ -297,9 +295,30 @@ class LibraryRepositoryImpl @Inject constructor(
                     out.flush()
                 }
             }
+            scanFile(context, uri)
         } finally {
             try { tempFile.delete() } catch (_: Exception) { }
         }
+    }
+
+    private fun scanFile(context: Context, uri: Uri) {
+        val path = getFilePath(context, uri) ?: return
+        MediaScannerConnection.scanFile(
+            context,
+            arrayOf(path),
+            arrayOf("audio/mpeg"),
+            null
+        )
+    }
+
+    private fun getFilePath(context: Context, uri: Uri): String? {
+        val projection = arrayOf(MediaStore.Audio.Media.DATA)
+        context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                return cursor.getString(0)
+            }
+        }
+        return null
     }
 
     // --- Utility helpers ---

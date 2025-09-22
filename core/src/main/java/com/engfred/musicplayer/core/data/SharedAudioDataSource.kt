@@ -5,6 +5,7 @@ import com.engfred.musicplayer.core.domain.model.AudioFile
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -68,5 +69,15 @@ class SharedAudioDataSource @Inject constructor() {
     fun removeAudioFileFromPlayingQueue(audioFile: AudioFile) {
         val updatedPlayingQueue = _playingQueueAudioFiles.value.filterNot { it.id == audioFile.id }
         _playingQueueAudioFiles.value = updatedPlayingQueue
+    }
+
+    fun updateAudioFile(updatedAudio: AudioFile) {
+        _deviceAudioFiles.update { list ->
+            list.map { if (it.id == updatedAudio.id) updatedAudio else it }
+        }
+        _playingQueueAudioFiles.update { queue ->
+            queue.map { if (it.id == updatedAudio.id) updatedAudio else it }
+        }
+        Log.d("SharedAudioDataSource", "Updated audio file with id: ${updatedAudio.id}")
     }
 }

@@ -8,7 +8,9 @@ import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.engfred.musicplayer.core.common.Resource
+import com.engfred.musicplayer.core.data.SharedAudioDataSource
 import com.engfred.musicplayer.core.domain.model.AudioFile
+import com.engfred.musicplayer.core.domain.repository.PlaybackController
 import com.engfred.musicplayer.core.domain.repository.PlaylistRepository
 import com.engfred.musicplayer.feature_library.domain.usecases.EditAudioMetadataUseCase
 import com.engfred.musicplayer.feature_library.domain.usecases.GetAllAudioFilesUseCase
@@ -36,7 +38,9 @@ data class EditSongUiState(
 class EditSongViewModel @Inject constructor(
     private val getAllAudioFilesUseCase: GetAllAudioFilesUseCase,
     private val editAudioMetadataUseCase: EditAudioMetadataUseCase,
-    private val playlistRepository: PlaylistRepository
+    private val playlistRepository: PlaylistRepository,
+    private val sharedAudioDataSource: SharedAudioDataSource,
+    private val playbackController: PlaybackController
 ) : ViewModel() {
 
     // UI state for the screen
@@ -224,6 +228,8 @@ class EditSongViewModel @Inject constructor(
                 } catch (e: Exception) {
                     _events.emit(Event.Error("Updated metadata but failed to update playlists: ${e.message}"))
                 }
+                sharedAudioDataSource.updateAudioFile(updatedAudio)
+                playbackController.updateAudioMetadata(updatedAudio)
                 _events.emit(Event.Success("Song info updated successfully."))
                 clearPending()
             }

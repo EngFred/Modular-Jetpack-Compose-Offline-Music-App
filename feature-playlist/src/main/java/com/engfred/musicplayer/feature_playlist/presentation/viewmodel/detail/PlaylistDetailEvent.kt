@@ -24,4 +24,15 @@ sealed class PlaylistDetailEvent {
     data object DismissRemoveSongConfirmation : PlaylistDetailEvent()
     data object ConfirmRemoveSong : PlaylistDetailEvent()
     data class SetSortOrder(val sortOrder: PlaylistSortOrder) : PlaylistDetailEvent()
+    // Multi-selection events
+    data class ToggleSelection(val audioFile: AudioFile) : PlaylistDetailEvent()
+    data object SelectAll : PlaylistDetailEvent()
+    data object DeselectAll : PlaylistDetailEvent()
+    data object ShowBatchRemoveConfirmation : PlaylistDetailEvent()
+    data object DismissBatchRemoveConfirmation : PlaylistDetailEvent()
+    data object ConfirmBatchRemove : PlaylistDetailEvent()
+    data class BatchRemoveResult(
+        val success: Boolean,
+        val errorMessage: String? = null
+    ) : PlaylistDetailEvent()
 }

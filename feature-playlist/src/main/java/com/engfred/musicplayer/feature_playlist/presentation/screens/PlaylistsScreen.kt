@@ -105,7 +105,7 @@ fun PlaylistsScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     SoundWaveLoading(
-                        barMaxHeight = 25.dp
+                        barMaxHeight = 18.dp
                     )
                 }
             }

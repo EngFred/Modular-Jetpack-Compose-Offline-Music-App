@@ -1,5 +1,4 @@
 package com.engfred.musicplayer.core.ui.components
-
 import android.widget.Toast
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -11,6 +10,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -41,11 +43,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.sp
-
 /**
- * AudioFileItem now uses `onEditInfo` callback for edit navigation.
- * Keep onEditInfo optional so existing call-sites are backwards-compatible.
+
+
+AudioFileItem now uses onEditInfo callback for edit navigation.
+
+
+Keep onEditInfo optional so existing call-sites are backwards-compatible.
  */
 @Composable
 fun AudioFileItem(
@@ -53,20 +59,22 @@ fun AudioFileItem(
     audioFile: AudioFile,
     isCurrentPlayingAudio: Boolean,
     isAudioPlaying: Boolean,
-    onClick: (AudioFile) -> Unit,
     onPlayNext: (AudioFile) -> Unit = {},
     onAddToPlaylist: (AudioFile) -> Unit,
     onRemoveOrDelete: (AudioFile) -> Unit,
     isFromAutomaticPlaylist: Boolean = false,
     isFromLibrary: Boolean = false,
     playCount: Int? = null,
-    onEditInfo: (AudioFile) -> Unit
+    onEditInfo: (AudioFile) -> Unit,
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
+    onToggleSelect: () -> Unit = {},
+    onItemTap: () -> Unit = {},
+    onItemLongPress: () -> Unit = {}
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
-
     val rotationAnim = remember { Animatable(0f) }
-
     LaunchedEffect(isCurrentPlayingAudio, isAudioPlaying) {
         if (isCurrentPlayingAudio && isAudioPlaying) {
             while (isActive) {
@@ -80,16 +88,24 @@ fun AudioFileItem(
             if (!isCurrentPlayingAudio) rotationAnim.snapTo(0f)
         }
     }
-
     val rotationDegrees = if (isCurrentPlayingAudio) (rotationAnim.value % 360f) else 0f
-
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onClick(audioFile) }
-            .padding(top = 4.dp, bottom = 4.dp, start = 15.dp, end = 5.dp),
+            .padding(top = 4.dp, bottom = 4.dp, start = if(isSelectionMode.not())15.dp else 3.dp, end = 5.dp)
+            .combinedClickable(
+                onClick = onItemTap,
+                onLongClick = onItemLongPress
+            ),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (isSelectionMode) {
+            Checkbox(
+                checked = isSelected,
+                onCheckedChange = { onToggleSelect() },
+                modifier = Modifier.padding(end = 2.dp)
+            )
+        }
         Box(modifier = Modifier.size(64.dp), contentAlignment = Alignment.Center) {
             Box(
                 modifier = Modifier
@@ -118,7 +134,6 @@ fun AudioFileItem(
                     }
                 )
             }
-
             if (playCount != null) {
                 val badgeSize = 20.dp
                 Box(
@@ -129,11 +144,10 @@ fun AudioFileItem(
                         .zIndex(1f)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.primary)
-                        .border(1.dp, MaterialTheme.colorScheme.surface, CircleShape)
-                        .clickable { onClick(audioFile) },
+                        .border(1.dp, MaterialTheme.colorScheme.surface, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    // If playCount is greater than 30 show a small dot instead of the number
+// If playCount is greater than 30 show a small dot instead of the number
                     if (playCount > 9) {
                         Box(
                             modifier = Modifier
@@ -156,9 +170,7 @@ fun AudioFileItem(
                 }
             }
         }
-
         Spacer(modifier = Modifier.width(12.dp))
-
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = audioFile.title,
@@ -179,7 +191,7 @@ fun AudioFileItem(
                 overflow = TextOverflow.Ellipsis
             )
         }
-
+        Spacer(modifier = Modifier.width(12.dp))
         Column(horizontalAlignment = Alignment.End) {
             Text(
                 text = MediaUtils.formatDuration(audioFile.duration),
@@ -189,82 +201,80 @@ fun AudioFileItem(
             )
             if (isCurrentPlayingAudio && isAudioPlaying) VisualizerBars()
         }
-
-        Box {
-            IconButton(onClick = { showMenu = true }) {
-                Icon(
-                    imageVector = Icons.Rounded.MoreVert,
-                    contentDescription = "More options for ${audioFile.title}",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            DropdownMenu(
-                expanded = showMenu,
-                onDismissRequest = { showMenu = false },
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surface)
-            ) {
-                DropdownMenuItem(
-                    text = { Text("Play Next") },
-                    onClick = {
-                        onPlayNext(audioFile)
-                        Toast.makeText(context, "Added '${audioFile.title}' to play next.", Toast.LENGTH_SHORT).show()
-                        showMenu = false
-                    },
-                    leadingIcon = {
-                        Icon(Icons.Rounded.QueuePlayNext, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
-                    }
-                )
-
-                DropdownMenuItem(
-                    text = { Text("Add to Playlist") },
-                    onClick = {
-                        onAddToPlaylist(audioFile)
-                        showMenu = false
-                    },
-                    leadingIcon = {
-                        Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
-                    }
-                )
-
-                if (!isFromAutomaticPlaylist) {
+        if (!isSelectionMode) { // Hide more menu in selection mode to simplify
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(
+                        imageVector = Icons.Rounded.MoreVert,
+                        contentDescription = "More options for ${audioFile.title}",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false },
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surface)
+                ) {
                     DropdownMenuItem(
-                        text = { Text(if (isFromLibrary) "Delete song" else "Remove song") },
+                        text = { Text("Play Next") },
                         onClick = {
-                            onRemoveOrDelete(audioFile)
+                            onPlayNext(audioFile)
+                            Toast.makeText(context, "Added '${audioFile.title}' to play next.", Toast.LENGTH_SHORT).show()
                             showMenu = false
                         },
                         leadingIcon = {
-                            Icon(Icons.Rounded.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                            Icon(Icons.Rounded.QueuePlayNext, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Add to Playlist") },
+                        onClick = {
+                            onAddToPlaylist(audioFile)
+                            showMenu = false
+                        },
+                        leadingIcon = {
+                            Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
+                        }
+                    )
+                    if (!isFromAutomaticPlaylist) {
+                        DropdownMenuItem(
+                            text = { Text(if (isFromLibrary) "Delete song" else "Remove song") },
+                            onClick = {
+                                onRemoveOrDelete(audioFile)
+                                showMenu = false
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Rounded.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                            }
+                        )
+                    }
+// NEW: Edit Info (before Share)
+                    DropdownMenuItem(
+                        text = { Text("Edit Info") },
+                        onClick = {
+                            showMenu = false
+                            onEditInfo(audioFile) // single-activity navigation hook
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Rounded.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Share Song") },
+                        onClick = {
+                            MediaUtils.shareAudioFile(context, audioFile)
+                            showMenu = false
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Rounded.Share, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
                         }
                     )
                 }
-
-                // NEW: Edit Info (before Share)
-                DropdownMenuItem(
-                    text = { Text("Edit Info") },
-                    onClick = {
-                        showMenu = false
-                        onEditInfo(audioFile) // single-activity navigation hook
-                    },
-                    leadingIcon = {
-                        Icon(Icons.Rounded.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
-                    }
-                )
-
-                DropdownMenuItem(
-                    text = { Text("Share Song") },
-                    onClick = {
-                        MediaUtils.shareAudioFile(context, audioFile)
-                        showMenu = false
-                    },
-                    leadingIcon = {
-                        Icon(Icons.Rounded.Share, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
-                    }
-                )
             }
+        } else {
+            Spacer(modifier = Modifier.width(12.dp))
         }
     }
 }
@@ -284,7 +294,6 @@ private fun VisualizerBars() {
             label = "bar$i"
         )
     }
-
     Row(
         modifier = Modifier
             .padding(top = 2.dp)

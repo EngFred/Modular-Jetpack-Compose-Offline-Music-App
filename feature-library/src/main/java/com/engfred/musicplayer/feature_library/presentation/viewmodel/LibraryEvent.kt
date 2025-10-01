@@ -1,4 +1,4 @@
-// package com.engfred.musicplayer.feature_library.presentation.viewmodel
+package com.engfred.musicplayer.feature_library.presentation.viewmodel
 
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.domain.model.Playlist
@@ -28,4 +28,15 @@ sealed class LibraryEvent {
     data class AddedToPlaylist(val audioFile: AudioFile) : LibraryEvent()
     data class PlayedNext(val audioFile: AudioFile) : LibraryEvent()
     data object Retry: LibraryEvent()
+
+    //multi-selection and batch deletion
+    data class ToggleSelection(val audioFile: AudioFile) : LibraryEvent()
+    data object SelectAll : LibraryEvent()
+    data object DeselectAll : LibraryEvent()
+    data object ShowBatchDeleteConfirmation : LibraryEvent()
+    data object ConfirmBatchDelete : LibraryEvent()
+    data class BatchDeletionResult(
+        val success: Boolean,
+        val errorMessage: String? = null
+    ) : LibraryEvent()
 }

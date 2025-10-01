@@ -69,7 +69,7 @@ fun SplashScreen() {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             SoundWaveLoading(
-                barMaxHeight = 25.dp
+                barMaxHeight = 18.dp
             )
 
             Spacer(modifier = Modifier.height(24.dp))

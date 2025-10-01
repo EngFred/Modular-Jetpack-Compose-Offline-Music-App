@@ -1,5 +1,12 @@
 package com.engfred.musicplayer.core.util
 
+// - Added deleteAudioFiles for batch deletion.
+// - For Android Q+, use MediaStore.createDeleteRequest with list of URIs.
+// - For pre-Q, loop through each file and delete synchronously, collect failures.
+// - If any failure in pre-Q, report partial success or error.
+// - But for simplicity, if all deleted, success; else failure with message.
+// - Production: Log each deletion, handle exceptions per file.
+
 import android.content.ContentResolver
 import android.content.ContentUris
 import android.content.Context
@@ -95,35 +102,76 @@ object MediaUtils {
         audioFile: AudioFile,
         onPreQDeletionResult: (Boolean, String?) -> Unit
     ): IntentSender? {
-        val contentUri = ContentUris.withAppendedId(
-            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-            audioFile.id
-        )
+        return deleteAudioFiles(context, listOf(audioFile), onPreQDeletionResult)
+    }
+
+    /**
+     * Deletes multiple audio files from the device's storage using MediaStore API.
+     * For Android 10 (API 29) and above, this will trigger a single system dialog
+     * for confirming the deletion of all files.
+     *
+     * @param context The application context.
+     * @param audioFiles The list of AudioFile objects to be deleted.
+     * @param onPreQDeletionResult Callback for Android versions < Q where deletion is synchronous.
+     * Called with true if all deleted successfully, false otherwise with an error message.
+     * @return [IntentSender] if Android 10 (API 29) or higher, which needs to be launched via
+     * [startIntentSenderForResult] from an Activity. Null for older Android versions
+     * or if an error occurs immediately.
+     */
+    fun deleteAudioFiles(
+        context: Context,
+        audioFiles: List<AudioFile>,
+        onPreQDeletionResult: (Boolean, String?) -> Unit
+    ): IntentSender? {
+        if (audioFiles.isEmpty()) {
+            onPreQDeletionResult(false, "No files to delete")
+            return null
+        }
+
+        val contentUris = audioFiles.map {
+            ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, it.id)
+        }
 
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) { // Android 10 (API 29) and above
-                val urisToDelete = arrayListOf(contentUri)
-                val pendingIntent = MediaStore.createDeleteRequest(context.contentResolver, urisToDelete)
-                return pendingIntent.intentSender // Return the IntentSender
+                val pendingIntent = MediaStore.createDeleteRequest(context.contentResolver, contentUris)
+                return pendingIntent.intentSender // Return the IntentSender for batch
             } else { // Android 9 (API 28) and below
-                val rowsDeleted = context.contentResolver.delete(contentUri, null, null)
-                if (rowsDeleted > 0) {
-                    Log.d(TAG, "Successfully deleted file: ${audioFile.title} (Rows deleted: $rowsDeleted)")
+                var allSuccess = true
+                val failedFiles = mutableListOf<String>()
+                audioFiles.forEach { audioFile ->
+                    val uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, audioFile.id)
+                    try {
+                        val rowsDeleted = context.contentResolver.delete(uri, null, null)
+                        if (rowsDeleted > 0) {
+                            Log.d(TAG, "Successfully deleted file: ${audioFile.title}")
+                        } else {
+                            allSuccess = false
+                            failedFiles.add(audioFile.title)
+                            Log.w(TAG, "Failed to delete file: ${audioFile.title}")
+                        }
+                    } catch (e: Exception) {
+                        allSuccess = false
+                        failedFiles.add(audioFile.title)
+                        Log.e(TAG, "Error deleting file ${audioFile.title}: ${e.message}", e)
+                    }
+                }
+                if (allSuccess) {
                     onPreQDeletionResult(true, null)
                 } else {
-                    val message = "Failed to delete file directly: ${audioFile.title}. Rows deleted: $rowsDeleted. Might not exist or permission denied."
-                    Log.w(TAG, message)
+                    val message = "Failed to delete ${failedFiles.size} out of ${audioFiles.size} files: ${failedFiles.joinToString()}"
                     onPreQDeletionResult(false, message)
                 }
                 return null // No IntentSender needed for pre-Q
             }
         } catch (e: Exception) {
-            val message = "Error deleting file ${audioFile.title} (ID: ${audioFile.id}): ${e.message}"
+            val message = "Error initiating batch deletion: ${e.message}"
             Log.e(TAG, message, e)
-            onPreQDeletionResult(false, message) // Report failure immediately
+            onPreQDeletionResult(false, message)
             return null
         }
     }
+
     fun formatDuration(milliseconds: Long): String {
         if (milliseconds <= 0) return "00:00"
         val totalSeconds = milliseconds / 1000

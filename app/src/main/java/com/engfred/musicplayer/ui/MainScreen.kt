@@ -94,15 +94,20 @@ fun MainScreen(
     var showRestartDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
-    LaunchedEffect(Unit) {
-        Log.d("TESTING_1_2", "PlayingAudioFile: ${playingAudioFile?.title} | lastPlaybackAudio: ${lastPlaybackAudio?.title} | audioItems: ${audioItems.size}")
-    }
-
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
-            // Ensure the top bar respects the status bar inset so content is NOT drawn under the system status bar.
-            val title = if (audioItems.isNotEmpty()) "Music | ${formatCount(audioItems.size)}" else "Music"
+            val navBackStackEntry by bottomNavController.currentBackStackEntryAsState()
+            val currentDestination = navBackStackEntry?.destination
+            val isOnLibraryScreen = currentDestination?.hierarchy?.any {
+                it.route == AppDestinations.BottomNavItem.Library.baseRoute
+            } == true
+
+            val title = if (audioItems.isNotEmpty() && isOnLibraryScreen) {
+                "Music | ${formatCount(audioItems.size)}"
+            } else {
+                "Music"
+            }
             Box(modifier = Modifier.statusBarsPadding()) {
                 CustomTopBar(
                     modifier = Modifier.padding(start = 10.dp),

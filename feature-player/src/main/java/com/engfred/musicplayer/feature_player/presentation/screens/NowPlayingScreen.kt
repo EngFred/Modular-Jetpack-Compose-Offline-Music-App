@@ -48,7 +48,7 @@ fun NowPlayingScreen(
             delay(3000L)
             // If still null after delay, show toast and navigate up
             if (uiState.currentAudioFile == null) {
-                Toast.makeText(context, "Unable to load track — returning.", Toast.LENGTH_SHORT).show()
+//                Toast.makeText(context, "Unable to load track — returning.", Toast.LENGTH_SHORT).show()
                 currentOnNavigateUp()
             }
         } else {
@@ -64,7 +64,7 @@ fun NowPlayingScreen(
         if (uiState.currentAudioFile == null) {
             SoundWaveLoading(
                 modifier = Modifier.align(Alignment.Center),
-                barMaxHeight = 25.dp
+                barMaxHeight = 18.dp
             )
         } else {
             when (selectedLayout) {

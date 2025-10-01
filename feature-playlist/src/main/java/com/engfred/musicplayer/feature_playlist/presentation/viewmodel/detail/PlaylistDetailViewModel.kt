@@ -6,6 +6,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.engfred.musicplayer.core.data.SharedAudioDataSource
 import com.engfred.musicplayer.core.domain.model.AudioFile
+import com.engfred.musicplayer.core.domain.model.Playlist
+import com.engfred.musicplayer.core.domain.repository.LibraryRepository
 import com.engfred.musicplayer.core.domain.repository.PlaybackController
 import com.engfred.musicplayer.core.domain.repository.PlaylistRepository
 import com.engfred.musicplayer.core.domain.repository.ShuffleMode
@@ -37,7 +39,8 @@ class PlaylistDetailViewModel @Inject constructor(
     private val playlistRepository: PlaylistRepository,
     private val sharedAudioDataSource: SharedAudioDataSource,
     private val playbackController: PlaybackController,
-    private val savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle,
+    private val libraryRepository: LibraryRepository
 ) : ViewModel() {
 
     private val TAG = "PlaylistDetailViewModel"
@@ -292,6 +295,77 @@ class PlaylistDetailViewModel @Inject constructor(
                         _uiEvent.emit("Playlist is empty, cannot play.")
                     }
                 }
+
+                is PlaylistDetailEvent.ToggleSelection -> {
+                    if (_uiState.value.playlist?.isAutomatic == true || _uiState.value.playlist?.name.equals("Favorites", ignoreCase = true)) {
+                        return@launch  // Disable for automatic/Favorites
+                    }
+                    _uiState.update { current ->
+                        val newSelected = current.selectedSongs.toMutableSet()
+                        if (newSelected.contains(event.audioFile)) {
+                            newSelected.remove(event.audioFile)
+                        } else {
+                            newSelected.add(event.audioFile)
+                        }
+                        current.copy(selectedSongs = newSelected)
+                    }
+                }
+
+                PlaylistDetailEvent.SelectAll -> {
+                    _uiState.update { current ->
+                        current.copy(selectedSongs = current.sortedSongs.toSet())
+                    }
+                }
+
+                PlaylistDetailEvent.DeselectAll -> {
+                    _uiState.update { it.copy(selectedSongs = emptySet()) }
+                }
+
+                PlaylistDetailEvent.ShowBatchRemoveConfirmation -> {
+                    if (_uiState.value.selectedSongs.isNotEmpty()) {
+                        _uiState.update { it.copy(showBatchRemoveConfirmationDialog = true) }
+                    }
+                }
+
+                PlaylistDetailEvent.DismissBatchRemoveConfirmation -> {
+                    _uiState.update { it.copy(showBatchRemoveConfirmationDialog = false, selectedSongs = emptySet()) }  // Clear selection on dismiss/cancel
+                }
+
+                PlaylistDetailEvent.ConfirmBatchRemove -> {
+                    val selected = _uiState.value.selectedSongs.toList()
+                    if (selected.isEmpty()) return@launch
+
+                    try {
+                        selected.forEach { audioFile ->
+                            currentPlaylistId?.let { playlistId ->
+                                playlistRepository.removeSongFromPlaylist(playlistId, audioFile.id)
+                            }
+                        }
+                        onEvent(PlaylistDetailEvent.BatchRemoveResult(true, null))
+                    } catch (e: Exception) {
+                        onEvent(PlaylistDetailEvent.BatchRemoveResult(false, "Failed to remove songs: ${e.message}"))
+                    }
+                }
+
+                is PlaylistDetailEvent.BatchRemoveResult -> {
+                    if (event.success) {
+                        val selected = _uiState.value.selectedSongs
+                        _uiState.update { currentState ->
+                            val updatedSongs = currentState.sortedSongs.filterNot { selected.contains(it) }
+                            val updatedPlaylist = currentState.playlist?.copy(songs = updatedSongs)
+                            currentState.copy(
+                                playlist = updatedPlaylist,
+                                sortedSongs = updatedSongs,
+                                selectedSongs = emptySet(),
+                                showBatchRemoveConfirmationDialog = false
+                            )
+                        }
+                        _uiEvent.emit("Successfully removed ${selected.size} songs from playlist.")
+                    } else {
+                        _uiEvent.emit(event.errorMessage ?: "Failed to remove selected songs.")
+                        _uiState.update { it.copy(showBatchRemoveConfirmationDialog = false) }
+                    }
+                }
             }
         }
     }
@@ -303,7 +377,7 @@ class PlaylistDetailViewModel @Inject constructor(
 
             combine(
                 playlistRepository.getPlaylistById(playlistId),
-                sharedAudioDataSource.deviceAudioFiles
+                libraryRepository.getAllAudioFiles()
             ) { playlist, deviceFiles -> playlist to deviceFiles }
                 .onEach { (playlist, deviceFiles) ->
                     if (playlist != null) {
@@ -363,7 +437,7 @@ class PlaylistDetailViewModel @Inject constructor(
     }
 
     /** Applies sorting based on the given order and playlist */
-    private fun applySorting(order: PlaylistSortOrder, playlist: com.engfred.musicplayer.core.domain.model.Playlist?): List<AudioFile> {
+    private fun applySorting(order: PlaylistSortOrder, playlist: Playlist?): List<AudioFile> {
         return when (order) {
             PlaylistSortOrder.DATE_ADDED -> if(playlist?.isAutomatic?.not() == true) playlist.songs.reversed() else playlist?.songs?.sortedByDescending { it.dateAdded }
             PlaylistSortOrder.ALPHABETICAL -> playlist?.songs?.sortedBy { it.title.lowercase() }

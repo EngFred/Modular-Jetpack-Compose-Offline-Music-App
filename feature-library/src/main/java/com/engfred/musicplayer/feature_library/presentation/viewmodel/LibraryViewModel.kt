@@ -1,6 +1,5 @@
 package com.engfred.musicplayer.feature_library.presentation.viewmodel
 
-import LibraryEvent
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -168,7 +167,10 @@ class LibraryViewModel @Inject constructor(
 
                 LibraryEvent.DismissDeleteConfirmationDialog -> {
                     _uiState.update {
-                        it.copy(showDeleteConfirmationDialog = false, audioFileToDelete = null)
+                        it.copy(showDeleteConfirmationDialog = false, audioFileToDelete = null, showBatchDeleteConfirmationDialog = false)
+                    }
+                    if (_uiState.value.selectedAudioFiles.isNotEmpty()) {
+                        onEvent(LibraryEvent.DeselectAll)  // Exit selection mode on dismiss/cancel
                     }
                 }
 
@@ -221,6 +223,81 @@ class LibraryViewModel @Inject constructor(
                 }
 
                 LibraryEvent.Retry -> loadAudioFiles()
+
+                // New event handlers for multi-selection
+                is LibraryEvent.ToggleSelection -> {
+                    _uiState.update { current ->
+                        val newSelected = current.selectedAudioFiles.toMutableSet()
+                        if (newSelected.contains(event.audioFile)) {
+                            newSelected.remove(event.audioFile)
+                        } else {
+                            newSelected.add(event.audioFile)
+                        }
+                        current.copy(selectedAudioFiles = newSelected)
+                    }
+                }
+
+                LibraryEvent.SelectAll -> {
+                    _uiState.update { current ->
+                        current.copy(selectedAudioFiles = current.filteredAudioFiles.toSet())
+                    }
+                }
+
+                LibraryEvent.DeselectAll -> {
+                    _uiState.update { it.copy(selectedAudioFiles = emptySet()) }
+                }
+
+                LibraryEvent.ShowBatchDeleteConfirmation -> {
+                    if (_uiState.value.selectedAudioFiles.isNotEmpty()) {
+                        _uiState.update { it.copy(showBatchDeleteConfirmationDialog = true) }
+                    }
+                }
+
+                LibraryEvent.ConfirmBatchDelete -> {
+                    val selected = _uiState.value.selectedAudioFiles.toList()
+                    if (selected.isEmpty()) return@launch
+
+                    val intentSender = MediaUtils.deleteAudioFiles(context, selected) { success, errorMessage ->
+                        onEvent(LibraryEvent.BatchDeletionResult(success, errorMessage))
+                    }
+                    if (intentSender != null) {
+                        _deleteRequest.emit(IntentSenderRequest.Builder(intentSender).build())
+                    }
+                    _uiState.update { it.copy(showBatchDeleteConfirmationDialog = false) }
+                }
+
+                is LibraryEvent.BatchDeletionResult -> {
+                    if (event.success) {
+                        val selected = _uiState.value.selectedAudioFiles
+                        _uiState.update { currentState ->
+                            val updatedList = currentState.audioFiles.filterNot { selected.contains(it) }
+                            val filteredList = updatedList.filter {
+                                it.title.contains(currentState.searchQuery, ignoreCase = true) ||
+                                        it.artist?.contains(currentState.searchQuery, ignoreCase = true) == true ||
+                                        it.album?.contains(currentState.searchQuery, ignoreCase = true) == true
+                            }
+                            val sorted = sortAudioFiles(filteredList, currentState.currentFilterOption)
+                            sharedAudioDataSource.setPlayingQueue(sorted)
+
+                            currentState.copy(
+                                audioFiles = updatedList,
+                                filteredAudioFiles = sorted,
+                                selectedAudioFiles = emptySet(),
+                                showBatchDeleteConfirmationDialog = false
+                            )
+                        }
+                        selected.forEach { audioFile ->
+                            playbackController.onAudioFileRemoved(audioFile)
+                            sharedAudioDataSource.deleteAudioFile(audioFile)
+                            playlistRepository.removeSongFromAllPlaylists(audioFile.id)
+                        }
+                        _uiEvent.emit("Successfully deleted ${selected.size} songs.")
+                    } else {
+                        _uiEvent.emit(event.errorMessage ?: "Failed to delete selected songs.")
+                        _uiState.update { it.copy(showBatchDeleteConfirmationDialog = false) }
+                    }
+                }
+
                 else -> {}
             }
         }

@@ -40,7 +40,7 @@ fun SoundWaveLoading(
     modifier: Modifier = Modifier,
     barCount: Int = 9,
     barWidth: Dp = 6.dp,
-    barMaxHeight: Dp = 56.dp,
+    barMaxHeight: Dp = 18.dp,
     minHeightFraction: Float = 0.18f, // smallest bar height as fraction of max
     spacing: Dp = 8.dp,
     baseSpeed: Float = 1.0f, // 1.0 = normal speed, higher = faster

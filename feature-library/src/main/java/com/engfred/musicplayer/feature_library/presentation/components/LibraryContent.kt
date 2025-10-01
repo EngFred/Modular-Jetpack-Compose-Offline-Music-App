@@ -1,5 +1,4 @@
 package com.engfred.musicplayer.feature_library.presentation.components
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -34,7 +33,11 @@ fun LibraryContent(
     isAudioPlaying: Boolean,
     lazyListState: LazyListState,
     modifier: Modifier = Modifier,
-    onEditSong: (AudioFile) -> Unit
+    onEditSong: (AudioFile) -> Unit,
+    selectedAudioFiles: Set<AudioFile>,
+    isSelectionMode: Boolean,
+    onToggleSelection: (AudioFile) -> Unit,
+    onLongPress: (AudioFile) -> Unit
 ) {
     Box(
         modifier = modifier
@@ -50,12 +53,10 @@ fun LibraryContent(
     ) {
         when {
             uiState.isLoading -> {
-//                LoadingIndicator(modifier = Modifier.align(Alignment.Center))
                 SoundWaveLoading(
                     modifier = Modifier.align(Alignment.Center),
-                    barMaxHeight = 25.dp
+                    barMaxHeight = 18.dp
                 )
-
             }
             uiState.error != null -> {
                 ErrorIndicator(
@@ -66,10 +67,11 @@ fun LibraryContent(
             }
             uiState.filteredAudioFiles.isEmpty() && uiState.searchQuery.isNotEmpty() -> {
                 InfoIndicator(
-                    message = "No songs found for \"${uiState.searchQuery}\".",
+                    message = "No results found for '${uiState.searchQuery}'",
                     icon = Icons.Outlined.SearchOff,
                     modifier = Modifier.align(Alignment.Center)
                 )
+
             }
             uiState.audioFiles.isEmpty() -> {
                 InfoIndicator(
@@ -86,18 +88,23 @@ fun LibraryContent(
                 ) {
                     val audios = uiState.filteredAudioFiles.ifEmpty { uiState.audioFiles }
                     items(audios, key = { it.id }) { audioFile ->
+                        val isSelected = selectedAudioFiles.contains(audioFile)
                         Column {
                             AudioFileItem(
                                 audioFile = audioFile,
                                 isCurrentPlayingAudio = uiState.currentPlayingId == audioFile.id,
                                 isAudioPlaying = isAudioPlaying,
-                                onClick = onAudioClick,
                                 onPlayNext = onPlayNext,
                                 onAddToPlaylist = onAddToPlaylist,
                                 onRemoveOrDelete = onRemoveOrDelete,
-                                modifier = Modifier.fillMaxWidth(),
                                 isFromLibrary = true,
-                                onEditInfo = onEditSong
+                                onEditInfo = onEditSong,
+                                isSelectionMode = isSelectionMode,
+                                isSelected = isSelected,
+                                onToggleSelect = { onToggleSelection(audioFile) },
+                                onItemTap = { onAudioClick(audioFile) },
+                                onItemLongPress = { onLongPress(audioFile) },
+                                modifier = Modifier.fillMaxWidth()
                             )
                             if (audioFile != audios.lastOrNull()) {
                                 HorizontalDivider(

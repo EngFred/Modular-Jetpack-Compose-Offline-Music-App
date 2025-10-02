@@ -25,6 +25,8 @@ import com.engfred.musicplayer.feature_audio_trim.domain.model.TrimResult
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import android.widget.Toast
+import androidx.compose.foundation.layout.Arrangement
+import com.engfred.musicplayer.feature_audio_trim.presentation.components.CustomTrimLoadingIndicator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -103,7 +105,7 @@ fun TrimScreen(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Column(
-                        modifier = Modifier.padding(16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
@@ -224,48 +226,40 @@ fun TrimScreen(
                 }
 
                 if (state.isTrimming) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                    Spacer(modifier = Modifier.height(16.dp).weight(1f))
+                    Box(
+                        Modifier.fillMaxWidth().padding(8.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "Processing your trim...",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Please wait while we process your file. This may take a few seconds depending on its size.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        CustomTrimLoadingIndicator()
                     }
+
                 }
 
                 // Error/Result
                 state.error?.let { error ->
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = error,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    Row {
-                        Button(onClick = { viewModel.clearError() }) {
-                            Text("Dismiss")
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        if (error.contains("timeout")) {
-                            Button(onClick = {
-                                showSaveDialog = true  // Reopen dialog for retry
-                            }) {
-                                Text("Retry")
+                    Column(
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth().padding(10.dp)
+                    ) {
+                        Text(
+                            text = error,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Row {
+                            Button(onClick = { viewModel.clearError() }) {
+                                Text("Dismiss")
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            if (error.contains("timeout")) {
+                                Button(onClick = {
+                                    showSaveDialog = true  // Reopen dialog for retry
+                                }) {
+                                    Text("Retry")
+                                }
                             }
                         }
                     }
@@ -273,11 +267,16 @@ fun TrimScreen(
 
                 state.trimResult?.let { result ->
                     if (result is TrimResult.Success) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Trim saved successfully!",
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Trim saved successfully!",
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                         LaunchedEffect(result) {
                             Toast.makeText(context, "Trim saved successfully!", Toast.LENGTH_SHORT).show()
                         }

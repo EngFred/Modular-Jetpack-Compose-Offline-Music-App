@@ -1,9 +1,9 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose) // For Compose UI in presentation layer
-    alias(libs.plugins.ksp) // For Hilt and Room annotation processing
-    alias(libs.plugins.hilt.android) // Hilt plugin for this feature module
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt.android)
 }
 
 android {
@@ -81,7 +81,7 @@ dependencies {
     implementation(libs.coil.compose)
 
     //animation
-    implementation(libs.androidx.animation.v168)
+    implementation(libs.androidx.animation)
 
 //    implementation(libs.androidx.material3.window.size.class1.android)
 

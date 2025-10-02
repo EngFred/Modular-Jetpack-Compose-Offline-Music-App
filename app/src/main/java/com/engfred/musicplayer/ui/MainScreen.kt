@@ -77,6 +77,7 @@ fun MainScreen(
     playingAudioFile: AudioFile?,
     isPlaying: Boolean,
     onEditSong: (AudioFile) -> Unit,
+    onTrimAudio: (AudioFile) -> Unit,
     onPlayAll: () -> Unit,
     onShuffleAll: () -> Unit,
     audioItems: List<AudioFile>,
@@ -214,7 +215,8 @@ fun MainScreen(
         ) {
             composable(AppDestinations.BottomNavItem.Library.baseRoute) {
                 LibraryScreen(
-                    onEditSong = onEditSong
+                    onEditSong = onEditSong,
+                    onTrimAudio = onTrimAudio
                 ) // LibraryScreen will be laid out inside NavHost's padded area
             }
             composable(AppDestinations.BottomNavItem.Playlists.baseRoute) {

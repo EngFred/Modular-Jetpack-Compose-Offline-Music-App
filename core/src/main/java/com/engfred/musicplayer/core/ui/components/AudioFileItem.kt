@@ -43,6 +43,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material.icons.rounded.ContentCut
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.sp
 /**
@@ -66,6 +67,7 @@ fun AudioFileItem(
     isFromLibrary: Boolean = false,
     playCount: Int? = null,
     onEditInfo: (AudioFile) -> Unit,
+    onTrimAudio: (AudioFile) -> Unit,
     isSelectionMode: Boolean = false,
     isSelected: Boolean = false,
     onToggleSelect: () -> Unit = {},
@@ -250,7 +252,7 @@ fun AudioFileItem(
                             }
                         )
                     }
-// NEW: Edit Info (before Share)
+
                     DropdownMenuItem(
                         text = { Text("Edit Info") },
                         onClick = {
@@ -261,6 +263,17 @@ fun AudioFileItem(
                             Icon(Icons.Rounded.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
                         }
                     )
+                    DropdownMenuItem(
+                        text = { Text("Trim Audio") },
+                        onClick = {
+                            showMenu = false
+                            onTrimAudio(audioFile)
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Rounded.ContentCut, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
+                        }
+                    )
+
                     DropdownMenuItem(
                         text = { Text("Share Song") },
                         onClick = {

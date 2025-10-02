@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.navigation
 
+import android.net.Uri
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.LibraryMusic
@@ -10,6 +11,10 @@ sealed class AppDestinations(val route: String) {
     data object Splash : AppDestinations("splash")
     data object MainGraph : AppDestinations("main_graph")
     data object NowPlaying : AppDestinations("now_playing")
+
+    data object TrimAudio : AppDestinations("trim/{audioUri}") {
+        fun createRoute(audioUri: String) = "trim/${Uri.encode(audioUri)}"
+    }
     data object PlaylistDetail : AppDestinations("playlist_detail/{playlistId}") {
         fun createRoute(playlistId: Long) = "playlist_detail/$playlistId"
     }

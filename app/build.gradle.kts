@@ -100,6 +100,7 @@ dependencies {
     implementation(project(":feature-player"))
     implementation(project(":feature-playlist"))
     implementation(project(":feature-settings"))
+    implementation(project(":feature-audio-trim"))
 
     // Testing Dependencies
     testImplementation(libs.junit)

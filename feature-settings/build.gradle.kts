@@ -1,9 +1,9 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose) // For Compose UI in presentation layer
-    alias(libs.plugins.ksp) // For Hilt annotation processing
-    alias(libs.plugins.hilt.android) // Hilt plugin for this feature module
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt.android)
 }
 
 android {

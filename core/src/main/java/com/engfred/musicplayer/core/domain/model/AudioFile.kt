@@ -16,5 +16,6 @@ data class AudioFile(
     val duration: Long,
     val uri: Uri,
     val albumArtUri: Uri?,
-    val dateAdded: Long
+    val dateAdded: Long,
+    val size: Long? = null
 )

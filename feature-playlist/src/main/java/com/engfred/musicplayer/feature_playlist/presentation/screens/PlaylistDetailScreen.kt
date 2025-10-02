@@ -56,6 +56,7 @@ fun PlaylistDetailScreen(
     onNavigateBack: () -> Unit,
     onNavigateToNowPlaying: () -> Unit,
     onEditInfo: (AudioFile) -> Unit,
+    onTrimAudio: (AudioFile) -> Unit,
     viewModel: PlaylistDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -297,6 +298,7 @@ fun PlaylistDetailScreen(
                                 isFromAutomaticPlaylist = uiState.playlist?.isAutomatic ?: false,
                                 playCount = uiState.playlist?.playCounts?.get(audioFile.id),
                                 onEditInfo = onEditInfo,
+                                onTrimAudio = onTrimAudio,
                                 isSelectionMode = isSelectionMode,
                                 isSelected = isSelected,
                                 onToggleSelect = { viewModel.onEvent(PlaylistDetailEvent.ToggleSelection(audioFile)) },
@@ -382,6 +384,7 @@ fun PlaylistDetailScreen(
                                     isFromAutomaticPlaylist = uiState.playlist?.isAutomatic ?: false,
                                     playCountMap = uiState.playlist?.playCounts,
                                     onEditInfo = onEditInfo,
+                                    onTrimAudio = onTrimAudio,
                                     isSelectionMode = isSelectionMode,
                                     selectedSongs = uiState.selectedSongs,
                                     onToggleSelection = { song -> viewModel.onEvent(PlaylistDetailEvent.ToggleSelection(song)) },

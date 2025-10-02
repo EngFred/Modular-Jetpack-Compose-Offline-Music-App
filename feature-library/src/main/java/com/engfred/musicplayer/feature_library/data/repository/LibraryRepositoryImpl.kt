@@ -42,7 +42,8 @@ class LibraryRepositoryImpl @Inject constructor(
                 uri = dto.uri,
                 albumArtUri = dto.albumArtUri,
                 dateAdded = dto.dateAdded * 1000L,
-                artistId = dto.artistId
+                artistId = dto.artistId,
+                size = dto.size
             )
         }
     }
@@ -60,7 +61,8 @@ class LibraryRepositoryImpl @Inject constructor(
                     uri = dto.uri,
                     albumArtUri = dto.albumArtUri,
                     dateAdded = dto.dateAdded * 1000L,
-                    artistId = dto.artistId
+                    artistId = dto.artistId,
+                    size = dto.size
                 )
                 Resource.Success(audioFile)
             } else {

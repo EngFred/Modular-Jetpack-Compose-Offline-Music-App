@@ -52,18 +52,13 @@ import com.google.accompanist.permissions.shouldShowRationale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancel
 
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(
     modifier: Modifier = Modifier,
     onEditSong: (AudioFile) -> Unit,
+    onTrimAudio: (AudioFile) -> Unit,
     viewModel: LibraryViewModel = hiltViewModel()
 ) {
     val uiState = viewModel.uiState.collectAsState().value
@@ -299,6 +294,7 @@ fun LibraryScreen(
                     onPlayNext = { viewModel.onEvent(LibraryEvent.PlayedNext(it)) },
                     lazyListState = lazyListState,
                     onEditSong = onEditSong,
+                    onTrimAudio = onTrimAudio,
                     isSelectionMode = isSelectionMode,
                     selectedAudioFiles = uiState.selectedAudioFiles,
                     onToggleSelection = { audioFile -> viewModel.onEvent(LibraryEvent.ToggleSelection(audioFile)) },

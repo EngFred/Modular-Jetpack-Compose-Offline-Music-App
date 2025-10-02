@@ -2,6 +2,7 @@ package com.engfred.musicplayer.navigation
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
@@ -23,6 +24,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.engfred.musicplayer.core.domain.model.AudioFile
+import com.engfred.musicplayer.feature_audio_trim.presentation.TrimScreen
 import com.engfred.musicplayer.feature_library.presentation.screens.EditAudioInfoScreenContainer
 import com.engfred.musicplayer.feature_player.presentation.screens.NowPlayingScreen
 import com.engfred.musicplayer.feature_playlist.presentation.screens.CreatePlaylistScreen
@@ -105,6 +107,9 @@ fun AppNavHost(
                 onEditSong = { audioFile ->
                     rootNavController.navigate(AppDestinations.EditAudioInfo.createRoute(audioFile.id))
                 },
+                onTrimAudio = { audioFile ->
+                    rootNavController.navigate(AppDestinations.TrimAudio.createRoute(audioFile.uri.toString()))
+                },
                 onPlayAll = onPlayAll,
                 onShuffleAll = onShuffleAll,
                 audioItems = audioItems,
@@ -159,13 +164,28 @@ fun AppNavHost(
                 navArgument(PlaylistDetailArgs.PLAYLIST_ID) {
                     type = NavType.LongType
                 }
-            )
+            ),
+            exitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { fullWidth -> -fullWidth },
+                    animationSpec = tween(durationMillis = 400)
+                )
+            },
+            popExitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { fullWidth -> fullWidth },
+                    animationSpec = tween(durationMillis = 400)
+                )
+            }
         ) {
             PlaylistDetailScreen(
                 onNavigateBack = { rootNavController.navigateUp() },
                 onNavigateToNowPlaying = onNavigateToNowPlaying,
                 onEditInfo = {
                     rootNavController.navigate(AppDestinations.EditAudioInfo.createRoute(it.id))
+                },
+                onTrimAudio = { audioFile ->
+                    rootNavController.navigate(AppDestinations.TrimAudio.createRoute(audioFile.uri.toString()))
                 }
             )
         }
@@ -300,6 +320,43 @@ fun AppNavHost(
                 onMiniPlayPrevious = onPlayPrev,
                 playingAudioFile = playingAudioFile,
                 isPlaying = isPlaying
+            )
+        }
+
+        // Trim Audio Screen
+        composable(
+            route = AppDestinations.TrimAudio.route,
+            arguments = listOf(navArgument("audioUri") { type = NavType.StringType }),
+            enterTransition = {
+                slideInHorizontally(
+                    initialOffsetX = { fullWidth -> fullWidth },
+                    animationSpec = tween(durationMillis = 400)
+                )
+            },
+            exitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { fullWidth -> -fullWidth },
+                    animationSpec = tween(durationMillis = 400)
+                )
+            },
+            popEnterTransition = {
+                slideInHorizontally(
+                    initialOffsetX = { fullWidth -> -fullWidth },
+                    animationSpec = tween(durationMillis = 400)
+                )
+            },
+            popExitTransition = {
+                slideOutHorizontally(
+                    targetOffsetX = { fullWidth -> fullWidth },
+                    animationSpec = tween(durationMillis = 400)
+                )
+            }
+        ) { backStackEntry ->
+            val audioUriString = Uri.decode(backStackEntry.arguments?.getString("audioUri") ?: "")
+            TrimScreen(
+                onNavigateUp = {
+                    rootNavController.navigateUp()
+                }
             )
         }
 

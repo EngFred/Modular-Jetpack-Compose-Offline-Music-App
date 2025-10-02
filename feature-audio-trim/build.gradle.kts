@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.engfred.musicplayer.core"
+    namespace = "com.engfred.musicplayer.feature_audio_trim"
     compileSdk = 36
 
     defaultConfig {
@@ -42,39 +42,54 @@ android {
 }
 
 dependencies {
+    // Dependency on the core module for shared utilities, themes, models, etc.
+    implementation(project(":core"))
+
     // Android Core & Lifecycle
     implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.appcompat) // Useful for general Android compatibility
+    implementation(libs.androidx.appcompat)
+    implementation(libs.material)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.compose) // For ViewModels in Compose
 
-    // Jetpack Compose UI (for shared UI components like themes, common Composables)
+    // Jetpack Compose UI
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.navigation.compose) // If this feature has internal navigation
 
-    // Hilt (if core module provides app-wide singletons or common dependencies)
+    // Hilt (Dependency Injection for this feature)
     implementation(libs.hilt.android)
-    ksp(libs.hilt.android.compiler)
-
     implementation(libs.media3.exoplayer)
-    implementation(libs.media3.ui) // For player UI components if needed
-    implementation(libs.media3.session) // For background playback and notification integration
+    ksp(libs.hilt.android.compiler)
+    implementation(libs.hilt.navigation.compose)
 
     // Kotlin Coroutines
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
 
-    implementation(libs.landscapist.coil)
+    // Coil for album artwork (if needed in trim UI)
+    implementation(libs.coil.compose)
 
-    //more icons
-    implementation(libs.androidx.material.icons.extended);
+    // Extended Material 3 icons
+    implementation(libs.androidx.material.icons.extended)
 
-//    implementation(libs.androidx.material3.window.size.class1.android)
+    // Accompanist Permissions (for write permissions during save)
+    implementation(libs.accompanist.permissions)
 
-    implementation(libs.androidx.activity.compose)
+    // Media3 for extraction (consistent with app's Media3 usage)
+    implementation(libs.media3.extractor)
+    implementation(libs.media3.common)
 
+    // Animation utils
+    implementation(libs.androidx.animation)
+
+    //media3-transformer
+    implementation(libs.media3.transformer)
+
+    // Testing Dependencies
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

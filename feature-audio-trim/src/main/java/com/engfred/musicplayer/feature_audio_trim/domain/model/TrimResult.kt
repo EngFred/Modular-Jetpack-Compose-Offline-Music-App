@@ -4,5 +4,4 @@ sealed class TrimResult {
     data object Success : TrimResult()
     data class Error(val message: String) : TrimResult()
     data object PermissionDenied : TrimResult()
-    data class Progress(val percent: Int) : TrimResult()
 }

@@ -26,8 +26,7 @@ data class TrimUiState(
     val endTimeMs: Long = 0L, // Will be set to duration after load
     val isTrimming: Boolean = false,
     val trimResult: TrimResult? = null,
-    val error: String? = null,
-    val progress: Int? = null
+    val error: String? = null
 )
 
 @HiltViewModel
@@ -114,7 +113,7 @@ class TrimViewModel @Inject constructor(
             return
         }
 
-        _uiState.value = current.copy(isTrimming = true, error = null, progress = 0, trimResult = null)  // Start progress at 0
+        _uiState.value = current.copy(isTrimming = true, error = null, trimResult = null)
         trimJob = viewModelScope.launch {
             trimAudioUseCase.execute(audioFile, current.startTimeMs, current.endTimeMs)
                 .collect { result ->
@@ -123,8 +122,7 @@ class TrimViewModel @Inject constructor(
                         is TrimResult.Success -> {
                             _uiState.value = state.copy(
                                 isTrimming = false,
-                                trimResult = result,
-                                progress = null
+                                trimResult = result
                             )
                             trimJob = null
                         }
@@ -132,7 +130,6 @@ class TrimViewModel @Inject constructor(
                             _uiState.value = state.copy(
                                 isTrimming = false,
                                 error = result.message,
-                                progress = null,
                                 trimResult = null
                             )
                             trimJob = null
@@ -141,16 +138,9 @@ class TrimViewModel @Inject constructor(
                             _uiState.value = state.copy(
                                 isTrimming = false,
                                 error = "Write permission required",
-                                progress = null,
                                 trimResult = null
                             )
                             trimJob = null
-                        }
-                        is TrimResult.Progress -> {
-                            _uiState.value = state.copy(
-                                progress = result.percent,
-                                error = null
-                            )
                         }
                     }
                 }
@@ -163,7 +153,6 @@ class TrimViewModel @Inject constructor(
         val current = _uiState.value
         _uiState.value = current.copy(
             isTrimming = false,
-            progress = null,
             error = "Trimming cancelled by user",
             trimResult = null
         )

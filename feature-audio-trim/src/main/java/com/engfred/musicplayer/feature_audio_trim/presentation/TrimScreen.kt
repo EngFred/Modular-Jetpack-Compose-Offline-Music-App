@@ -95,7 +95,6 @@ fun TrimScreen(
         ) {
             // Capture state locally to avoid recomposition races
             val state = uiState
-            val progress = state.progress ?: 0  // Default to 0 for initial display
 
             state.audioFile?.let { audioFile ->
                 // Audio Info Card
@@ -192,6 +191,7 @@ fun TrimScreen(
                             }
                         }
                     },
+                    enabled = !state.isTrimming,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(
@@ -207,6 +207,7 @@ fun TrimScreen(
                 // Reset Button
                 TextButton(
                     onClick = { viewModel.resetTrim() },
+                    enabled = !state.isTrimming,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Reset Trim")
@@ -223,15 +224,28 @@ fun TrimScreen(
                 }
 
                 if (state.isTrimming) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    LinearProgressIndicator(
-                        progress = { progress.toFloat() / 100f },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Text(
-                        text = "Trimming... $progress%",
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Processing your trim...",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Please wait while we process your file. This may take a few seconds depending on its size.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
 
                 // Error/Result
@@ -293,7 +307,7 @@ fun TrimScreen(
         AlertDialog(
             onDismissRequest = { showConfirmBackDialog = false },
             title = { Text("Cancel Trimming?") },
-            text = { Text("This action will cancel the ongoing trimming process and you may lose progress.") },
+            text = { Text("This action will cancel the ongoing trimming process.") },
             confirmButton = {
                 TextButton(
                     onClick = {

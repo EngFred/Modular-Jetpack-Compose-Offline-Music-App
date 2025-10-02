@@ -56,7 +56,6 @@ class TrimRepositoryImpl @Inject constructor(
         endMs: Long
     ) {
         var transformer: Transformer? = null
-        var pollingJob: Job? = null
         val done = CompletableDeferred<Unit>()
 
         try {
@@ -113,28 +112,8 @@ class TrimRepositoryImpl @Inject constructor(
                 transformer.start(editedMediaItem, outputFile.absolutePath)
             }
 
-            // 6. Polling for Progress and Await Completion
-            coroutineScope {
-                pollingJob = launch(Dispatchers.Main) {
-                    val progressHolder = ProgressHolder()
-                    var lastPercent = -1
-                    while (isActive) {
-                        val progressState = transformer.getProgress(progressHolder)
-                        if (progressState == Transformer.PROGRESS_STATE_AVAILABLE) {
-                            val currentProgress = progressHolder.progress
-                            if (currentProgress != lastPercent) {
-                                lastPercent = currentProgress
-                                channel.trySend(TrimResult.Progress(lastPercent))
-                            }
-                        }
-                        if (progressState == Transformer.PROGRESS_STATE_NOT_STARTED) break
-                        delay(500L)
-                    }
-                }
-                done.await() // Wait for completion; throws on error
-            }
-
-            channel.trySend(TrimResult.Progress(100))
+            // 6. Await Completion (no polling needed)
+            done.await() // Wait for completion; throws on error
 
             // 7. MediaStore Save Logic
             val newDuration = endMs - startMs
@@ -208,8 +187,7 @@ class TrimRepositoryImpl @Inject constructor(
             Log.e(TAG, "Unexpected error during trim", e)
             channel.trySend(TrimResult.Error(e.message ?: "Trim failed: Unexpected Error"))
         } finally {
-            // Cleanup: Cancel polling and transformer
-            pollingJob?.cancel()
+            // Cleanup: transformer
             transformer?.let { t ->
                 withContext(Dispatchers.Main) {
                     t.cancel()

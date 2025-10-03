@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.engfred.musicplayer.core.ui.components.CustomTopBar
+import com.engfred.musicplayer.feature_audio_trim.presentation.components.AudioInfoCard
 import com.engfred.musicplayer.feature_audio_trim.presentation.components.CustomTrimLoadingIndicator
 import com.engfred.musicplayer.feature_audio_trim.presentation.components.TrimSlider
 
@@ -55,7 +56,7 @@ fun TrimScreen(
         ) {
             val state = uiState
             state.audioFile?.let { audioFile ->
-                // info card same as before... (assuming you have an info card component)
+                AudioInfoCard(audioFile = audioFile)
 
                 Spacer(modifier = Modifier.height(16.dp))
 

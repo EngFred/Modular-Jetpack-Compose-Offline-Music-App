@@ -11,6 +11,7 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class TrimModule {
+
     @Binds
     @Singleton
     abstract fun bindTrimRepository(impl: TrimRepositoryImpl): TrimRepository

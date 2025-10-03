@@ -63,6 +63,9 @@ class EditFileViewModel @Inject constructor(
     private var pendingArtist: String? = null
     private var pendingAlbumArt: ByteArray? = null
 
+    // Flag to track if initial load has been attempted (prevents repeated errors on flow emissions)
+    private var initialLoadCompleted = false
+
     sealed class Event {
         data class Success(val message: String) : EditFileViewModel.Event()
         data class Error(val message: String) : EditFileViewModel.Event()
@@ -78,19 +81,27 @@ class EditFileViewModel @Inject constructor(
             getAllAudioFilesUseCase().collect { resource ->
                 if (resource is Resource.Success) {
                     val audioFile = resource.data?.find { it.id == audioId }
-                    audioFile?.let {
-                        updateOriginalValues(it)
-                        _uiState.update { state ->
-                            state.copy(
-                                title = originalTitle ?: "",
-                                artist = originalArtist ?: "Unknown Artist",
-                                albumArtPreviewUri = originalAlbumArtUri,
-                                audioFile = it
-                            )
+                    if (audioFile != null) {
+                        if (!initialLoadCompleted) {
+                            updateOriginalValues(audioFile)
+                            initialLoadCompleted = true
+                            _uiState.update { state ->
+                                state.copy(
+                                    title = originalTitle ?: "",
+                                    artist = originalArtist ?: "Unknown Artist",
+                                    albumArtPreviewUri = originalAlbumArtUri,
+                                    audioFile = audioFile
+                                )
+                            }
                         }
-                    } ?: _events.emit(Event.Error("Audio file not found."))
-                } else if (resource is Resource.Error) {
+                        // Optionally update UI on subsequent emissions if needed, but skip for edit screen stability
+                    } else if (!initialLoadCompleted) {
+                        _events.emit(Event.Error("Audio file not found."))
+                        initialLoadCompleted = true
+                    }
+                } else if (resource is Resource.Error && !initialLoadCompleted) {
                     _events.emit(Event.Error(resource.message ?: "Error loading audio files."))
+                    initialLoadCompleted = true
                 }
             }
         }
@@ -161,15 +172,9 @@ class EditFileViewModel @Inject constructor(
 
     /**
      * Executes the save operation and handles `RecoverableSecurityException` for permissions.
+     * Removed version gate—legacy support via permissions.
      */
     private suspend fun performSave(audioId: Long, context: Context) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            _uiState.update { it.copy(isSaving = false) }
-            _events.emit(Event.Error("Editing metadata is not supported on this Android version."))
-            clearPending()
-            return
-        }
-
         try {
             val result = editAudioMetadataUseCase(
                 id = audioId,
@@ -211,10 +216,11 @@ class EditFileViewModel @Inject constructor(
                 }
 
                 // Create an updated AudioFile object with the new metadata
+                // Note: albumArtUri remains the audio URI-derived value; preview is temporary for UI
                 val updatedAudio = currentAudio.copy(
                     title = pendingTitle ?: currentAudio.title,
-                    artist = pendingArtist ?: currentAudio.artist,
-                    albumArtUri = if (pendingAlbumArt != null) _uiState.value.albumArtPreviewUri else currentAudio.albumArtUri
+                    artist = pendingArtist ?: currentAudio.artist
+                    // Do not override albumArtUri—let query refresh from embedded art
                 )
 
                 // Update UI and the original values for future comparisons
@@ -223,7 +229,8 @@ class EditFileViewModel @Inject constructor(
                     state.copy(
                         title = updatedAudio.title,
                         artist = updatedAudio.artist ?: "Unknown Artist",
-                        albumArtPreviewUri = updatedAudio.albumArtUri,
+                        // Keep preview for immediate UI if art changed; else use audio's (will refresh on next query)
+                        albumArtPreviewUri = if (pendingAlbumArt != null) state.albumArtPreviewUri else updatedAudio.albumArtUri,
                         audioFile = updatedAudio
                     )
                 }

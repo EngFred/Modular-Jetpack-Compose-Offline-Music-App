@@ -1,13 +1,9 @@
 package com.engfred.musicplayer.feature_library.data.repository
 
-import android.app.RecoverableSecurityException
-import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.BitmapFactory
-import android.media.MediaScannerConnection
 import android.net.Uri
-import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
 import androidx.core.graphics.scale
@@ -32,6 +28,7 @@ import org.jaudiotagger.tag.images.Artwork
 import org.jaudiotagger.tag.images.ArtworkFactory
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.util.UUID
 import javax.inject.Inject
 
 class LibraryRepositoryImpl @Inject constructor(
@@ -77,7 +74,7 @@ class LibraryRepositoryImpl @Inject constructor(
             } else {
                 Resource.Error("Audio file not found for uri: $uri")
             }
-        } catch (se: RecoverableSecurityException) {
+        } catch (se: android.app.RecoverableSecurityException) {
             Log.w(TAG, "RecoverableSecurityException while getting audio file by uri: ${se.message}")
             throw se
         } catch (e: Exception) {
@@ -89,6 +86,7 @@ class LibraryRepositoryImpl @Inject constructor(
     /**
      * Scoped-storage-safe metadata editor using JAudioTagger. Supports MP3 and M4A.
      * Updates only provided fields; preserves others. Uses app cache for temp mods.
+     * Avoids JAudioTagger backup issues by writing to a new temp file.
      */
     override suspend fun editAudioMetadata(
         id: Long,
@@ -97,7 +95,7 @@ class LibraryRepositoryImpl @Inject constructor(
         newAlbumArt: ByteArray?,
         context: Context
     ): Resource<Unit> = withContext(Dispatchers.IO) {
-        val uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
+        val uri = android.content.ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
 
         // Query MIME type for extension mapping
         val projection = arrayOf(MediaStore.Audio.Media.MIME_TYPE)
@@ -111,23 +109,37 @@ class LibraryRepositoryImpl @Inject constructor(
             else -> return@withContext Resource.Error("Unsupported MIME type: $mimeType for metadata editing")
         }
 
-        // Set pending for Q+ to allow writes
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val pendingValues = ContentValues().apply { put(MediaStore.Audio.Media.IS_PENDING, 1) }
-            context.contentResolver.update(uri, pendingValues, null, null)
-        }
-
-        var tempFile: File? = null
+        val temp1Name = "edit_temp1_${UUID.randomUUID()}.$extension"
+        val temp1 = File(context.cacheDir, temp1Name)
+        val temp2Name = "edit_temp2_${UUID.randomUUID()}.$extension"
+        val temp2 = File(context.cacheDir, temp2Name)
+        var bytesCopied: Long = 0L
         try {
-            // Step 1: Copy file to app cache temp (scoped-safe)
-            tempFile = copyToTempFile(context, uri, extension)
-            if (tempFile == null) {
-                return@withContext Resource.Error("Failed to copy file for editing")
+            // Step 1: Copy file to unique temp1 in app cache (to read original content)
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                temp1.outputStream().use { output ->
+                    bytesCopied = input.copyTo(output)
+                }
+            } ?: return@withContext Resource.Error("Failed to open source file for editing")
+
+            if (bytesCopied == 0L) {
+                Log.e(TAG, "No bytes copied - source file may be empty or inaccessible")
+                temp1.delete()
+                return@withContext Resource.Error("Failed to copy file content - empty source")
             }
 
-            // Step 2: Modify tags on temp file
+            // Step 1.5: Copy full content from temp1 to temp2 (ensures temp2 has valid size for JAudioTagger precheck)
+            temp1.inputStream().use { input ->
+                temp2.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+            Log.d(TAG, "Full content copied to temp2: ${temp2.length()} bytes")
+
+            // Step 2: Modify tags on temp2 (avoids .bak on temp1; .bak on temp2 is fine in cache)
             TagOptionSingleton.getInstance().setAndroid(true)
-            val jaudiotaggerAudioFile = AudioFileIO.read(tempFile)
+            var jaudiotaggerAudioFile = AudioFileIO.read(temp2)
+            jaudiotaggerAudioFile.setFile(temp2)  // Explicitly set to ensure correct path for backup/rename
             val tag: Tag = jaudiotaggerAudioFile.getTagOrCreateAndSetDefault()
 
             // Update only provided fields
@@ -146,26 +158,32 @@ class LibraryRepositoryImpl @Inject constructor(
                 tag.setField(artwork)
             }
 
+            // Write back to temp2 (now full size, passes precheck)
+            Log.d(TAG, "AudioFile path before write: ${jaudiotaggerAudioFile.file.absolutePath}")
             AudioFileIO.write(jaudiotaggerAudioFile)
+            Log.d(TAG, "Tags written to temp2: $temp2Name")
 
-            // Step 3: Stream temp back to MediaStore URI
-            if (!streamTempToMediaStore(tempFile, uri, context)) {
-                return@withContext Resource.Error("Failed to write updated file")
-            }
+            // Step 3: Stream temp2 back to MediaStore URI
+            // (Relies on per-file grant via createWriteRequest or RecoverableSecurityException handling)
+            context.contentResolver.openOutputStream(uri)?.use { output ->
+                temp2.inputStream().use { input ->
+                    input.copyTo(output)
+                }
+            } ?: return@withContext Resource.Error("Failed to write updated file")
 
-            // Step 4: Update MediaStore metadata (text fields for sync)
+            // Step 4: Update MediaStore metadata (text fields for sync; album art is embedded)
             val updateValues = ContentValues().apply {
                 newTitle?.let { put(MediaStore.Audio.Media.TITLE, it) }
                 newArtist?.let { put(MediaStore.Audio.Media.ARTIST, it) }
                 put(MediaStore.Audio.Media.DATE_MODIFIED, System.currentTimeMillis() / 1000L)
             }
             if (updateValues.size() > 0) {
-                context.contentResolver.update(uri, updateValues, null, null)
+                val updated = context.contentResolver.update(uri, updateValues, null, null)
+                Log.d(TAG, "MediaStore updated rows: $updated")
             }
 
-            scanFile(context, uri)
             Resource.Success(Unit)
-        } catch (re: RecoverableSecurityException) {
+        } catch (re: android.app.RecoverableSecurityException) {
             Log.w(TAG, "RecoverableSecurityException while editing metadata: ${re.message}")
             throw re
         } catch (e: CannotReadException) {
@@ -190,64 +208,13 @@ class LibraryRepositoryImpl @Inject constructor(
             Log.e(TAG, "Failed to edit audio metadata", e)
             Resource.Error(e.message ?: "Unknown error occurred while editing metadata.")
         } finally {
-            // Cleanup temp and finalize pending
-            tempFile?.delete()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val finalizeValues = ContentValues().apply { put(MediaStore.Audio.Media.IS_PENDING, 0) }
-                context.contentResolver.update(uri, finalizeValues, null, null)
-            }
-        }
-    }
-
-    /**
-     * Copies the audio file from URI to a temp file in app's cacheDir.
-     */
-    private fun copyToTempFile(context: Context, uri: Uri, extension: String): File? {
-        val tempDir = context.cacheDir
-        val tempFile = File.createTempFile("edit_audio_", ".$extension", tempDir)
-        return try {
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                tempFile.outputStream().use { output ->
-                    input.copyTo(output)
-                }
-            }
-            tempFile
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to copy to temp: ${e.message}")
-            tempFile.delete()
-            null
-        }
-    }
-
-    /**
-     * Streams the modified temp file back to MediaStore URI.
-     */
-    private fun streamTempToMediaStore(tempFile: File, uri: Uri, context: Context): Boolean {
-        return try {
-            context.contentResolver.openOutputStream(uri)?.use { output ->
-                tempFile.inputStream().use { input ->
-                    input.copyTo(output)
-                }
-            } != null
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to stream temp to MediaStore: ${e.message}")
-            false
-        }
-    }
-
-    private fun scanFile(context: Context, uri: Uri) {
-        val path = getFilePath(context, uri) ?: run {
-            Log.w(TAG, "Cannot get file path for scan, skipping")
-            return
-        }
-        val mimeType = if (path.endsWith(".mp3")) "audio/mpeg" else "audio/mp4"
-        MediaScannerConnection.scanFile(context, arrayOf(path), arrayOf(mimeType), null)
-    }
-
-    private fun getFilePath(context: Context, uri: Uri): String? {
-        val projection = arrayOf(MediaStore.Audio.Media.DATA)
-        return context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
-            if (cursor.moveToFirst()) cursor.getString(0) else null
+            // Cleanup temps and any potential .bak (defensive)
+            temp1.delete()
+            temp2.delete()
+            val temp1Bak = File(temp1.absolutePath + ".bak")
+            temp1Bak.delete()
+            val temp2Bak = File(temp2.absolutePath + ".bak")
+            temp2Bak.delete()
         }
     }
 

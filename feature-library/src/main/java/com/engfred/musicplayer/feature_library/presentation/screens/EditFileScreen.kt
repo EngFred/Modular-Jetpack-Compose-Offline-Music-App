@@ -82,12 +82,12 @@ fun EditAudioInfoScreenContainer(
         onResult = { uri: Uri? -> uri?.let { viewModel.pickImage(it) } }
     )
 
-    // Launcher for IntentSender (used for PendingIntent / createWriteRequest)
+    // Launcher for IntentSender (used for createWriteRequest or RecoverableSecurityException)
     val intentSenderLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartIntentSenderForResult()
     ) { result: ActivityResult ->
         if (result.resultCode == Activity.RESULT_OK) {
-            // after user grants per-file access, proceed with saving flow
+            // After user grants per-file access, proceed with saving flow
             viewModel.continueSaveAfterPermission(context)
         } else {
             Toast.makeText(context, "Access to song denied. Cannot edit.", Toast.LENGTH_LONG).show()
@@ -95,26 +95,24 @@ fun EditAudioInfoScreenContainer(
         }
     }
 
-    // Launcher for runtime permission (general read/write)
+    // Launcher for runtime permission (read/query for Q+; write for pre-Q)
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted: Boolean ->
         if (granted) {
-            // If Q+ we need to request per-file write access via createWriteRequest -> PendingIntent
+            // If Q+, handle per-file write via createWriteRequest (R+) or exception (Q)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val uri = Uri.withAppendedPath(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, audioId.toString())
-                val pendingIntent: PendingIntent =
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        MediaStore.createWriteRequest(context.contentResolver, listOf(uri))
-                    } else {
-                        TODO("VERSION.SDK_INT < R")
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    val uri = Uri.withAppendedPath(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, audioId.toString())
+                    val pendingIntent: PendingIntent = MediaStore.createWriteRequest(context.contentResolver, listOf(uri))
+                    pendingIntent.intentSender.let { sender ->
+                        val req = IntentSenderRequest.Builder(sender).build()
+                        intentSenderLauncher.launch(req)
                     }
-                pendingIntent.intentSender.let { sender ->
-                    val req = IntentSenderRequest.Builder(sender).build()
-                    intentSenderLauncher.launch(req)
                 }
+                // For Q (not R), do nothing upfront—let save trigger RecoverableSecurityException
             } else {
-                // pre-Q nothing else required; user can edit
+                // pre-Q: permission already grants write access
                 Toast.makeText(context, "Permission granted", Toast.LENGTH_SHORT).show()
             }
         } else {
@@ -135,11 +133,8 @@ fun EditAudioInfoScreenContainer(
                     Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
                 }
                 is EditFileViewModel.Event.RequestWritePermission -> {
-                    // If ViewModel provides an IntentSender for a recoverable SecurityException,
-                    // launch it directly (system prompt). We can't style the system UI; it's owned by the OS.
-                    val req = IntentSenderRequest.Builder(event.intentSender)
-                        .setFillInIntent(null)
-                        .build()
+                    // Launch system prompt for RecoverableSecurityException (fallback for Q or un-granted)
+                    val req = IntentSenderRequest.Builder(event.intentSender).build()
                     intentSenderLauncher.launch(req)
                 }
             }
@@ -150,7 +145,7 @@ fun EditAudioInfoScreenContainer(
     LaunchedEffect(audioId) {
         viewModel.loadAudioFile(audioId)
 
-        // Determine runtime permission to request
+        // Determine runtime permission to request (read for Q+ query; write for pre-Q)
         val perm = when {
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> android.Manifest.permission.READ_MEDIA_AUDIO
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> android.Manifest.permission.READ_EXTERNAL_STORAGE
@@ -159,18 +154,16 @@ fun EditAudioInfoScreenContainer(
 
         val granted = ContextCompat.checkSelfPermission(context, perm) == PackageManager.PERMISSION_GRANTED
         if (granted) {
-            // Proceed to per-file if Q+
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            // Proceed to per-file if R+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 val uri = Uri.withAppendedPath(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, audioId.toString())
-                val pendingIntent: PendingIntent =
-                    MediaStore.createWriteRequest(context.contentResolver, listOf(uri))
+                val pendingIntent: PendingIntent = MediaStore.createWriteRequest(context.contentResolver, listOf(uri))
                 pendingIntent.intentSender.let { sender ->
                     val req = IntentSenderRequest.Builder(sender).build()
                     intentSenderLauncher.launch(req)
                 }
-            } else {
-                // pre-Q no further action required
             }
+            // For Q, no upfront; handled by exception
         } else {
             // Launch runtime permission request; the result handler will handle the rest.
             permissionLauncher.launch(perm)

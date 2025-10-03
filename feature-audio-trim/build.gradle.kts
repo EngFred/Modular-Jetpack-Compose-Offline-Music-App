@@ -89,6 +89,8 @@ dependencies {
     //media3-transformer
     implementation(libs.media3.transformer)
 
+    implementation(libs.jaudiotagger.android)
+
     // Testing Dependencies
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -27,7 +27,7 @@ import javax.inject.Inject
 /**
  * UI state for the song editing screen.
  */
-data class EditSongUiState(
+data class EditFileUiState(
     val title: String = "",
     val artist: String = "",
     val albumArtPreviewUri: Uri? = null,
@@ -36,7 +36,7 @@ data class EditSongUiState(
 )
 
 @HiltViewModel
-class EditSongViewModel @Inject constructor(
+class EditFileViewModel @Inject constructor(
     private val getAllAudioFilesUseCase: GetAllAudioFilesUseCase,
     private val editAudioMetadataUseCase: EditAudioMetadataUseCase,
     private val playlistRepository: PlaylistRepository,
@@ -45,11 +45,11 @@ class EditSongViewModel @Inject constructor(
 ) : ViewModel() {
 
     // UI state for the screen
-    private val _uiState = MutableStateFlow(EditSongUiState())
-    val uiState: StateFlow<EditSongUiState> = _uiState
+    private val _uiState = MutableStateFlow(EditFileUiState())
+    val uiState: StateFlow<EditFileUiState> = _uiState
 
     // One-time events for UI (e.g., navigation, permission requests)
-    private val _events = MutableSharedFlow<Event>()
+    private val _events = MutableSharedFlow<EditFileViewModel.Event>()
     val events = _events.asSharedFlow()
 
     // Original values used to check for changes before saving
@@ -64,9 +64,9 @@ class EditSongViewModel @Inject constructor(
     private var pendingAlbumArt: ByteArray? = null
 
     sealed class Event {
-        data class Success(val message: String) : Event()
-        data class Error(val message: String) : Event()
-        data class RequestWritePermission(val intentSender: IntentSender) : Event()
+        data class Success(val message: String) : EditFileViewModel.Event()
+        data class Error(val message: String) : EditFileViewModel.Event()
+        data class RequestWritePermission(val intentSender: IntentSender) : EditFileViewModel.Event()
     }
 
     /**

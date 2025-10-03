@@ -57,8 +57,8 @@ import coil.compose.AsyncImage
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.ui.components.CustomTopBar
 import com.engfred.musicplayer.core.ui.components.MiniPlayer
-import com.engfred.musicplayer.feature_library.presentation.viewmodel.EditSongUiState
-import com.engfred.musicplayer.feature_library.presentation.viewmodel.EditSongViewModel
+import com.engfred.musicplayer.feature_library.presentation.viewmodel.EditFileUiState
+import com.engfred.musicplayer.feature_library.presentation.viewmodel.EditFileViewModel
 import kotlinx.coroutines.flow.collectLatest
 
 @Composable
@@ -71,7 +71,7 @@ fun EditAudioInfoScreenContainer(
     onMiniPlayPrevious: () -> Unit,
     playingAudioFile: AudioFile?,
     isPlaying: Boolean,
-    viewModel: EditSongViewModel = hiltViewModel()
+    viewModel: EditFileViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
@@ -127,14 +127,14 @@ fun EditAudioInfoScreenContainer(
     LaunchedEffect(Unit) {
         viewModel.events.collectLatest { event ->
             when (event) {
-                is EditSongViewModel.Event.Success -> {
+                is EditFileViewModel.Event.Success -> {
                     Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
                     onFinish()
                 }
-                is EditSongViewModel.Event.Error -> {
+                is EditFileViewModel.Event.Error -> {
                     Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
                 }
-                is EditSongViewModel.Event.RequestWritePermission -> {
+                is EditFileViewModel.Event.RequestWritePermission -> {
                     // If ViewModel provides an IntentSender for a recoverable SecurityException,
                     // launch it directly (system prompt). We can't style the system UI; it's owned by the OS.
                     val req = IntentSenderRequest.Builder(event.intentSender)
@@ -178,7 +178,7 @@ fun EditAudioInfoScreenContainer(
     }
 
     // ALWAYS show the Edit UI (no gating)
-    EditSongScreen(
+    EditFileInfoScreen(
         uiState = state,
         onPickImage = { pickImageLauncher.launch("image/*") },
         onTitleChange = viewModel::updateTitle,
@@ -195,8 +195,8 @@ fun EditAudioInfoScreenContainer(
 }
 
 @Composable
-fun EditSongScreen(
-    uiState: EditSongUiState,
+fun EditFileInfoScreen(
+    uiState: EditFileUiState,
     onPickImage: () -> Unit,
     onTitleChange: (String) -> Unit,
     onArtistChange: (String) -> Unit,

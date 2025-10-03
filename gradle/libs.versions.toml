@@ -3,6 +3,7 @@ accompanistSystemuicontroller = "0.36.0"
 agp = "8.11.1"
 animation = "1.8.3"
 guava = "33.5.0-android"
+jaudiotaggerAndroid = "2.3.15"
 kotlin = "2.1.0"
 coreKtx = "1.16.0"
 junit = "4.13.2"
@@ -47,6 +48,7 @@ androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = 
 androidx-media = { module = "androidx.media:media", version.ref = "media" }
 androidx-palette-ktx = { module = "androidx.palette:palette-ktx", version.ref = "paletteKtx" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
+jaudiotagger-android = { group = "com.github.adonai", name = "jaudiotagger-android", version.ref = "jaudiotaggerAndroid" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }

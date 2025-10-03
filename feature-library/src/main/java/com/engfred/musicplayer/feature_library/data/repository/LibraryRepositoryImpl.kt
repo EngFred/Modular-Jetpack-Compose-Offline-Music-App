@@ -2,10 +2,12 @@ package com.engfred.musicplayer.feature_library.data.repository
 
 import android.app.RecoverableSecurityException
 import android.content.ContentUris
+import android.content.ContentValues
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.media.MediaScannerConnection
 import android.net.Uri
+import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
 import androidx.core.graphics.scale
@@ -16,13 +18,20 @@ import com.engfred.musicplayer.feature_library.data.source.local.ContentResolver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import org.jaudiotagger.audio.AudioFileIO
+import org.jaudiotagger.audio.exceptions.CannotReadException
+import org.jaudiotagger.audio.exceptions.CannotWriteException
+import org.jaudiotagger.audio.exceptions.InvalidAudioFrameException
+import org.jaudiotagger.audio.exceptions.ReadOnlyFileException
+import org.jaudiotagger.audio.exceptions.UnableToCreateFileException
+import org.jaudiotagger.tag.FieldDataInvalidException
+import org.jaudiotagger.tag.FieldKey
+import org.jaudiotagger.tag.Tag
+import org.jaudiotagger.tag.TagOptionSingleton
+import org.jaudiotagger.tag.images.Artwork
+import org.jaudiotagger.tag.images.ArtworkFactory
 import java.io.ByteArrayOutputStream
 import java.io.File
-import java.io.FileInputStream
-import java.io.FileOutputStream
-import java.io.InputStream
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import javax.inject.Inject
 
 class LibraryRepositoryImpl @Inject constructor(
@@ -78,12 +87,8 @@ class LibraryRepositoryImpl @Inject constructor(
     }
 
     /**
-     * Streaming-safe metadata editor. Does NOT load entire audio file into memory.
-     *
-     * - Reads only the ID3 tag header + tag bytes to parse existing frames.
-     * - Builds new tag frames in memory (small).
-     * - Streams remaining audio bytes into a temp file (buffered).
-     * - Writes temp file back to the media store via ContentResolver output stream.
+     * Scoped-storage-safe metadata editor using JAudioTagger. Supports MP3 and M4A.
+     * Updates only provided fields; preserves others. Uses app cache for temp mods.
      */
     override suspend fun editAudioMetadata(
         id: Long,
@@ -94,249 +99,156 @@ class LibraryRepositoryImpl @Inject constructor(
     ): Resource<Unit> = withContext(Dispatchers.IO) {
         val uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
 
+        // Query MIME type for extension mapping
+        val projection = arrayOf(MediaStore.Audio.Media.MIME_TYPE)
+        val mimeType = context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0) else null
+        } ?: return@withContext Resource.Error("Cannot query MIME type")
+
+        val extension = when (mimeType) {
+            "audio/mpeg", "audio/mp3" -> "mp3"
+            "audio/mp4", "audio/x-m4a" -> "m4a"
+            else -> return@withContext Resource.Error("Unsupported MIME type: $mimeType for metadata editing")
+        }
+
+        // Set pending for Q+ to allow writes
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val pendingValues = ContentValues().apply { put(MediaStore.Audio.Media.IS_PENDING, 1) }
+            context.contentResolver.update(uri, pendingValues, null, null)
+        }
+
+        var tempFile: File? = null
         try {
-            // Quick MIME check (optional)
-            val projection = arrayOf(MediaStore.Audio.Media.MIME_TYPE)
-            val cursor = context.contentResolver.query(uri, projection, null, null, null)
-            val mimeType = cursor?.use {
-                if (it.moveToFirst()) it.getString(0) else null
-            }
-            if (mimeType != null && mimeType !in listOf("audio/mpeg", "audio/mp3")) {
-                return@withContext Resource.Error("Only MP3 files are supported for metadata editing.")
+            // Step 1: Copy file to app cache temp (scoped-safe)
+            tempFile = copyToTempFile(context, uri, extension)
+            if (tempFile == null) {
+                return@withContext Resource.Error("Failed to copy file for editing")
             }
 
-            // Resize/compress album art if provided
-            val processedAlbumArt = newAlbumArt?.let { resizeAndCompressImage(it) }
+            // Step 2: Modify tags on temp file
+            TagOptionSingleton.getInstance().setAndroid(true)
+            val jaudiotaggerAudioFile = AudioFileIO.read(tempFile)
+            val tag: Tag = jaudiotaggerAudioFile.getTagOrCreateAndSetDefault()
 
-            // Step 1: Open input stream and read header + tag (if present)
-            context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                // read first 10 bytes (ID3 header) if present
-                val headerBuf = ByteArray(10)
-                val headerRead = readFully(inputStream, headerBuf, 0, 10)
-                var tagVersion = 4
-                val existingFrames = mutableListOf<ByteArray>()
+            // Update only provided fields
+            newTitle?.let { tag.setField(FieldKey.TITLE, it) }
+            newArtist?.let { tag.setField(FieldKey.ARTIST, it) }
 
-                if (headerRead == 10 &&
-                    headerBuf[0] == 'I'.toByte() &&
-                    headerBuf[1] == 'D'.toByte() &&
-                    headerBuf[2] == '3'.toByte()
-                ) {
-                    val versionByte = headerBuf[3].toInt() and 0xFF
-                    tagVersion = if (versionByte == 4) 4 else 3
-                    val tagSize = calculateSyncSafeInt(headerBuf.copyOfRange(6, 10))
-
-                    // read the tag block (small)
-                    val tagData = ByteArray(tagSize)
-                    val tagRead = readFully(inputStream, tagData, 0, tagSize)
-                    if (tagRead != tagSize) {
-                        Log.w(TAG, "Could not fully read tag: expected $tagSize got $tagRead")
-                    }
-
-                    // parse frames from tagData
-                    var pos = 0
-                    while (pos + 10 <= tagData.size) {
-                        val idBytes = tagData.copyOfRange(pos, pos + 4)
-                        if (idBytes.all { it == 0.toByte() }) break // padding
-                        val frameId = String(idBytes, Charsets.ISO_8859_1)
-                        val frameSizeBytes = tagData.copyOfRange(pos + 4, pos + 8)
-                        val frameSize = if (tagVersion == 4) calculateSyncSafeInt(frameSizeBytes) else bigEndianToInt(frameSizeBytes)
-                        val flags = tagData.copyOfRange(pos + 8, pos + 10)
-
-                        if (frameSize <= 0 || pos + 10 + frameSize > tagData.size) break
-
-                        val frameData = tagData.copyOfRange(pos + 10, pos + 10 + frameSize)
-
-                        // Recreate raw frame bytes (header + data) to preserve untouched frames
-                        val sizeForHeader = if (tagVersion == 4) encodeSyncSafe(frameSize) else intToBigEndianBytes(frameSize)
-                        val headerForFrame = idBytes + sizeForHeader + flags
-                        val fullFrame = headerForFrame + frameData
-
-                        when (frameId) {
-                            "TIT2" -> if (newTitle == null) existingFrames.add(fullFrame)
-                            "TPE1" -> if (newArtist == null) existingFrames.add(fullFrame)
-                            "APIC" -> if (newAlbumArt == null) existingFrames.add(fullFrame)
-                            else -> existingFrames.add(fullFrame)
-                        }
-                        pos += 10 + frameSize
-                    }
-
-                    // inputStream is already positioned after header+tag because we read them.
-                } else {
-                    // no ID3 tag; reopen stream to position 0
-                    inputStream.close()
-                    context.contentResolver.openInputStream(uri)?.use { ins2 ->
-                        // We'll stream the entire audio payload from ins2 (we haven't consumed tag)
-                        performStreamingWrite(
-                            ins2 = ins2,
-                            preservedFrames = existingFrames,
-                            newTitle = newTitle,
-                            newArtist = newArtist,
-                            processedAlbumArt = processedAlbumArt,
-                            tagVersion = tagVersion,
-                            context = context,
-                            uri = uri
-                        )
-                    } ?: return@withContext Resource.Error("Unable to re-open input stream.")
-                    scanFile(context, uri)
-                    return@withContext Resource.Success(Unit)
+            // Handle album art
+            newAlbumArt?.let { artBytes ->
+                val processedArt = resizeAndCompressImage(artBytes)
+                val artwork: Artwork = ArtworkFactory.getNew().apply {
+                    setBinaryData(processedArt)
+                    setMimeType("image/jpeg")
+                    setPictureType(3) // Front cover
                 }
+                tag.deleteArtworkField()
+                tag.setField(artwork)
+            }
 
-                // At this point inputStream is positioned right after the tag (or at 0 if no tag).
-                // We will write new tag + copy rest of audio from current inputStream into temp file, then stream temp file to content resolver.
+            AudioFileIO.write(jaudiotaggerAudioFile)
 
-                // Build new frames (in-memory; small)
-                newTitle?.let { existingFrames.add(createTextFrame("TIT2", it, tagVersion)) }
-                newArtist?.let { existingFrames.add(createTextFrame("TPE1", it, tagVersion)) }
-                processedAlbumArt?.let { existingFrames.add(createApicFrame(it, tagVersion)) }
+            // Step 3: Stream temp back to MediaStore URI
+            if (!streamTempToMediaStore(tempFile, uri, context)) {
+                return@withContext Resource.Error("Failed to write updated file")
+            }
 
-                val totalFramesSize = existingFrames.fold(0) { acc, b -> acc + b.size }
-                if (totalFramesSize <= 0) {
-                    // nothing to write
-                    return@withContext Resource.Success(Unit)
-                }
+            // Step 4: Update MediaStore metadata (text fields for sync)
+            val updateValues = ContentValues().apply {
+                newTitle?.let { put(MediaStore.Audio.Media.TITLE, it) }
+                newArtist?.let { put(MediaStore.Audio.Media.ARTIST, it) }
+                put(MediaStore.Audio.Media.DATE_MODIFIED, System.currentTimeMillis() / 1000L)
+            }
+            if (updateValues.size() > 0) {
+                context.contentResolver.update(uri, updateValues, null, null)
+            }
 
-                val headerBytes = byteArrayOf(
-                    'I'.toByte(), 'D'.toByte(), '3'.toByte(),
-                    tagVersion.toByte(), 0.toByte(), // revision=0
-                    0.toByte() // flags = 0
-                ) + encodeSyncSafe(totalFramesSize)
-
-                // Temp file to hold new content
-                val tempFile = File.createTempFile("edit_audio_", ".tmp", context.cacheDir)
-                try {
-                    FileOutputStream(tempFile).use { fos ->
-                        // write ID3 header + frames
-                        fos.write(headerBytes)
-                        for (frame in existingFrames) fos.write(frame)
-
-                        // copy the remainder of inputStream (audio payload) to temp - streaming copy
-                        val buffer = ByteArray(8 * 1024)
-                        var read: Int
-                        while (inputStream.read(buffer).also { read = it } > 0) {
-                            fos.write(buffer, 0, read)
-                        }
-                        fos.flush()
-                    }
-
-                    // Now write tempFile back to media store (this may throw RecoverableSecurityException)
-                    context.contentResolver.openOutputStream(uri)?.use { out ->
-                        FileInputStream(tempFile).use { fis ->
-                            val buf = ByteArray(8 * 1024)
-                            var r: Int
-                            while (fis.read(buf).also { r = it } > 0) {
-                                out.write(buf, 0, r)
-                            }
-                            out.flush()
-                        }
-                    } ?: return@withContext Resource.Error("Unable to open output stream to write audio file.")
-
-                    scanFile(context, uri)
-                    return@withContext Resource.Success(Unit)
-                } finally {
-                    try { tempFile.delete() } catch (_: Exception) { /* ignore */ }
-                }
-            } ?: return@withContext Resource.Error("Unable to open audio file input stream.")
+            scanFile(context, uri)
+            Resource.Success(Unit)
         } catch (re: RecoverableSecurityException) {
             Log.w(TAG, "RecoverableSecurityException while editing metadata: ${re.message}")
             throw re
+        } catch (e: CannotReadException) {
+            Log.e(TAG, "Cannot read audio file", e)
+            Resource.Error("Invalid audio file format")
+        } catch (e: InvalidAudioFrameException) {
+            Log.e(TAG, "Invalid audio frame", e)
+            Resource.Error("Corrupted audio file")
+        } catch (e: ReadOnlyFileException) {
+            Log.e(TAG, "Read-only file", e)
+            Resource.Error("File is read-only")
+        } catch (e: CannotWriteException) {
+            Log.e(TAG, "Cannot write metadata", e)
+            Resource.Error("Failed to write metadata")
+        } catch (e: UnableToCreateFileException) {
+            Log.e(TAG, "Unable to create temp file for metadata", e)
+            Resource.Error("Permission denied for file modification")
+        } catch (e: FieldDataInvalidException) {
+            Log.e(TAG, "Invalid artwork data", e)
+            Resource.Error("Failed to process artwork")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to edit audio metadata", e)
-            return@withContext Resource.Error(e.message ?: "Unknown error occurred while editing metadata.")
+            Resource.Error(e.message ?: "Unknown error occurred while editing metadata.")
+        } finally {
+            // Cleanup temp and finalize pending
+            tempFile?.delete()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val finalizeValues = ContentValues().apply { put(MediaStore.Audio.Media.IS_PENDING, 0) }
+                context.contentResolver.update(uri, finalizeValues, null, null)
+            }
         }
     }
 
-    // Helper that was split out for the case we need to re-open the input stream and stream everything:
-    private fun performStreamingWrite(
-        ins2: InputStream,
-        preservedFrames: MutableList<ByteArray>,
-        newTitle: String?,
-        newArtist: String?,
-        processedAlbumArt: ByteArray?,
-        tagVersion: Int,
-        context: Context,
-        uri: Uri
-    ) {
-        // This helper mirrors logic above but accepts an input stream positioned at 0.
-        // For brevity inlining a minimal streaming process here (called only in the edge-case where
-        // the first header read wasn't ID3 and we consumed bytes) — in most runs above is used.
-        val localTagVersion = tagVersion
-        val existingFrames = preservedFrames
-        newTitle?.let { existingFrames.add(createTextFrame("TIT2", it, localTagVersion)) }
-        newArtist?.let { existingFrames.add(createTextFrame("TPE1", it, localTagVersion)) }
-        processedAlbumArt?.let { existingFrames.add(createApicFrame(it, localTagVersion)) }
-
-        val totalFramesSize = existingFrames.fold(0) { acc, b -> acc + b.size }
-        if (totalFramesSize <= 0) return
-
-        val headerBytes = byteArrayOf(
-            'I'.toByte(), 'D'.toByte(), '3'.toByte(),
-            localTagVersion.toByte(), 0.toByte(),
-            0.toByte()
-        ) + encodeSyncSafe(totalFramesSize)
-
-        val tempFile = File.createTempFile("edit_audio_", ".tmp", context.cacheDir)
-        try {
-            FileOutputStream(tempFile).use { fos ->
-                fos.write(headerBytes)
-                for (frame in existingFrames) fos.write(frame)
-                val buffer = ByteArray(8 * 1024)
-                var r: Int
-                while (ins2.read(buffer).also { r = it } > 0) {
-                    fos.write(buffer, 0, r)
-                }
-                fos.flush()
-            }
-
-            context.contentResolver.openOutputStream(uri)?.use { out ->
-                FileInputStream(tempFile).use { fis ->
-                    val buf = ByteArray(8 * 1024)
-                    var r: Int
-                    while (fis.read(buf).also { r = it } > 0) {
-                        out.write(buf, 0, r)
-                    }
-                    out.flush()
+    /**
+     * Copies the audio file from URI to a temp file in app's cacheDir.
+     */
+    private fun copyToTempFile(context: Context, uri: Uri, extension: String): File? {
+        val tempDir = context.cacheDir
+        val tempFile = File.createTempFile("edit_audio_", ".$extension", tempDir)
+        return try {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                tempFile.outputStream().use { output ->
+                    input.copyTo(output)
                 }
             }
-            scanFile(context, uri)
-        } finally {
-            try { tempFile.delete() } catch (_: Exception) { }
+            tempFile
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to copy to temp: ${e.message}")
+            tempFile.delete()
+            null
+        }
+    }
+
+    /**
+     * Streams the modified temp file back to MediaStore URI.
+     */
+    private fun streamTempToMediaStore(tempFile: File, uri: Uri, context: Context): Boolean {
+        return try {
+            context.contentResolver.openOutputStream(uri)?.use { output ->
+                tempFile.inputStream().use { input ->
+                    input.copyTo(output)
+                }
+            } != null
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to stream temp to MediaStore: ${e.message}")
+            false
         }
     }
 
     private fun scanFile(context: Context, uri: Uri) {
-        val path = getFilePath(context, uri) ?: return
-        MediaScannerConnection.scanFile(
-            context,
-            arrayOf(path),
-            arrayOf("audio/mpeg"),
-            null
-        )
+        val path = getFilePath(context, uri) ?: run {
+            Log.w(TAG, "Cannot get file path for scan, skipping")
+            return
+        }
+        val mimeType = if (path.endsWith(".mp3")) "audio/mpeg" else "audio/mp4"
+        MediaScannerConnection.scanFile(context, arrayOf(path), arrayOf(mimeType), null)
     }
 
     private fun getFilePath(context: Context, uri: Uri): String? {
         val projection = arrayOf(MediaStore.Audio.Media.DATA)
-        context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                return cursor.getString(0)
-            }
+        return context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0) else null
         }
-        return null
-    }
-
-    // --- Utility helpers ---
-
-    private fun readFully(stream: InputStream, buf: ByteArray, offset: Int, length: Int): Int {
-        var readTotal = 0
-        var pos = offset
-        var remaining = length
-        while (remaining > 0) {
-            val r = stream.read(buf, pos, remaining)
-            if (r == -1) break
-            readTotal += r
-            pos += r
-            remaining -= r
-        }
-        return readTotal
     }
 
     private fun resizeAndCompressImage(imageBytes: ByteArray): ByteArray {
@@ -360,68 +272,5 @@ class LibraryRepositoryImpl @Inject constructor(
         scaledBitmap.recycle()
 
         return outputStream.toByteArray()
-    }
-
-    private fun encodeSyncSafe(size: Int): ByteArray {
-        return byteArrayOf(
-            ((size shr 21) and 0x7F).toByte(),
-            ((size shr 14) and 0x7F).toByte(),
-            ((size shr 7) and 0x7F).toByte(),
-            (size and 0x7F).toByte()
-        )
-    }
-
-    private fun calculateSyncSafeInt(bytes: ByteArray): Int {
-        return ((bytes[0].toInt() and 0x7F) shl 21) or
-                ((bytes[1].toInt() and 0x7F) shl 14) or
-                ((bytes[2].toInt() and 0x7F) shl 7) or
-                (bytes[3].toInt() and 0x7F)
-    }
-
-    private fun intToBigEndianBytes(i: Int): ByteArray {
-        val buffer = ByteBuffer.allocate(4)
-        buffer.order(ByteOrder.BIG_ENDIAN)
-        buffer.putInt(i)
-        return buffer.array()
-    }
-
-    private fun bigEndianToInt(bytes: ByteArray): Int {
-        val buffer = ByteBuffer.wrap(bytes)
-        buffer.order(ByteOrder.BIG_ENDIAN)
-        return buffer.int
-    }
-
-    private fun createTextFrame(frameId: String, text: String, tagVersion: Int): ByteArray {
-        val (encodingByte, contentBytes) = if (tagVersion == 4) {
-            3.toByte() to text.toByteArray(Charsets.UTF_8)
-        } else {
-            val bom = byteArrayOf(0xFE.toByte(), 0xFF.toByte())
-            val utf16 = text.toByteArray(Charsets.UTF_16BE)
-            1.toByte() to (bom + utf16)
-        }
-
-        val frameContent = byteArrayOf(encodingByte) + contentBytes
-        val frameSize = frameContent.size
-        val sizeBytes = if (tagVersion == 4) encodeSyncSafe(frameSize) else intToBigEndianBytes(frameSize)
-        val header = frameId.toByteArray(Charsets.ISO_8859_1) + sizeBytes + byteArrayOf(0, 0)
-        return header + frameContent
-    }
-
-    private fun createApicFrame(imageData: ByteArray, tagVersion: Int): ByteArray {
-        val textEncoding = 0.toByte()
-        val mimeType = "image/jpeg".toByteArray(Charsets.ISO_8859_1)
-        val pictureType = 3.toByte()
-        val description = byteArrayOf()
-
-        val content = byteArrayOf(textEncoding) +
-                mimeType + byteArrayOf(0) +
-                byteArrayOf(pictureType) +
-                description + byteArrayOf(0) +
-                imageData
-
-        val frameSize = content.size
-        val sizeBytes = if (tagVersion == 4) encodeSyncSafe(frameSize) else intToBigEndianBytes(frameSize)
-        val header = byteArrayOf('A'.toByte(), 'P'.toByte(), 'I'.toByte(), 'C'.toByte()) + sizeBytes + byteArrayOf(0, 0)
-        return header + content
     }
 }

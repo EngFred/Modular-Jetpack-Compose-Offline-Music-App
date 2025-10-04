@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.feature_audio_trim.presentation.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -11,11 +12,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.feature_audio_trim.R
-
 
 @Composable
 fun AudioInfoCard(
@@ -32,7 +32,7 @@ fun AudioInfoCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            AsyncImage(
+            SubcomposeAsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(audioFile.albumArtUri)
                     .crossfade(true)
@@ -41,9 +41,23 @@ fun AudioInfoCard(
                 modifier = Modifier
                     .size(72.dp)
                     .clip(RoundedCornerShape(8.dp)),
-                placeholder = painterResource(id = R.drawable.ic_music_note),
-                error = painterResource(id = R.drawable.ic_broken_image),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
+                loading = {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_music_note),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                error = {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_music_note),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             )
             Column(
                 verticalArrangement = Arrangement.spacedBy(4.dp)

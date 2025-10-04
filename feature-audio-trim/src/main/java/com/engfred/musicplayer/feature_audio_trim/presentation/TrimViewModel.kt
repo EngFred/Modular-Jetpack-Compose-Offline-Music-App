@@ -128,6 +128,10 @@ class TrimViewModel @Inject constructor(
             if (current.error?.contains("valid preview range") == true) {
                 clearError()
             }
+            // Auto-start preview for the new range
+            viewModelScope.launch {
+                startPreview()
+            }
         }
     }
 
@@ -140,6 +144,10 @@ class TrimViewModel @Inject constructor(
             // Clear transient errors on valid change
             if (current.error?.contains("valid preview range") == true) {
                 clearError()
+            }
+            // Auto-start preview for the new range
+            viewModelScope.launch {
+                startPreview()
             }
         }
     }

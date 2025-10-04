@@ -116,7 +116,7 @@ class TrimRepositoryImpl @Inject constructor(
                 return
             }
 
-            val trimmedTitle = "${audioFile.title} (trimmed)"
+            val trimmedTitle = audioFile.title  // Use original title without "(trimmed)"
             val artist = audioFile.artist ?: "Unknown Artist"
             val album = audioFile.album ?: "Unknown Album"
             val contentValues = ContentValues().apply {
@@ -152,14 +152,20 @@ class TrimRepositoryImpl @Inject constructor(
                 context.contentResolver.update(newUri, updateValues, null, null)
             }
 
-            // Embed full metadata using scoped-safe Jaudiotagger
-            val processedAlbumArt = audioFile.albumArtUri?.let { artUri ->
-                context.contentResolver.openInputStream(artUri)?.use { stream ->
-                    val bytes = stream.readBytes()
-                    if (bytes.isNotEmpty()) resizeAndCompressImage(bytes) else null
+            // Embed metadata (non-fatally: continue to success even if it fails, e.g., no album art)
+            try {
+                val processedAlbumArt = audioFile.albumArtUri?.let { artUri ->
+                    context.contentResolver.openInputStream(artUri)?.use { stream ->
+                        val bytes = stream.readBytes()
+                        if (bytes.isNotEmpty()) resizeAndCompressImage(bytes) else null
+                    }
                 }
+                embedMetadata(newUri, trimmedTitle, artist, album, processedAlbumArt, context)
+                Log.d(TAG, "Metadata embedding completed successfully")
+            } catch (e: Exception) {
+                Log.e(TAG, "Metadata embedding failed (e.g., no album art or format issue), but trim succeeded", e)
+                // Non-fatal: Audio file is already saved and playable without embedded metadata
             }
-            embedMetadata(newUri, trimmedTitle, artist, album, processedAlbumArt, context)
 
             // Media Scan and Cleanup
             val newPath = getFilePath(context, newUri)
@@ -184,8 +190,8 @@ class TrimRepositoryImpl @Inject constructor(
             Log.e(TAG, "Permission denied during trim", e)
             channel.trySend(TrimResult.PermissionDenied)
         } catch (e: ExportException) {
-            Log.e(TAG, "Export error during trim", e)
-            channel.trySend(TrimResult.Error(e.message ?: "Trim failed: Export Error"))
+            Log.e(TAG, "Export error during trim (unsupported input format?)", e)
+            channel.trySend(TrimResult.Error(e.message ?: "Trim failed: Export Error (check input format)"))
         } catch (e: Exception) {
             Log.e(TAG, "Unexpected error during trim", e)
             channel.trySend(TrimResult.Error(e.message ?: "Trim failed: Unexpected Error"))

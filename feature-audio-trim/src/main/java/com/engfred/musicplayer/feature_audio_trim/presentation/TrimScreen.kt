@@ -99,10 +99,12 @@ fun TrimScreen(
 
                 // Save button
                 val trimDurationMs = state.endTimeMs - state.startTimeMs
+                val originalDuration = audioFile.duration
+                val isTrimmed = trimDurationMs < originalDuration
                 val hasCriticalError = state.error != null && !state.error.contains("File too large")
                 Button(
                     onClick = { showSaveDialog = true },
-                    enabled = !state.isTrimming && !hasCriticalError && trimDurationMs >= 30000L && state.trimResult == null,
+                    enabled = !state.isTrimming && !hasCriticalError && trimDurationMs >= 30000L && state.trimResult == null && isTrimmed,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(if (state.isTrimming) "Trimming..." else "Save Trimmed File")

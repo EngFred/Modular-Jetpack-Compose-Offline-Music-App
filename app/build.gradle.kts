@@ -10,23 +10,33 @@ android {
     namespace = "com.engfred.musicplayer"
     compileSdk = 36
 
+    splits {
+        abi {
+            isEnable = true
+            reset()  // Clear defaults
+            include("armeabi-v7a", "arm64-v8a") // Covers 99%+ devices
+            isUniversalApk = false  // Skip fat APK (bloated)
+        }
+    }
+
     defaultConfig {
         applicationId = "com.engfred.musicplayer"
         minSdk = 21
         targetSdk = 36
         versionCode = 3
-        versionName = "2.0.2"
+        versionName = "2.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            isShrinkResources = true
         }
     }
     compileOptions {

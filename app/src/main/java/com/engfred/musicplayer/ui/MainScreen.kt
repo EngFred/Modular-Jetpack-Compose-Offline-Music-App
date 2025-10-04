@@ -310,7 +310,7 @@ private fun CustomBottomNavItem(
     onClick: () -> Unit
 ) {
     val animatedBackgroundColor by animateColorAsState(
-        targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+        targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
         animationSpec = tween(durationMillis = 300), label = "background_color_animation"
     )
 

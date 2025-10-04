@@ -21,21 +21,20 @@ val FrostError = Color(0xFFFF5252)
 val FrostOnError = Color(0xFFFFFFFF)
 val FrostOutline = Color(0xFFB0BEC5)
 
-// Default Dark Theme Colors
-val DarkPrimary = Color(0xFFBB86FC)
+// Default Dark Theme Colors (refined for subtle, professional elegance – inspired by Material Design 3 dark defaults)
+val DarkPrimary = Color(0xFFBB86FC)  // Light purple for accents
 val DarkOnPrimary = Color(0xFF000000)
-//val DarkPrimaryContainer = Color(0xFF3700B3)
-val DarkPrimaryContainer = Color(0xFF005A9C)
+val DarkPrimaryContainer = Color(0xFF3700B3)  // Deeper indigo for containers (updated for better depth)
 val DarkOnPrimaryContainer = Color(0xFFFFFFFF)
-val DarkSecondary = Color(0xFF03DAC6)
+val DarkSecondary = Color(0xFF03DAC6)  // Teal for secondary elements
 val DarkOnSecondary = Color(0xFF000000)
-val DarkSecondaryContainer = Color(0xFF006666)
+val DarkSecondaryContainer = Color(0xFF018786)  // Darker teal for containers (updated for cohesion)
 val DarkOnSecondaryContainer = Color(0xFFFFFFFF)
 val DarkTertiary = Color(0xFF03DAC6)
 val DarkOnTertiary = Color(0xFF000000)
-val DarkTertiaryContainer = Color(0xFF003333)
+val DarkTertiaryContainer = Color(0xFF018786)
 val DarkOnTertiaryContainer = Color(0xFFFFFFFF)
-val DarkBackground = Color(0xFF121212)
+val DarkBackground = Color(0xFF121212)  // Standard dark gray
 val DarkOnBackground = Color(0xFFFFFFFF)
 val DarkSurface = Color(0xFF121212)
 val DarkOnSurface = Color(0xFFFFFFFF)
@@ -63,23 +62,23 @@ val DeepBlueError = Color(0xFFE57373)
 val DeepBlueOnError = Color(0xFF000000)
 val DeepBlueOutline = Color(0xFF4A6572)
 
-val NeonPrimary = Color(0xFFFF00D6) // Hot pink
+val NeonPrimary = Color(0xFFFF00FF)  // Electric magenta for high-energy primary accents
 val NeonOnPrimary = Color(0xFF000000)
-val NeonPrimaryContainer = Color(0xFF7C00A6)
+val NeonPrimaryContainer = Color(0xFFAA00AA)  // Deeper magenta for containers
 val NeonOnPrimaryContainer = Color(0xFFFFFFFF)
-val NeonSecondary = Color(0xFF00FFFF) // Neon cyan
+val NeonSecondary = Color(0xFF39FF14)  // Neon lime for vibrant secondary elements (shifted from cyan for more distinct "cyber" pop<grok-card data-id="b8abe3" data-type="citation_card"></grok-card>)
 val NeonOnSecondary = Color(0xFF000000)
-val NeonSecondaryContainer = Color(0xFF008C8C)
-val NeonOnSecondaryContainer = Color(0xFFFFFFFF)
-val NeonBackground = Color(0xFF0D0D0D) // True black for OLED
-val NeonOnBackground = Color(0xFFF0F0F0)
-val NeonSurface = Color(0xFF1A1A1A)
-val NeonOnSurface = Color(0xFFE0F7FA)
-val NeonSurfaceVariant = Color(0xFF2E2E2E)
-val NeonOnSurfaceVariant = Color(0xFF80D8FF)
-val NeonError = Color(0xFFFF1744)
+val NeonSecondaryContainer = Color(0xFF00CC00)  // Darker lime for depth
+val NeonOnSecondaryContainer = Color(0xFF000000)
+val NeonBackground = Color(0xFF000000)  // True black for OLED-optimized contrast
+val NeonOnBackground = Color(0xFFF0F0F0)  // Neutral light gray
+val NeonSurface = Color(0xFF0F0F0F)  // Near-black surface for subtle elevation
+val NeonOnSurface = Color(0xFFE0F7FA)  // Cool cyan-tinted white for text
+val NeonSurfaceVariant = Color(0xFF1A1A1A)  // Dark gray variant
+val NeonOnSurfaceVariant = Color(0xFF80D8FF)  // Light cyan for variants
+val NeonError = Color(0xFFFF1744)  // Bright red for errors
 val NeonOnError = Color(0xFFFFFFFF)
-val NeonOutline = Color(0xFF9C27B0)
+val NeonOutline = Color(0xFF9C27B0)  // Purple outline for cohesion
 
 val SunsetPrimary = Color(0xFFFF8A65) // Soft sunset orange
 val SunsetOnPrimary = Color(0xFF000000)

@@ -202,15 +202,6 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            Text(
-                text = "Changes are applied immediately and persist across launches.",
-                textAlign = TextAlign.Center,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(start = 4.dp)
-            )
-
             //app version + copyright section
             AppVersionSection(
                 copyrightText = "© 2025 Engineer Fred",

@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+
 enum class AppThemeType {
     CLASSIC_BLUE,
     SUNSET_GROOVE,
@@ -17,6 +18,7 @@ enum class AppThemeType {
     NEON_DARK,
     DARK,
 }
+
 private val LightColorScheme = lightColorScheme(
     primary = FrostPrimary,
     onPrimary = FrostOnPrimary,
@@ -153,7 +155,6 @@ fun MusicPlayerAppTheme(
             }
         }
     }
-
 
     MaterialTheme(
         colorScheme = colorScheme,

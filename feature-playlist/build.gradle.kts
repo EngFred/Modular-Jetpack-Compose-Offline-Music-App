@@ -65,10 +65,10 @@ dependencies {
     ksp(libs.hilt.android.compiler)
     implementation(libs.hilt.navigation.compose)
 
-    // Room (Persistence Library) - REQUIRED for this module
+    // Room (Persistence Library)
     implementation(libs.room.runtime)
-    ksp(libs.room.compiler) // KSP for Room annotation processing
-    implementation(libs.room.ktx) // Kotlin extensions for Room
+    ksp(libs.room.compiler)
+    implementation(libs.room.ktx)
 
     // Kotlin Coroutines
     implementation(libs.kotlinx.coroutines.core)

@@ -10,14 +10,13 @@ android {
     namespace = "com.engfred.musicplayer"
     compileSdk = 36
 
-    splits {
-        abi {
-            isEnable = true
-            reset()  // Clear defaults
-            include("armeabi-v7a", "arm64-v8a") // Covers 99%+ devices
-            isUniversalApk = false  // Skip fat APK (bloated)
-        }
-    }
+//    splits {
+//        abi {
+//            isEnable = true
+//            reset()  // Clear defaults
+//            include( "arm64-v8a") // Covers 99%+ devices
+//        }
+//    }
 
     defaultConfig {
         applicationId = "com.engfred.musicplayer"
@@ -31,12 +30,11 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
+            isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            isShrinkResources = true
         }
     }
     compileOptions {
@@ -97,9 +95,6 @@ dependencies {
 
     //splash screen
     implementation(libs.androidx.core.splashscreen)
-
-    //
-//    implementation(libs.androidx.material3.window.size.class1.android)
 
     // Landscapist with Coil engine
     implementation(libs.landscapist.coil)

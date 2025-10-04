@@ -71,8 +71,6 @@ dependencies {
     //more icons
     implementation(libs.androidx.material.icons.extended);
 
-//    implementation(libs.androidx.material3.window.size.class1.android)
-
     implementation(libs.androidx.activity.compose)
 
     testImplementation(libs.junit)

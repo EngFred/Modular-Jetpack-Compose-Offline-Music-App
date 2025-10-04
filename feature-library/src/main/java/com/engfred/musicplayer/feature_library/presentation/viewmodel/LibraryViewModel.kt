@@ -14,6 +14,7 @@ import com.engfred.musicplayer.core.domain.repository.SettingsRepository
 import com.engfred.musicplayer.core.domain.usecases.PermissionHandlerUseCase
 import com.engfred.musicplayer.feature_library.domain.usecases.GetAllAudioFilesUseCase
 import com.engfred.musicplayer.core.util.MediaUtils
+import com.engfred.musicplayer.core.util.TextUtils.pluralize
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -219,7 +220,7 @@ class LibraryViewModel @Inject constructor(
 
                 is LibraryEvent.PlayedNext -> {
                     playbackController.addAudioToQueueNext(event.audioFile)
-                    _uiEvent.emit("Added '${event.audioFile.title}' to play next.")
+                    _uiEvent.emit("'${event.audioFile.title}' will play next in the queue.")
                 }
 
                 LibraryEvent.Retry -> loadAudioFiles()
@@ -291,7 +292,7 @@ class LibraryViewModel @Inject constructor(
                             sharedAudioDataSource.deleteAudioFile(audioFile)
                             playlistRepository.removeSongFromAllPlaylists(audioFile.id)
                         }
-                        _uiEvent.emit("Successfully deleted ${selected.size} songs.")
+                        _uiEvent.emit("Successfully deleted  ${pluralize(selected.size, "song", "songs")}.")
                     } else {
                         _uiEvent.emit(event.errorMessage ?: "Failed to delete selected songs.")
                         _uiState.update { it.copy(showBatchDeleteConfirmationDialog = false) }

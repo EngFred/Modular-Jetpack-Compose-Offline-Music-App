@@ -7,10 +7,10 @@ import androidx.lifecycle.viewModelScope
 import com.engfred.musicplayer.core.data.SharedAudioDataSource
 import com.engfred.musicplayer.core.domain.model.AudioFile
 import com.engfred.musicplayer.core.domain.model.Playlist
-import com.engfred.musicplayer.core.domain.repository.LibraryRepository
 import com.engfred.musicplayer.core.domain.repository.PlaybackController
 import com.engfred.musicplayer.core.domain.repository.PlaylistRepository
 import com.engfred.musicplayer.core.domain.repository.ShuffleMode
+import com.engfred.musicplayer.core.util.TextUtils.pluralize
 import com.engfred.musicplayer.feature_playlist.domain.model.PlaylistSortOrder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -295,8 +295,8 @@ class PlaylistDetailViewModel @Inject constructor(
                 }
 
                 is PlaylistDetailEvent.ToggleSelection -> {
-                    if (_uiState.value.playlist?.isAutomatic == true || _uiState.value.playlist?.name.equals("Favorites", ignoreCase = true)) {
-                        return@launch  // Disable for automatic/Favorites
+                    if (_uiState.value.playlist?.isAutomatic == true) {
+                        return@launch  // Disable for automatic
                     }
                     _uiState.update { current ->
                         val newSelected = current.selectedSongs.toMutableSet()
@@ -358,7 +358,7 @@ class PlaylistDetailViewModel @Inject constructor(
                                 showBatchRemoveConfirmationDialog = false
                             )
                         }
-                        _uiEvent.emit("Successfully removed ${selected.size} songs from playlist.")
+                        _uiEvent.emit("Successfully removed ${pluralize(selected.size, "song", "songs")} from playlist.")
                     } else {
                         _uiEvent.emit(event.errorMessage ?: "Failed to remove selected songs.")
                         _uiState.update { it.copy(showBatchRemoveConfirmationDialog = false) }

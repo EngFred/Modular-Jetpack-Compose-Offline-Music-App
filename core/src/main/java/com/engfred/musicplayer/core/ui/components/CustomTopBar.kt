@@ -1,5 +1,11 @@
 package com.engfred.musicplayer.core.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,11 +25,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.animation.core.animateDpAsState
 
 /**
  * A custom composable for the top application bar, now more flexible with subtitle support.
@@ -37,10 +45,16 @@ fun CustomTopBar(
     onNavigateBack: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
+    val animatedHeight by animateDpAsState(
+        targetValue = 56.dp + if (subtitle != null) 20.dp else 0.dp,
+        animationSpec = tween(durationMillis = 300),
+        label = "topBarHeight"
+    )
+
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(56.dp + if (subtitle != null) 20.dp else 0.dp)  // Slight height bump for subtitle
+            .height(animatedHeight)
             .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.CenterStart
     ) {
@@ -80,15 +94,27 @@ fun CustomTopBar(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                subtitle?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodySmall,  // Smaller, lighter for subtlety
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),  // Faded for hierarchy
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 2.dp)  // Tiny gap between title/subtitle
+                AnimatedVisibility(
+                    visible = subtitle != null,
+                    enter = fadeIn(animationSpec = tween(300)) + slideInVertically(
+                        initialOffsetY = { it / 2 },
+                        animationSpec = tween(300)
+                    ),
+                    exit = fadeOut(animationSpec = tween(300)) + slideOutVertically(
+                        targetOffsetY = { it / 2 },
+                        animationSpec = tween(300)
                     )
+                ) {
+                    subtitle?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.bodySmall,  // Smaller, lighter for subtlety
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),  // Faded for hierarchy
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(top = 2.dp)  // Tiny gap between title/subtitle
+                        )
+                    }
                 }
             }
 

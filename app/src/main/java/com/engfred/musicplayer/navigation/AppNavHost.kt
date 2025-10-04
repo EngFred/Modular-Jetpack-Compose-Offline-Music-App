@@ -165,30 +165,30 @@ fun AppNavHost(
                     type = NavType.LongType
                 }
             ),
-            exitTransition = {
-                // If we're navigating TO NowPlaying -> disable exit animation for PlaylistDetail
-                val to = targetState.destination.route ?: ""
-                if (to == AppDestinations.NowPlaying.route) {
-                    null
-                } else {
-                    slideOutHorizontally(
-                        targetOffsetX = { fullWidth -> -fullWidth },
-                        animationSpec = tween(durationMillis = 400)
-                    )
-                }
-            },
-            popExitTransition = {
-                // If we're navigating TO NowPlaying -> disable exit animation for PlaylistDetail
-                val to = targetState.destination.route ?: ""
-                if (to == AppDestinations.NowPlaying.route) {
-                    null
-                } else {
-                    slideOutHorizontally(
-                        targetOffsetX = { fullWidth -> -fullWidth },
-                        animationSpec = tween(durationMillis = 400)
-                    )
-                }
-            }
+//            exitTransition = {
+//                // If we're navigating TO NowPlaying -> disable exit animation for PlaylistDetail
+//                val to = targetState.destination.route ?: ""
+//                if (to == AppDestinations.NowPlaying.route) {
+//                    null
+//                } else {
+//                    slideOutHorizontally(
+//                        targetOffsetX = { fullWidth -> -fullWidth },
+//                        animationSpec = tween(durationMillis = 400)
+//                    )
+//                }
+//            },
+//            popExitTransition = {
+//                // If we're navigating TO NowPlaying -> disable exit animation for PlaylistDetail
+//                val to = targetState.destination.route ?: ""
+//                if (to == AppDestinations.NowPlaying.route) {
+//                    null
+//                } else {
+//                    slideOutHorizontally(
+//                        targetOffsetX = { fullWidth -> -fullWidth },
+//                        animationSpec = tween(durationMillis = 400)
+//                    )
+//                }
+//            }
         ) {
             PlaylistDetailScreen(
                 onNavigateBack = { rootNavController.navigateUp() },

@@ -99,8 +99,8 @@ fun PlaylistDetailScreen(
         }
     }
 
-    val isAutomaticOrFavorites = uiState.playlist?.isAutomatic == true || uiState.playlist?.name.equals("Favorites", ignoreCase = true)
-    val isSelectionMode = uiState.selectedSongs.isNotEmpty() && !isAutomaticOrFavorites
+    val isAutomatic = uiState.playlist?.isAutomatic == true
+    val isSelectionMode = uiState.selectedSongs.isNotEmpty() && !isAutomatic
     val coroutineScope = rememberCoroutineScope()
 
     // BackHandler: when selection is active, consume back and deselect
@@ -303,11 +303,11 @@ fun PlaylistDetailScreen(
                                 isSelected = isSelected,
                                 onToggleSelect = { viewModel.onEvent(PlaylistDetailEvent.ToggleSelection(audioFile)) },
                                 onItemTap = {
-                                    if (isSelectionMode && !isAutomaticOrFavorites) viewModel.onEvent(PlaylistDetailEvent.ToggleSelection(audioFile))
+                                    if (isSelectionMode && !isAutomatic) viewModel.onEvent(PlaylistDetailEvent.ToggleSelection(audioFile))
                                     else viewModel.onEvent(PlaylistDetailEvent.PlayAudio(audioFile))
                                 },
                                 onItemLongPress = {
-                                    if (!isSelectionMode && !isAutomaticOrFavorites) viewModel.onEvent(PlaylistDetailEvent.ToggleSelection(audioFile))
+                                    if (!isSelectionMode && !isAutomatic) viewModel.onEvent(PlaylistDetailEvent.ToggleSelection(audioFile))
                                 }
                             )
                         }
@@ -372,7 +372,7 @@ fun PlaylistDetailScreen(
                                     songs = uiState.sortedSongs,
                                     currentPlayingId = uiState.currentPlayingAudioFile?.id,
                                     onSongClick = { clickedAudioFile ->
-                                        if (isSelectionMode && !isAutomaticOrFavorites) viewModel.onEvent(PlaylistDetailEvent.ToggleSelection(clickedAudioFile))
+                                        if (isSelectionMode && !isAutomatic) viewModel.onEvent(PlaylistDetailEvent.ToggleSelection(clickedAudioFile))
                                         else viewModel.onEvent(PlaylistDetailEvent.PlayAudio(clickedAudioFile))
                                     },
                                     onSongRemove = { song -> viewModel.onEvent(PlaylistDetailEvent.ShowRemoveSongConfirmation(song)) },
@@ -389,7 +389,7 @@ fun PlaylistDetailScreen(
                                     selectedSongs = uiState.selectedSongs,
                                     onToggleSelection = { song -> viewModel.onEvent(PlaylistDetailEvent.ToggleSelection(song)) },
                                     onLongPress = { song ->
-                                        if (!isSelectionMode && !isAutomaticOrFavorites) viewModel.onEvent(PlaylistDetailEvent.ToggleSelection(song))
+                                        if (!isSelectionMode && !isAutomatic) viewModel.onEvent(PlaylistDetailEvent.ToggleSelection(song))
                                     }
                                 )
                             }

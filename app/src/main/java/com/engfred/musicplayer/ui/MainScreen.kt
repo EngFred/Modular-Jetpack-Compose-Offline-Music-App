@@ -1,6 +1,5 @@
 package com.engfred.musicplayer.ui
 
-import android.util.Log
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
@@ -33,7 +32,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,6 +54,7 @@ import com.engfred.musicplayer.core.ui.components.CustomTopBar
 import com.engfred.musicplayer.core.ui.components.MiniPlayer
 import com.engfred.musicplayer.core.ui.components.PlayShuffleBar
 import com.engfred.musicplayer.core.util.TextUtils.formatCount
+import com.engfred.musicplayer.core.util.TextUtils.pluralize
 import com.engfred.musicplayer.core.util.restartApp
 import com.engfred.musicplayer.feature_library.presentation.screens.LibraryScreen
 import com.engfred.musicplayer.feature_playlist.presentation.screens.PlaylistsScreen
@@ -103,16 +102,29 @@ fun MainScreen(
             val isOnLibraryScreen = currentDestination?.hierarchy?.any {
                 it.route == AppDestinations.BottomNavItem.Library.baseRoute
             } == true
+            val isOnPlaylistsScreen = currentDestination?.hierarchy?.any {
+                it.route == AppDestinations.BottomNavItem.Playlists.baseRoute
+            } == true
+            val isOnSettingsScreen = currentDestination?.hierarchy?.any {
+                it.route == AppDestinations.BottomNavItem.Settings.baseRoute
+            } == true
 
-            val title = if (audioItems.isNotEmpty() && isOnLibraryScreen) {
-                "Music | ${formatCount(audioItems.size)}"
-            } else {
-                "Music"
+            // Dynamic title based on current bottom nav screen
+            val mainTitle = when {
+                isOnLibraryScreen -> AppDestinations.BottomNavItem.Library.label
+                isOnPlaylistsScreen -> AppDestinations.BottomNavItem.Playlists.label
+                isOnSettingsScreen -> AppDestinations.BottomNavItem.Settings.label
+                else -> "Music"  // Fallback for edge cases
             }
+            val subtitle = if (audioItems.isNotEmpty() && isOnLibraryScreen) {
+                "${formatCount(audioItems.size)} ${pluralize(audioItems.size, "Audio files", "Audio files", showCount = false)}"
+            } else null
+
             Box(modifier = Modifier.statusBarsPadding()) {
                 CustomTopBar(
                     modifier = Modifier.padding(start = 10.dp),
-                    title = title,
+                    title = mainTitle,
+                    subtitle = subtitle,
                     showNavigationIcon = false,
                     onNavigateBack = null,
                     actions = {

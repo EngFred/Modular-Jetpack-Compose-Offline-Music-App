@@ -21,12 +21,12 @@ object TextUtils {
      * @param singular singular noun (e.g., "song")
      * @param plural optional explicit plural form (e.g., "children"). If null we append 's'.
      */
-    fun pluralize(count: Int, singular: String, plural: String? = null): String {
+    fun pluralize(count: Int, singular: String, plural: String? = null, showCount: Boolean = true): String {
         return if (count == 1) {
             "1 $singular"
         } else {
             val pluralForm = plural ?: (singular + "s")
-            "$count $pluralForm"
+            if (showCount) "$count $pluralForm" else pluralForm
         }
     }
 

@@ -109,11 +109,10 @@ fun AudioFileItem(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = 4.dp, bottom = 4.dp, start = if(isSelectionMode.not())15.dp else 3.dp, end = 5.dp)
             .combinedClickable(
                 onClick = onItemTap,
                 onLongClick = onItemLongPress
-            ),
+            ).padding(top = 4.dp, bottom = 4.dp, start = if(isSelectionMode.not())15.dp else 3.dp, end = 5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (isSelectionMode) {

@@ -1,16 +1,12 @@
 package com.engfred.musicplayer.feature_library.presentation.components
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -123,35 +119,12 @@ fun SearchBar(
                                             fontSize = 15.sp,
                                             modifier = Modifier.weight(1f)
                                         )
-
-                                        // (Removed Selected chip — minimal UI)
                                         // We keep the label emphasis and leading radio-dot as the selection affordance
                                     }
                                 },
                                 onClick = {
                                     onClickAction()
                                     showFilterMenu = false
-                                },
-                                leadingIcon = {
-                                    if (isSelected) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(12.dp)
-                                                .clip(CircleShape)
-                                                .background(dotColor)
-                                        )
-                                    } else {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(12.dp)
-                                                .clip(CircleShape)
-                                                .border(
-                                                    width = 1.dp,
-                                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
-                                                    shape = CircleShape
-                                                )
-                                        )
-                                    }
                                 }
                             )
                         }

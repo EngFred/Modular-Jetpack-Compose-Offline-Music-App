@@ -28,8 +28,10 @@ import com.engfred.musicplayer.core.domain.repository.LibraryRepository
 import com.engfred.musicplayer.core.domain.repository.PlaybackController
 import com.engfred.musicplayer.core.domain.repository.PlaybackState
 import com.engfred.musicplayer.core.domain.repository.SettingsRepository
+import com.engfred.musicplayer.core.domain.usecases.PermissionHandlerUseCase
 import com.engfred.musicplayer.core.ui.theme.AppThemeType
 import com.engfred.musicplayer.core.ui.theme.MusicPlayerAppTheme
+import com.engfred.musicplayer.core.util.MediaUtils
 import com.engfred.musicplayer.feature_settings.domain.usecases.GetAppSettingsUseCase
 import com.engfred.musicplayer.helpers.IntentPermissionHelper
 import com.engfred.musicplayer.helpers.PlaybackQueueHelper
@@ -53,6 +55,7 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var libraryRepository: LibraryRepository
     @Inject lateinit var sharedAudioDataSource: SharedAudioDataSource
     @Inject lateinit var settingsRepository: SettingsRepository
+    @Inject lateinit var permissionHandlerUseCase: PermissionHandlerUseCase
 
     private var externalPlaybackUri by mutableStateOf<Uri?>(null)
     private var pendingPlaybackUri: Uri? = null
@@ -125,8 +128,22 @@ class MainActivity : ComponentActivity() {
                         sharedAudioDataSource = sharedAudioDataSource
                     )
                 }
-                lastPlaybackAudio = start
-                Log.d(TAG, "preparePlayingQueue returned startAudio=${start?.id}")
+                // Validating if the last playback audio still exists and is accessible using MediaUtils
+                lastPlaybackAudio = if (start != null) {
+                    val isAccessible = MediaUtils.isAudioFileAccessible(
+                        context = this@MainActivity,
+                        audioFileUri = start.uri,
+                        permissionHandlerUseCase = permissionHandlerUseCase
+                    )
+                    if (isAccessible) {
+                        Log.d(TAG, "Last playback audio validated as accessible: ${start.title}")
+                        start
+                    } else {
+                        Log.w(TAG, "Last playback audio no longer accessible")
+                        null
+                    }
+                } else null
+                Log.d(TAG, "preparePlayingQueue returned startAudio=${lastPlaybackAudio?.id}")
             } catch (t: Throwable) {
                 Log.w(TAG, "Failed to prepare playing queue: ${t.message}")
             }

@@ -85,7 +85,6 @@ fun LibraryContent(
                 LazyColumn(
                     state = lazyListState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(vertical = 6.dp),
                 ) {
                     val audios = uiState.filteredAudioFiles.ifEmpty { uiState.audioFiles }
                     items(audios, key = { it.id }) { audioFile ->
@@ -110,7 +109,7 @@ fun LibraryContent(
                             )
                             if (audioFile != audios.lastOrNull()) {
                                 HorizontalDivider(
-                                    modifier = Modifier.padding(start = 80.dp, end = 15.dp)
+                                    modifier = Modifier.fillMaxWidth()
                                 )
                             }
                         }

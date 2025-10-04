@@ -3,6 +3,7 @@ package com.engfred.musicplayer.core.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -11,25 +12,26 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 
 /**
- * A custom composable for the top application bar, now more flexible.
+ * A custom composable for the top application bar, now more flexible with subtitle support.
  */
 @Composable
 fun CustomTopBar(
     title: String,
+    subtitle: String? = null,
     modifier: Modifier = Modifier,
     showNavigationIcon: Boolean = false,
     onNavigateBack: (() -> Unit)? = null,
@@ -38,7 +40,7 @@ fun CustomTopBar(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(56.dp) // Standard TopAppBar height
+            .height(56.dp + if (subtitle != null) 20.dp else 0.dp)  // Slight height bump for subtitle
             .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.CenterStart
     ) {
@@ -64,17 +66,31 @@ fun CustomTopBar(
                 Spacer(modifier = Modifier.width(0.dp))
             }
 
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onBackground,
-                fontWeight = FontWeight.Bold,
+            Column(  // Wrap title/subtitle in Column for vertical stack
+                horizontalAlignment = Alignment.Start,  // Left-aligned (start)
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = if (showNavigationIcon) 0.dp else 12.dp),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+                    .padding(start = if (showNavigationIcon) 0.dp else 16.dp)  // Consistent left padding
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                subtitle?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,  // Smaller, lighter for subtlety
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),  // Faded for hierarchy
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 2.dp)  // Tiny gap between title/subtitle
+                    )
+                }
+            }
 
             // Actions slot
             Row(

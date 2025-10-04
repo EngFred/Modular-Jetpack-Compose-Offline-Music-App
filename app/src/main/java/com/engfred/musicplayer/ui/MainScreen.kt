@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.ui
 
+import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
@@ -50,6 +51,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.engfred.musicplayer.core.domain.model.AudioFile
+import com.engfred.musicplayer.core.domain.usecases.PermissionHandlerUseCase
 import com.engfred.musicplayer.core.ui.components.CustomTopBar
 import com.engfred.musicplayer.core.ui.components.MiniPlayer
 import com.engfred.musicplayer.core.ui.components.PlayShuffleBar
@@ -60,11 +62,13 @@ import com.engfred.musicplayer.feature_library.presentation.screens.LibraryScree
 import com.engfred.musicplayer.feature_playlist.presentation.screens.PlaylistsScreen
 import com.engfred.musicplayer.feature_settings.presentation.screens.SettingsScreen
 import com.engfred.musicplayer.navigation.AppDestinations
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
 
 /**
  * Main screen of the application, hosting the custom bottom navigation bar and
  * managing the primary feature screens.
  */
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun MainScreen(
     onNavigateToNowPlaying: () -> Unit,
@@ -93,6 +97,8 @@ fun MainScreen(
     var showDropdownMenu by remember { mutableStateOf(false) }
     var showRestartDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val permissionHandler = remember { PermissionHandlerUseCase(context) }
+    var hasPermission by remember { mutableStateOf(permissionHandler.hasAudioPermission() && permissionHandler.hasWriteStoragePermission()) }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -203,12 +209,22 @@ fun MainScreen(
                             item = item,
                             isSelected = selected,
                             onClick = {
-                                bottomNavController.navigate(item.baseRoute) {
-                                    popUpTo(bottomNavController.graph.findStartDestination().id) {
-                                        saveState = true
+                                // Prevent navigation to non-Library screens if permission not granted
+                                if (hasPermission || item.baseRoute == AppDestinations.BottomNavItem.Library.baseRoute) {
+                                    bottomNavController.navigate(item.baseRoute) {
+                                        popUpTo(bottomNavController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
                                     }
-                                    launchSingleTop = true
-                                    restoreState = true
+                                } else {
+                                    // UX: Inform user they need to grant permission first (in Library)
+                                    Toast.makeText(
+                                        context,
+                                        "Grant storage permission in Library to access this feature.",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
                                 }
                             }
                         )

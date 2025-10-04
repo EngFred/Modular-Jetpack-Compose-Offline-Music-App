@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.engfred.musicplayer.core.domain.model.AppSettings
+import com.engfred.musicplayer.core.domain.model.AudioFileTypeFilter
 import com.engfred.musicplayer.core.domain.model.AudioPreset
 import com.engfred.musicplayer.core.domain.model.FilterOption
 import com.engfred.musicplayer.core.domain.model.LastPlaybackState
@@ -36,6 +37,7 @@ class SettingsRepositoryImpl @Inject constructor(
         private val REPEAT_MODE = stringPreferencesKey("repeat_mode")
         private val SELECTED_AUDIO_PRESET = stringPreferencesKey("selected_audio_preset")
         private val SELECT_WIDGET_BACKGROUND_MODE = stringPreferencesKey("widget_background_mode")
+        private val AUDIO_FILE_TYPE_FILTER = stringPreferencesKey("audio_file_type_filter")
 
         private val LAST_PLAYED_AUDIO_ID = longPreferencesKey("last_played_audio_id")
         private val LAST_POSITION_MS = longPreferencesKey("last_position_ms")
@@ -98,6 +100,27 @@ class SettingsRepositoryImpl @Inject constructor(
                 FilterOption.valueOf(
                     preferences[SELECTED_FILTER_OPTION] ?: FilterOption.DATE_ADDED_DESC.name
                 )
+            }
+    }
+
+    // New: Audio file type filter
+    override fun getAudioFileTypeFilter(): Flow<AudioFileTypeFilter> {
+        return dataStore.data
+            .catch { exception ->
+                if (exception is IOException) {
+                    emit(emptyPreferences())
+                } else {
+                    throw exception
+                }
+            }
+            .map { preferences ->
+                try {
+                    AudioFileTypeFilter.valueOf(
+                        preferences[AUDIO_FILE_TYPE_FILTER] ?: AudioFileTypeFilter.ALL.name
+                    )
+                } catch (_: Exception) {
+                    AudioFileTypeFilter.ALL  // Default fallback
+                }
             }
     }
 
@@ -171,6 +194,12 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun updateAudioPreset(preset: AudioPreset) {
         dataStore.edit { preferences ->
             preferences[SELECTED_AUDIO_PRESET] = preset.name
+        }
+    }
+
+    override suspend fun updateAudioFileTypeFilter(filter: AudioFileTypeFilter) {
+        dataStore.edit { preferences ->
+            preferences[AUDIO_FILE_TYPE_FILTER] = filter.name
         }
     }
 

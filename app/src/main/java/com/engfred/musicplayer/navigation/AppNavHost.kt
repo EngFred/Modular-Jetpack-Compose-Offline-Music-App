@@ -166,16 +166,28 @@ fun AppNavHost(
                 }
             ),
             exitTransition = {
-                slideOutHorizontally(
-                    targetOffsetX = { fullWidth -> -fullWidth },
-                    animationSpec = tween(durationMillis = 400)
-                )
+                // If we're navigating TO NowPlaying -> disable exit animation for PlaylistDetail
+                val to = targetState.destination.route ?: ""
+                if (to == AppDestinations.NowPlaying.route) {
+                    null
+                } else {
+                    slideOutHorizontally(
+                        targetOffsetX = { fullWidth -> -fullWidth },
+                        animationSpec = tween(durationMillis = 400)
+                    )
+                }
             },
             popExitTransition = {
-                slideOutHorizontally(
-                    targetOffsetX = { fullWidth -> fullWidth },
-                    animationSpec = tween(durationMillis = 400)
-                )
+                // If we're navigating TO NowPlaying -> disable exit animation for PlaylistDetail
+                val to = targetState.destination.route ?: ""
+                if (to == AppDestinations.NowPlaying.route) {
+                    null
+                } else {
+                    slideOutHorizontally(
+                        targetOffsetX = { fullWidth -> -fullWidth },
+                        animationSpec = tween(durationMillis = 400)
+                    )
+                }
             }
         ) {
             PlaylistDetailScreen(

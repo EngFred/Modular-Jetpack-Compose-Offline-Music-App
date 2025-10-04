@@ -18,7 +18,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -39,8 +38,7 @@ class PlaylistDetailViewModel @Inject constructor(
     private val playlistRepository: PlaylistRepository,
     private val sharedAudioDataSource: SharedAudioDataSource,
     private val playbackController: PlaybackController,
-    private val savedStateHandle: SavedStateHandle,
-    private val libraryRepository: LibraryRepository
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     private val TAG = "PlaylistDetailViewModel"
@@ -375,46 +373,16 @@ class PlaylistDetailViewModel @Inject constructor(
             currentPlaylistId = playlistId
             _uiState.update { it.copy(isLoading = true, error = null) }
 
-            combine(
-                playlistRepository.getPlaylistById(playlistId),
-                libraryRepository.getAllAudioFiles()
-            ) { playlist, deviceFiles -> playlist to deviceFiles }
-                .onEach { (playlist, deviceFiles) ->
+            playlistRepository.getPlaylistById(playlistId)
+                .onEach { playlist ->
                     if (playlist != null) {
                         _uiState.update { currentState ->
                             val sorted = applySorting(currentState.currentSortOrder, playlist)
-                            currentState.copy(playlist = playlist, sortedSongs = sorted)
-                        }
-
-                        if (_uiState.value.isCleaningMissingSongs) return@onEach
-                        if (playlist.isAutomatic) {
-                            _uiState.update { it.copy(isLoading = false) }
-                            return@onEach
-                        }
-
-                        val deviceIds = deviceFiles.map { it.id }.toSet()
-                        val missingSongs = playlist.songs.filter { it.id !in deviceIds }
-
-                        if (missingSongs.isEmpty()) {
-                            _uiState.update { it.copy(isLoading = false) }
-                        } else {
-                            _uiState.update { it.copy(isCleaningMissingSongs = true) }
-                            viewModelScope.launch {
-                                try {
-                                    missingSongs.forEach { song ->
-                                        try {
-                                            playlistRepository.removeSongFromPlaylist(playlistId, song.id)
-                                            Log.d(TAG, "Removed missing song '${song.title}' from playlist ID: $playlistId")
-                                        } catch (e: Exception) {
-                                            Log.e(TAG, "Failed to remove missing song ID: ${song.id} from playlist ID: $playlistId", e)
-                                        }
-                                    }
-                                } finally {
-                                    _uiState.update {
-                                        it.copy(isCleaningMissingSongs = false, isLoading = false)
-                                    }
-                                }
-                            }
+                            currentState.copy(
+                                playlist = playlist,
+                                sortedSongs = sorted,
+                                isLoading = false
+                            )
                         }
                     } else {
                         _uiState.update {

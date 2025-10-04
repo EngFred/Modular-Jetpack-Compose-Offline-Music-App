@@ -1,13 +1,13 @@
 package com.engfred.musicplayer.core.domain.repository
 
 import com.engfred.musicplayer.core.domain.model.AppSettings
+import com.engfred.musicplayer.core.domain.model.AudioFileTypeFilter
 import com.engfred.musicplayer.core.domain.model.AudioPreset
 import com.engfred.musicplayer.core.domain.model.FilterOption
 import com.engfred.musicplayer.core.domain.model.LastPlaybackState
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
 import com.engfred.musicplayer.core.domain.model.PlaylistLayoutType
 import com.engfred.musicplayer.core.domain.model.WidgetBackgroundMode
-import com.engfred.musicplayer.core.domain.model.WidgetDisplayInfo
 import com.engfred.musicplayer.core.ui.theme.AppThemeType
 import kotlinx.coroutines.flow.Flow
 
@@ -27,13 +27,13 @@ interface SettingsRepository {
     suspend fun updateFilterOption(filterOption: FilterOption)
     fun getFilterOption(): Flow<FilterOption>
 
+    fun getAudioFileTypeFilter(): Flow<AudioFileTypeFilter>
+    suspend fun updateAudioFileTypeFilter(filter: AudioFileTypeFilter)
+
     suspend fun updateRepeatMode(repeatMode: RepeatMode)
 
     suspend fun updateAudioPreset(preset: AudioPreset)
     fun getLastPlaybackState(): Flow<LastPlaybackState>
     suspend fun saveLastPlaybackState(state: LastPlaybackState)
     suspend fun updateWidgetBackgroundMode(mode: WidgetBackgroundMode)
-
-//    suspend fun saveLastWidgetInfo(info: WidgetDisplayInfo?)
-//    suspend fun getLastWidgetInfo(): WidgetDisplayInfo?
 }

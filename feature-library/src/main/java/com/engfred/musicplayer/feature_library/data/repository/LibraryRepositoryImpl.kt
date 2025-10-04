@@ -9,9 +9,13 @@ import android.util.Log
 import androidx.core.graphics.scale
 import com.engfred.musicplayer.core.common.Resource
 import com.engfred.musicplayer.core.domain.model.AudioFile
+import com.engfred.musicplayer.core.domain.model.AudioFileTypeFilter
 import com.engfred.musicplayer.core.domain.repository.LibraryRepository
+import com.engfred.musicplayer.core.domain.repository.SettingsRepository
 import com.engfred.musicplayer.feature_library.data.source.local.ContentResolverDataSource
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import org.jaudiotagger.audio.AudioFileIO
@@ -32,27 +36,38 @@ import java.util.UUID
 import javax.inject.Inject
 
 class LibraryRepositoryImpl @Inject constructor(
-    private val dataSource: ContentResolverDataSource
+    private val dataSource: ContentResolverDataSource,
+    private val settingsRepository: SettingsRepository
 ) : LibraryRepository {
 
     private val TAG = "LibraryRepositoryImpl"
 
-    override fun getAllAudioFiles() = dataSource.getAllAudioFilesFlow().map { dtoList ->
-        dtoList.map { dto ->
-            AudioFile(
-                id = dto.id,
-                title = dto.title ?: "Unknown Title",
-                artist = dto.artist ?: "Unknown Artist",
-                album = dto.album ?: "Unknown Album",
-                duration = dto.duration,
-                uri = dto.uri,
-                albumArtUri = dto.albumArtUri,
-                dateAdded = dto.dateAdded * 1000L,
-                artistId = dto.artistId,
-                size = dto.size
-            )
+    override fun getAllAudioFiles(): Flow<List<AudioFile>> = dataSource.getAllAudioFilesFlow()
+        .combine(settingsRepository.getAudioFileTypeFilter()) { dtos, filter ->
+            // Filter by MIME type if MP3-only
+            val filteredDtos = if (filter == AudioFileTypeFilter.MP3_ONLY) {
+                dtos.filter { dto ->
+                    dto.mimeType == "audio/mpeg"  // MP3 MIME
+                }
+            } else {
+                dtos
+            }
+            filteredDtos.map { dto ->
+                AudioFile(
+                    id = dto.id,
+                    title = dto.title ?: "Unknown Title",
+                    artist = dto.artist ?: "Unknown Artist",
+                    album = dto.album ?: "Unknown Album",
+                    duration = dto.duration,
+                    uri = dto.uri,
+                    albumArtUri = dto.albumArtUri,
+                    dateAdded = dto.dateAdded * 1000L,
+                    artistId = dto.artistId,
+                    size = dto.size
+                )
+            }
         }
-    }
+        .map { audioFiles -> audioFiles }  // Flatten the inner map
 
     override suspend fun getAudioFileByUri(uri: Uri): Resource<AudioFile> {
         return try {

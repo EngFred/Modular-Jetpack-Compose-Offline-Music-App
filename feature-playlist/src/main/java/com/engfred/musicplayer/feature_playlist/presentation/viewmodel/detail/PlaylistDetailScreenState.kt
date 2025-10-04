@@ -17,7 +17,6 @@ data class PlaylistDetailScreenState(
     val audioToAddToPlaylist: AudioFile? = null,
     val showRemoveSongConfirmationDialog: Boolean = false,
     val audioFileToRemove: AudioFile? = null,
-    val isCleaningMissingSongs: Boolean = false,
     val currentSortOrder: PlaylistSortOrder = PlaylistSortOrder.DATE_ADDED,
     val sortedSongs: List<AudioFile> = emptyList(),
     // Multi-selection

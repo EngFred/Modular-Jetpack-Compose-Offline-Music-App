@@ -5,8 +5,9 @@ import android.content.Intent
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.engfred.musicplayer.core.domain.model.AudioPreset
 import com.engfred.musicplayer.feature_settings.domain.usecases.GetAppSettingsUseCase
+import com.engfred.musicplayer.feature_settings.domain.usecases.GetAudioFileTypeFilterUseCase
+import com.engfred.musicplayer.feature_settings.domain.usecases.UpdateAudioFileTypeFilterUseCase
 import com.engfred.musicplayer.feature_settings.domain.usecases.UpdateAudioPresetUseCase
 import com.engfred.musicplayer.feature_settings.domain.usecases.UpdatePlayerLayoutUseCase
 import com.engfred.musicplayer.feature_settings.domain.usecases.UpdatePlaylistLayoutUseCase
@@ -25,10 +26,12 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     getAppSettingsUseCase: GetAppSettingsUseCase,
+    private val getAudioFileTypeFilterUseCase: GetAudioFileTypeFilterUseCase,  // New
     private val updateThemeUseCase: UpdateThemeUseCase,
     private val updatePlayerLayoutUseCase: UpdatePlayerLayoutUseCase,
     private val updatePlaylistLayoutUseCase: UpdatePlaylistLayoutUseCase,
     private val updateAudioPresetUseCase: UpdateAudioPresetUseCase,
+    private val updateAudioFileTypeFilterUseCase: UpdateAudioFileTypeFilterUseCase,  // New
     private val updateWidgetBackgroundModeUseCase: UpdateWidgetBackgroundModeUseCase
 ) : ViewModel() {
 
@@ -45,71 +48,85 @@ class SettingsViewModel @Inject constructor(
                     playlistLayoutType = appSettings.playlistLayoutType,
                     audioPreset = appSettings.audioPreset,
                     widgetBackgroundMode = appSettings.widgetBackgroundMode,
-                    isLoading = false, // Settings loaded, so not loading
-                    error = null // Clear any previous error
+                    // Clear any previous error
                 )
             }
         }.launchIn(viewModelScope) // Launch collection in ViewModel's scope
+
+        getAudioFileTypeFilterUseCase().onEach { filter ->
+            _uiState.update {
+                it.copy(audioFileTypeFilter = filter)
+            }
+        }.launchIn(viewModelScope)
     }
 
     fun onEvent(event: SettingsEvent) {
         viewModelScope.launch {
             when (event) {
                 is SettingsEvent.UpdateTheme -> {
-                    _uiState.update { it.copy(isLoading = true, error = null) }
+                    _uiState.update { it.copy(isLoading = true,) }
                     try {
                         updateThemeUseCase(event.theme)
                     } catch (e: Exception) {
                         _uiState.update {
                             it.copy(
                                 error = "Failed to update theme: ${e.localizedMessage}",
-                                isLoading = false
                             )
                         }
                     }
                 }
                 is SettingsEvent.UpdatePlayerLayout -> {
-                    _uiState.update { it.copy(isLoading = true, error = null) }
+                    _uiState.update { it.copy(isLoading = true,) }
                     try {
                         updatePlayerLayoutUseCase(event.layout)
                     } catch (e: Exception) {
                         _uiState.update {
                             it.copy(
                                 error = "Failed to update player layout: ${e.localizedMessage}",
-                                isLoading = false
                             )
                         }
                     }
                 }
                 is SettingsEvent.UpdatePlaylistLayout -> {
-                    _uiState.update { it.copy(isLoading = true, error = null) }
+                    _uiState.update { it.copy(isLoading = true,) }
                     try {
                         updatePlaylistLayoutUseCase(event.layout)
                     } catch (e: Exception) {
                         _uiState.update {
                             it.copy(
                                 error = "Failed to update playlist layout: ${e.localizedMessage}",
-                                isLoading = false
                             )
                         }
                     }
                 }
                 is SettingsEvent.UpdateAudioPreset -> {
-                    _uiState.update { it.copy(isLoading = true, error = null) }
+                    _uiState.update { it.copy(isLoading = true,) }
                     try {
                         updateAudioPresetUseCase(event.preset)
                     } catch (e: Exception) {
                         _uiState.update {
                             it.copy(
                                 error = "Failed to update audio preset: ${e.localizedMessage}",
-                                isLoading = false
+                            )
+                        }
+                    }
+                }
+
+                is SettingsEvent.UpdateAudioFileTypeFilter -> {
+                    _uiState.update { it.copy(isLoading = true,) }
+                    try {
+                        updateAudioFileTypeFilterUseCase(event.filter)
+                    } catch (e: Exception) {
+                        _uiState.update {
+                            it.copy(
+                                error = "Failed to update audio filter: ${e.localizedMessage}",
                             )
                         }
                     }
                 }
                 is SettingsEvent.UpdateWidgetBackgroundMode -> {
                     val appContext = event.context
-                    _uiState.update { it.copy(isLoading = true, error = null) }
+                    _uiState.update { it.copy(isLoading = true,) }
                     try {
                         updateWidgetBackgroundModeUseCase(event.mode)
                         // Notify widget provider in the app module. Use strings so we don't depend on that module.
@@ -132,7 +149,6 @@ class SettingsViewModel @Inject constructor(
                         _uiState.update {
                             it.copy(
                                 error = "Failed to update widget mode: ${e.localizedMessage}",
-                                isLoading = false
                             )
                         }
                     }

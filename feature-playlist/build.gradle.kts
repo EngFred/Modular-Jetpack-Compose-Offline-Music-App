@@ -83,7 +83,7 @@ dependencies {
     //animation
     implementation(libs.androidx.animation)
 
-//    implementation(libs.androidx.material3.window.size.class1.android)
+    implementation(libs.lottie.compose)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)

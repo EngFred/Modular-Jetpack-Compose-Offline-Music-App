@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.AudioFile
 import androidx.compose.material.icons.rounded.Brush
 import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -35,6 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.engfred.musicplayer.core.domain.model.AudioFileTypeFilter
 import com.engfred.musicplayer.core.domain.model.AudioPreset
 import com.engfred.musicplayer.core.domain.model.PlayerLayout
 import com.engfred.musicplayer.core.domain.model.PlaylistLayoutType
@@ -90,6 +92,45 @@ fun SettingsScreen(
                 onSelect = { viewModel.onEvent(SettingsEvent.UpdateTheme(it)) }
             )
 
+            //Audio file type filter toggle
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Audio File Types",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Turn on to show all audio formats (default); turn off to show only MP3 files in the Library screen",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    // Switch: ON => ALL, OFF => MP3_ONLY
+                    val checked = uiState.audioFileTypeFilter == AudioFileTypeFilter.ALL
+                    Switch(
+                        checked = checked,
+                        onCheckedChange = { isChecked ->
+                            val newFilter = if (isChecked) AudioFileTypeFilter.ALL else AudioFileTypeFilter.MP3_ONLY
+                            viewModel.onEvent(SettingsEvent.UpdateAudioFileTypeFilter(newFilter))
+                        },
+                    )
+                }
+            }
+
             //Widget background toggle
             Card(
                 modifier = Modifier
@@ -130,6 +171,16 @@ fun SettingsScreen(
             }
 
             SettingsSection(
+                title = "Audio Preset",
+                subtitle = "Select an equalizer preset for playback",
+                icon = Icons.Rounded.Equalizer,
+                items = AudioPreset.entries,
+                selectedItem = uiState.audioPreset,
+                displayName = { it.name.replace("_", " ").lowercase().replaceFirstChar { c -> c.titlecase() } },
+                onSelect = { viewModel.onEvent(SettingsEvent.UpdateAudioPreset(it)) }
+            )
+
+            SettingsSection(
                 title = "Now Playing Layout",
                 subtitle = "Layout shown on the player screen",
                 icon = Icons.Rounded.PlayArrow,
@@ -147,16 +198,6 @@ fun SettingsScreen(
                 selectedItem = uiState.playlistLayoutType,
                 displayName = { it.name.replace("_", " ").lowercase().replaceFirstChar { c -> c.titlecase() } },
                 onSelect = { viewModel.onEvent(SettingsEvent.UpdatePlaylistLayout(it)) }
-            )
-
-            SettingsSection(
-                title = "Audio Preset",
-                subtitle = "Select an equalizer preset for playback",
-                icon = Icons.Rounded.Equalizer,
-                items = AudioPreset.entries,
-                selectedItem = uiState.audioPreset,
-                displayName = { it.name.replace("_", " ").lowercase().replaceFirstChar { c -> c.titlecase() } },
-                onSelect = { viewModel.onEvent(SettingsEvent.UpdateAudioPreset(it)) }
             )
 
             Spacer(modifier = Modifier.width(8.dp))

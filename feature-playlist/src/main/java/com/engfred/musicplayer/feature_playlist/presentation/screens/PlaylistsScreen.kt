@@ -45,13 +45,11 @@ import com.engfred.musicplayer.core.domain.model.PlaylistLayoutType
 import com.engfred.musicplayer.core.ui.components.ErrorIndicator
 import com.engfred.musicplayer.core.ui.components.InfoIndicator
 import com.engfred.musicplayer.core.ui.components.LoadingIndicator
-import com.engfred.musicplayer.core.ui.components.SoundWaveLoading
 import com.engfred.musicplayer.feature_playlist.presentation.components.list.AutomaticPlaylistItem
 import com.engfred.musicplayer.feature_playlist.presentation.components.list.PlaylistGridItem
 import com.engfred.musicplayer.feature_playlist.presentation.components.list.PlaylistListItem
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.list.PlaylistEvent
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.list.PlaylistViewModel
-import com.engfred.musicplayer.feature_playlist.utils.formatDate
 import kotlin.math.max
 
 /**
@@ -104,9 +102,7 @@ fun PlaylistsScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    SoundWaveLoading(
-                        barMaxHeight = 18.dp
-                    )
+                    LoadingIndicator()
                 }
             }
 

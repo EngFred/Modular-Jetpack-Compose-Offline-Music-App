@@ -8,7 +8,7 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 
 sealed class AppDestinations(val route: String) {
-    data object Splash : AppDestinations("splash")
+//    data object Splash : AppDestinations("splash")
     data object MainGraph : AppDestinations("main_graph")
     data object NowPlaying : AppDestinations("now_playing")
 

@@ -12,8 +12,6 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.core.net.toUri
@@ -31,8 +29,6 @@ import com.engfred.musicplayer.feature_playlist.presentation.screens.CreatePlayl
 import com.engfred.musicplayer.feature_playlist.presentation.screens.PlaylistDetailScreen
 import com.engfred.musicplayer.feature_playlist.presentation.viewmodel.detail.PlaylistDetailArgs
 import com.engfred.musicplayer.ui.MainScreen
-import com.engfred.musicplayer.ui.SplashScreen
-import kotlinx.coroutines.delay
 
 /**
  * Defines the main navigation graph for the application.
@@ -48,8 +44,8 @@ fun AppNavHost(
     isPlaying: Boolean,
     context: Context,
     onNavigateToNowPlaying: () -> Unit,
-    isPlayerActive: Boolean,
-    isPlayingExternalUri: Boolean,
+//    isPlayerActive: Boolean,
+//    isPlayingExternalUri: Boolean,
     onPlayAll: () -> Unit,
     onShuffleAll: () -> Unit,
     audioItems: List<AudioFile>,
@@ -57,18 +53,18 @@ fun AppNavHost(
     lastPlaybackAudio: AudioFile?
 ) {
 
-    // Set the start destination based on the condition
-    val startDestination = remember {
-        if (isPlayerActive || isPlayingExternalUri) {
-            AppDestinations.MainGraph.route
-        } else {
-            AppDestinations.Splash.route
-        }
-    }
+//    // Set the start destination based on the condition
+//    val startDestination = remember {
+//        if (isPlayerActive || isPlayingExternalUri) {
+//            AppDestinations.MainGraph.route
+//        } else {
+//            AppDestinations.Splash.route
+//        }
+//    }
 
     NavHost(
         navController = rootNavController,
-        startDestination = startDestination,
+        startDestination = AppDestinations.MainGraph.route,
         modifier = Modifier.background(
             brush = Brush.verticalGradient(
                 colors = listOf(
@@ -79,15 +75,15 @@ fun AppNavHost(
         )
     ) {
         // Splash screen
-        composable(AppDestinations.Splash.route) {
-            SplashScreen()
-            LaunchedEffect(Unit) {
-                delay(3000) // 3-second delay
-                rootNavController.navigate(AppDestinations.MainGraph.route) {
-                    popUpTo(AppDestinations.Splash.route) { inclusive = true } // Remove splash from back stack
-                }
-            }
-        }
+//        composable(AppDestinations.Splash.route) {
+//            SplashScreen()
+//            LaunchedEffect(Unit) {
+//                delay(3000) // 3-second delay
+//                rootNavController.navigate(AppDestinations.MainGraph.route) {
+//                    popUpTo(AppDestinations.Splash.route) { inclusive = true } // Remove splash from back stack
+//                }
+//            }
+//        }
 
         // Main Graph (with bottom nav)
         composable(AppDestinations.MainGraph.route) {

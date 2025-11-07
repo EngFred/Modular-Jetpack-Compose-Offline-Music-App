@@ -68,6 +68,7 @@ fun PlaylistDetailScreen(
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val density = LocalDensity.current
     var moreMenuExpanded by rememberSaveable { mutableStateOf(false) }
+    var sortMenuExpanded by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(viewModel.uiEvent) {
         viewModel.uiEvent.collect { message ->
@@ -262,8 +263,8 @@ fun PlaylistDetailScreen(
                                         songCount = uiState.playlist?.songs?.size ?: 0,
                                         currentSortOrder = uiState.currentSortOrder,
                                         onSortOrderChange = { viewModel.onEvent(PlaylistDetailEvent.SetSortOrder(it)) },
-                                        sortMenuExpanded = false,
-                                        onSortMenuExpandedChange = { /* omitted */ },
+                                        sortMenuExpanded = sortMenuExpanded,
+                                        onSortMenuExpandedChange = { sortMenuExpanded = it },
                                         isTopSongs = uiState.playlist?.type == AutomaticPlaylistType.MOST_PLAYED
                                     )
                                     Spacer(modifier = Modifier.height(16.dp))
@@ -307,7 +308,11 @@ fun PlaylistDetailScreen(
                                     else viewModel.onEvent(PlaylistDetailEvent.PlayAudio(audioFile))
                                 },
                                 onItemLongPress = {
-                                    if (!isSelectionMode && !isAutomatic) viewModel.onEvent(PlaylistDetailEvent.ToggleSelection(audioFile))
+                                    if (!isSelectionMode && !isAutomatic) {
+                                        viewModel.onEvent(PlaylistDetailEvent.ToggleSelection(audioFile))
+                                    } else {
+                                        Toast.makeText(context, "Cannot select songs from this playlists.", Toast.LENGTH_SHORT).show()
+                                    }
                                 }
                             )
                         }
@@ -360,8 +365,8 @@ fun PlaylistDetailScreen(
                                 songCount = uiState.playlist?.songs?.size ?: 0,
                                 currentSortOrder = uiState.currentSortOrder,
                                 onSortOrderChange = { viewModel.onEvent(PlaylistDetailEvent.SetSortOrder(it)) },
-                                sortMenuExpanded = false,
-                                onSortMenuExpandedChange = { /* omitted */ },
+                                sortMenuExpanded = sortMenuExpanded,
+                                onSortMenuExpandedChange = { sortMenuExpanded = it },
                                 isTopSongs = uiState.playlist?.type == AutomaticPlaylistType.MOST_PLAYED
                             )
                             Spacer(modifier = Modifier.height(16.dp))
@@ -389,7 +394,11 @@ fun PlaylistDetailScreen(
                                     selectedSongs = uiState.selectedSongs,
                                     onToggleSelection = { song -> viewModel.onEvent(PlaylistDetailEvent.ToggleSelection(song)) },
                                     onLongPress = { song ->
-                                        if (!isSelectionMode && !isAutomatic) viewModel.onEvent(PlaylistDetailEvent.ToggleSelection(song))
+                                        if (!isSelectionMode && !isAutomatic) {
+                                            viewModel.onEvent(PlaylistDetailEvent.ToggleSelection(song))
+                                        } else {
+                                            Toast.makeText(context, "Cannot select songs from this playlists.", Toast.LENGTH_SHORT).show()
+                                        }
                                     }
                                 )
                             }

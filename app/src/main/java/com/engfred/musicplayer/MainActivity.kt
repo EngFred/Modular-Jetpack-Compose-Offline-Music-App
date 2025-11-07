@@ -231,8 +231,8 @@ class MainActivity : ComponentActivity() {
                             navController.navigate(AppDestinations.NowPlaying.route)
                         }
                     },
-                    isPlayerActive = playbackState.currentAudioFile != null,
-                    isPlayingExternalUri = externalPlaybackUri != null,
+//                    isPlayerActive = playbackState.currentAudioFile != null,
+//                    isPlayingExternalUri = externalPlaybackUri != null,
                     onPlayAll = { PlaybackQueueHelper.playAll(this, sharedAudioDataSource, playbackController, settingsRepository) },
                     onShuffleAll = { PlaybackQueueHelper.shuffleAll(this, sharedAudioDataSource, playbackController, settingsRepository) },
                     audioItems = audioItems,

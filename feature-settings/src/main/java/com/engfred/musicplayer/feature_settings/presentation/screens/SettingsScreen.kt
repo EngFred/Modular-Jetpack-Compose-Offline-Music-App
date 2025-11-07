@@ -1,5 +1,6 @@
 package com.engfred.musicplayer.feature_settings.presentation.screens
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -54,6 +55,7 @@ fun SettingsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
+    @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         modifier = Modifier.fillMaxSize()
@@ -180,27 +182,27 @@ fun SettingsScreen(
                 onSelect = { viewModel.onEvent(SettingsEvent.UpdateAudioPreset(it)) }
             )
 
-            SettingsSection(
-                title = "Now Playing Layout",
-                subtitle = "Layout shown on the player screen",
-                icon = Icons.Rounded.PlayArrow,
-                items = PlayerLayout.entries,
-                selectedItem = uiState.selectedPlayerLayout,
-                displayName = { it.name.replace("_", " ").lowercase().replaceFirstChar { c -> c.titlecase() } },
-                onSelect = { viewModel.onEvent(SettingsEvent.UpdatePlayerLayout(it)) }
-            )
+//            SettingsSection(
+//                title = "Now Playing Layout",
+//                subtitle = "Layout shown on the player screen",
+//                icon = Icons.Rounded.PlayArrow,
+//                items = PlayerLayout.entries,
+//                selectedItem = uiState.selectedPlayerLayout,
+//                displayName = { it.name.replace("_", " ").lowercase().replaceFirstChar { c -> c.titlecase() } },
+//                onSelect = { viewModel.onEvent(SettingsEvent.UpdatePlayerLayout(it)) }
+//            )
 
-            SettingsSection(
-                title = "Playlist Layout",
-                subtitle = "How your playlists are displayed",
-                icon = Icons.AutoMirrored.Rounded.QueueMusic,
-                items = PlaylistLayoutType.entries,
-                selectedItem = uiState.playlistLayoutType,
-                displayName = { it.name.replace("_", " ").lowercase().replaceFirstChar { c -> c.titlecase() } },
-                onSelect = { viewModel.onEvent(SettingsEvent.UpdatePlaylistLayout(it)) }
-            )
+//            SettingsSection(
+//                title = "Playlist Layout",
+//                subtitle = "How your playlists are displayed",
+//                icon = Icons.AutoMirrored.Rounded.QueueMusic,
+//                items = PlaylistLayoutType.entries,
+//                selectedItem = uiState.playlistLayoutType,
+//                displayName = { it.name.replace("_", " ").lowercase().replaceFirstChar { c -> c.titlecase() } },
+//                onSelect = { viewModel.onEvent(SettingsEvent.UpdatePlaylistLayout(it)) }
+//            )
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.weight(1f).width(8.dp))
 
             //app version + copyright section
             AppVersionSection(

@@ -40,6 +40,10 @@ class TrimViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(TrimUiState())
     val uiState: StateFlow<TrimUiState> = _uiState.asStateFlow()
 
+    // One-time UI events (snackbars, navigation, etc.)
+    private val _uiEvent = MutableSharedFlow<UiEvent>(replay = 0)
+    val uiEvent: SharedFlow<UiEvent> = _uiEvent.asSharedFlow()
+
     // Expose preview playback state to UI
     val isPreviewPlaying: StateFlow<Boolean> = previewPlayerManager.isPlaying
     val previewPositionMs: StateFlow<Long> = previewPlayerManager.positionMs
@@ -54,10 +58,11 @@ class TrimViewModel @Inject constructor(
         viewModelScope.launch {
             previewPlayerManager.error
                 .filterNotNull()
-                .filter { !it.contains("interrupted") }  // Suppress auto-recoverable transients
+                .filter { !it.contains("interrupted", ignoreCase = true) } // Suppress auto-recoverable transients
                 .collect { error ->
                     Log.e(TAG, "Preview player error: $error")
-                    _uiState.value = _uiState.value.copy(error = error)
+                    _uiState.update { it.copy(error = error) }
+                    _uiEvent.emit(UiEvent.ShowSnackbar("Preview error: $error"))
                 }
         }
 
@@ -71,67 +76,67 @@ class TrimViewModel @Inject constructor(
     }
 
     private fun loadAudioFile(audioUriString: String) {
-        _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+        _uiState.update { it.copy(isLoading = true, error = null) }
         viewModelScope.launch {
             try {
                 val uri = audioUriString.toUri()
                 val result = libraryRepository.getAudioFileByUri(uri)
-                _uiState.value = _uiState.value.copy(isLoading = false)
+                _uiState.update { it.copy(isLoading = false) }
                 when (result) {
                     is Resource.Success -> {
                         val audioFile = result.data
-                        if (audioFile != null && audioFile.duration > 0L) {  // Add duration check
+                        if (audioFile != null && audioFile.duration > 0L) {
                             val isTooLarge = (audioFile.size ?: 0L) > MAX_FILE_SIZE_BYTES
                             val newError = if (isTooLarge) {
                                 "File too large. Maximum size is 10 MB."
                             } else null
-                            _uiState.value = _uiState.value.copy(
-                                audioFile = audioFile,
-                                endTimeMs = audioFile.duration.coerceAtLeast(0L),  // Allow full preview even if <30s
-                                error = newError
-                            )
-                            Log.d(TAG, "Audio file loaded successfully: ${audioFile.title}, duration: ${audioFile.duration}ms")
+                            _uiState.update {
+                                it.copy(
+                                    audioFile = audioFile,
+                                    endTimeMs = audioFile.duration.coerceAtLeast(0L),
+                                    error = newError
+                                )
+                            }
+                            Log.d(TAG, "Audio file loaded: ${audioFile.title}, duration: ${audioFile.duration}ms")
                         } else {
                             val errorMsg = if (audioFile?.duration == 0L) "Audio file has invalid duration" else "Invalid audio file"
                             Log.e(TAG, errorMsg)
-                            _uiState.value = _uiState.value.copy(error = errorMsg)
+                            _uiState.update { it.copy(error = errorMsg) }
+                            _uiEvent.emit(UiEvent.ShowSnackbar(errorMsg))
                         }
                     }
                     is Resource.Error -> {
-                        Log.e(TAG, "Error loading audio file: ${result.message}")
-                        _uiState.value = _uiState.value.copy(error = result.message ?: "Failed to load audio file")
+                        val msg = result.message ?: "Failed to load audio file"
+                        Log.e(TAG, "Error loading audio file: $msg")
+                        _uiState.update { it.copy(error = msg) }
+                        _uiEvent.emit(UiEvent.ShowSnackbar(msg))
                     }
                     else -> {
-                        // Handle unexpected Resource states if any
                         val errorMsg = "Unexpected error loading audio file"
                         Log.e(TAG, errorMsg)
-                        _uiState.value = _uiState.value.copy(error = errorMsg)
+                        _uiState.update { it.copy(error = errorMsg) }
+                        _uiEvent.emit(UiEvent.ShowSnackbar(errorMsg))
                     }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Exception in loadAudioFile", e)
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = "Failed to load audio file: ${e.message}"
-                )
+                val message = "Failed to load audio file: ${e.message ?: "Unknown"}"
+                _uiState.update { it.copy(isLoading = false, error = message) }
+                _uiEvent.emit(UiEvent.ShowSnackbar(message))
             }
         }
     }
 
     fun updateStartTime(ms: Long) {
         val current = _uiState.value
-        val newStart = ms.coerceIn(0L, (current.endTimeMs - 1L).coerceAtLeast(0L))  // Allow 1ms min for preview
+        val newStart = ms.coerceIn(0L, (current.endTimeMs - 1L).coerceAtLeast(0L))
         if (newStart != current.startTimeMs) {
-            _uiState.value = current.copy(startTimeMs = newStart)
+            _uiState.update { it.copy(startTimeMs = newStart) }
             Log.d(TAG, "Updated start time to ${newStart}ms")
-            // Clear transient errors on valid change
-            if (current.error?.contains("valid preview range") == true) {
+            if (current.error?.contains("valid preview range", ignoreCase = true) == true) {
                 clearError()
             }
-            // Auto-start preview for the new range
-            viewModelScope.launch {
-                startPreview()
-            }
+            viewModelScope.launch { startPreview() }
         }
     }
 
@@ -139,16 +144,12 @@ class TrimViewModel @Inject constructor(
         val current = _uiState.value
         val newEnd = ms.coerceIn((current.startTimeMs + 1L), current.audioFile?.duration ?: Long.MAX_VALUE)
         if (newEnd != current.endTimeMs) {
-            _uiState.value = current.copy(endTimeMs = newEnd)
+            _uiState.update { it.copy(endTimeMs = newEnd) }
             Log.d(TAG, "Updated end time to ${newEnd}ms")
-            // Clear transient errors on valid change
-            if (current.error?.contains("valid preview range") == true) {
+            if (current.error?.contains("valid preview range", ignoreCase = true) == true) {
                 clearError()
             }
-            // Auto-start preview for the new range
-            viewModelScope.launch {
-                startPreview()
-            }
+            viewModelScope.launch { startPreview() }
         }
     }
 
@@ -165,7 +166,8 @@ class TrimViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error toggling preview", e)
-                _uiState.value = _uiState.value.copy(error = "Preview failed. Please try again.")
+                _uiState.update { it.copy(error = "Preview failed. Please try again.") }
+                _uiEvent.emit(UiEvent.ShowSnackbar("Preview failed. Please try again."))
             }
         }
     }
@@ -173,29 +175,33 @@ class TrimViewModel @Inject constructor(
     private fun startPreview() {
         val state = _uiState.value
         val audioFile = state.audioFile ?: run {
-            Log.w(TAG, "Cannot start preview: no audio file")
-            _uiState.value = state.copy(error = "No audio file loaded")
+            val msg = "No audio file loaded"
+            Log.w(TAG, msg)
+            _uiState.update { it.copy(error = msg) }
             return
         }
         if (audioFile.uri == null) {
-            Log.w(TAG, "Cannot start preview: audio URI missing")
-            _uiState.value = state.copy(error = "Audio URI is missing")
+            val msg = "Audio URI is missing"
+            Log.w(TAG, msg)
+            _uiState.update { it.copy(error = msg) }
             return
         }
         if (audioFile.duration <= 0L) {
-            Log.w(TAG, "Cannot start preview: invalid audio duration")
-            _uiState.value = state.copy(error = "Invalid audio duration")
+            val msg = "Invalid audio duration"
+            Log.w(TAG, msg)
+            _uiState.update { it.copy(error = msg) }
             return
         }
-
         if (state.startTimeMs >= state.endTimeMs) {
-            Log.w(TAG, "Cannot start preview: invalid trim range")
-            _uiState.value = state.copy(error = "Please set a valid preview range.")
+            val msg = "Please set a valid preview range."
+            Log.w(TAG, msg)
+            _uiState.update { it.copy(error = msg) }
+            _uiEvent.tryEmit(UiEvent.ShowSnackbar(msg))
             return
         }
 
         // Clear preview-specific errors before starting
-        if (state.error?.contains("Playback") == true || state.error?.contains("valid preview") == true) {
+        if (state.error?.contains("Playback", ignoreCase = true) == true || state.error?.contains("valid preview", ignoreCase = true) == true) {
             clearError()
         }
 
@@ -204,7 +210,7 @@ class TrimViewModel @Inject constructor(
             startMs = state.startTimeMs,
             endMs = state.endTimeMs
         )
-        Log.d(TAG, "Preview started/resumed for clip ${state.startTimeMs}ms - ${state.endTimeMs}ms")
+        Log.d(TAG, "Preview started for clip ${state.startTimeMs}ms - ${state.endTimeMs}ms")
     }
 
     fun stopPreview() {
@@ -222,7 +228,8 @@ class TrimViewModel @Inject constructor(
             Log.d(TAG, "Preview seeked to clip start")
         } catch (e: Exception) {
             Log.e(TAG, "Error seeking preview", e)
-            _uiState.value = _uiState.value.copy(error = "Seek failed. Please try playing again.")
+            _uiState.update { it.copy(error = "Seek failed. Please try playing again.") }
+            viewModelScope.launch { _uiEvent.emit(UiEvent.ShowSnackbar("Seek failed. Please try playing again.")) }
         }
     }
 
@@ -234,19 +241,22 @@ class TrimViewModel @Inject constructor(
         val audioFile = current.audioFile ?: run {
             val errorMsg = "No audio file loaded"
             Log.w(TAG, errorMsg)
-            _uiState.value = current.copy(error = errorMsg)
+            _uiState.update { it.copy(error = errorMsg) }
+            viewModelScope.launch { _uiEvent.emit(UiEvent.ShowSnackbar(errorMsg)) }
             return
         }
         if (audioFile.uri == null) {
             val errorMsg = "Audio URI is missing"
             Log.w(TAG, errorMsg)
-            _uiState.value = current.copy(error = errorMsg)
+            _uiState.update { it.copy(error = errorMsg) }
+            viewModelScope.launch { _uiEvent.emit(UiEvent.ShowSnackbar(errorMsg)) }
             return
         }
         if (current.startTimeMs >= current.endTimeMs) {
             val errorMsg = "Invalid trim range"
             Log.w(TAG, errorMsg)
-            _uiState.value = current.copy(error = errorMsg)
+            _uiState.update { it.copy(error = errorMsg) }
+            viewModelScope.launch { _uiEvent.emit(UiEvent.ShowSnackbar(errorMsg)) }
             return
         }
 
@@ -254,59 +264,51 @@ class TrimViewModel @Inject constructor(
         if (trimDurationMs < MIN_TRIM_DURATION_MS) {
             val errorMsg = "Trim too short (min 30 seconds)"
             Log.w(TAG, errorMsg)
-            _uiState.value = current.copy(error = errorMsg)
+            _uiState.update { it.copy(error = errorMsg) }
+            viewModelScope.launch { _uiEvent.emit(UiEvent.ShowSnackbar(errorMsg)) }
             return
         }
-        if (current.error != null && !current.error!!.contains("File too large")) {  // Allow trim if only size error
+        if (current.error != null && !current.error!!.contains("File too large")) { // Allow trim if only size warning
             Log.w(TAG, "Trim aborted due to existing error: ${current.error}")
+            viewModelScope.launch { _uiEvent.emit(UiEvent.ShowSnackbar("Cannot trim while there is an error: ${current.error}")) }
             return
         }
 
-        // Stop any ongoing preview before trimming
-        stopPreview()
-
-        _uiState.value = current.copy(isTrimming = true, error = null, trimResult = null)
+        _uiState.update { it.copy(isTrimming = true, error = null, trimResult = null) }
         Log.d(TAG, "Starting trim operation for ${trimDurationMs}ms clip")
+
         trimJob = viewModelScope.launch {
             try {
+                // execute returns a Flow<TrimResult>
                 trimAudioUseCase.execute(audioFile, current.startTimeMs, current.endTimeMs)
                     .collect { result ->
-                        val state = _uiState.value
                         when (result) {
                             is TrimResult.Success -> {
-                                _uiState.value = state.copy(
-                                    isTrimming = false,
-                                    trimResult = result
-                                )
+                                _uiState.update { it.copy(isTrimming = false, trimResult = result, error = null) }
+                                _uiEvent.emit(UiEvent.TrimSuccess)
                                 trimJob = null
                             }
                             is TrimResult.Error -> {
                                 Log.e(TAG, "Trim error: ${result.message}")
-                                _uiState.value = state.copy(
-                                    isTrimming = false,
-                                    error = "Trim failed: ${result.message}",
-                                    trimResult = null
-                                )
+                                val msg = "Trim failed: ${result.message}"
+                                _uiState.update { it.copy(isTrimming = false, error = msg, trimResult = null) }
+                                _uiEvent.emit(UiEvent.ShowSnackbar(msg))
                                 trimJob = null
                             }
                             is TrimResult.PermissionDenied -> {
                                 Log.w(TAG, "Trim permission denied")
-                                _uiState.value = state.copy(
-                                    isTrimming = false,
-                                    error = "Write permission required to save trimmed file",
-                                    trimResult = null
-                                )
+                                val msg = "Write permission required to save trimmed file"
+                                _uiState.update { it.copy(isTrimming = false, error = msg, trimResult = null) }
+                                _uiEvent.emit(UiEvent.ShowSnackbar(msg))
                                 trimJob = null
                             }
                         }
                     }
             } catch (e: Exception) {
                 Log.e(TAG, "Exception during trim collection", e)
-                _uiState.value = _uiState.value.copy(
-                    isTrimming = false,
-                    error = "Trim failed unexpectedly: ${e.message}",
-                    trimResult = null
-                )
+                val msg = "Trim failed unexpectedly: ${e.message ?: "Unknown"}"
+                _uiState.update { it.copy(isTrimming = false, error = msg, trimResult = null) }
+                _uiEvent.emit(UiEvent.ShowSnackbar(msg))
                 trimJob = null
             }
         }
@@ -315,39 +317,42 @@ class TrimViewModel @Inject constructor(
     fun cancelTrim() {
         trimJob?.cancel()
         trimJob = null
-        val current = _uiState.value
         val errorMsg = "Trimming cancelled by user"
         Log.d(TAG, errorMsg)
-        _uiState.value = current.copy(
-            isTrimming = false,
-            error = errorMsg,
-            trimResult = null
-        )
+        _uiState.update { it.copy(isTrimming = false, error = errorMsg, trimResult = null) }
+        viewModelScope.launch { _uiEvent.emit(UiEvent.ShowSnackbar(errorMsg)) }
     }
 
     fun clearError() {
-        val current = _uiState.value
-        _uiState.value = current.copy(error = null, trimResult = null)
+        _uiState.update { it.copy(error = null, trimResult = null) }
         Log.d(TAG, "Error cleared")
     }
 
     fun resetTrim() {
         val audioFile = _uiState.value.audioFile ?: return
         val currentError = _uiState.value.error // Preserve file size error if present
-        _uiState.value = _uiState.value.copy(
-            startTimeMs = 0L,
-            endTimeMs = audioFile.duration.coerceAtLeast(0L),
-            error = if (currentError?.contains("File too large") == true) currentError else null  // Clear non-critical errors
-        )
-        stopPreview()  // Reset preview on trim reset
+        _uiState.update {
+            it.copy(
+                startTimeMs = 0L,
+                endTimeMs = audioFile.duration.coerceAtLeast(0L),
+                error = if (currentError?.contains("File too large") == true) currentError else null
+            )
+        }
+        stopPreview()
         Log.d(TAG, "Trim reset to full duration")
     }
 
     override fun onCleared() {
         super.onCleared()
         trimJob?.cancel()
-        stopPreview() // Safe stop before release
+        stopPreview()
         previewPlayerManager.release()
         Log.d(TAG, "ViewModel cleared; resources released")
+    }
+
+    // UI events for the Composable to collect
+    sealed class UiEvent {
+        data class ShowSnackbar(val message: String) : UiEvent()
+        object TrimSuccess : UiEvent()
     }
 }

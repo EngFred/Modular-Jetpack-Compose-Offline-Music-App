@@ -14,6 +14,8 @@ import com.engfred.musicplayer.core.ui.components.CustomTopBar
 import com.engfred.musicplayer.feature_audio_trim.presentation.components.AudioInfoCard
 import com.engfred.musicplayer.feature_audio_trim.presentation.components.CustomTrimLoadingIndicator
 import com.engfred.musicplayer.feature_audio_trim.presentation.components.TrimSlider
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 @Composable
 fun TrimScreen(
@@ -23,11 +25,31 @@ fun TrimScreen(
     val uiState by viewModel.uiState.collectAsState()
     val isPreviewPlaying by viewModel.isPreviewPlaying.collectAsState()
     val previewPosition by viewModel.previewPositionMs.collectAsState()
+
     var showSaveDialog by remember { mutableStateOf(false) }
     var showConfirmBackDialog by remember { mutableStateOf(false) }
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    // Handle Back while trimming
     BackHandler(enabled = uiState.isTrimming) {
         showConfirmBackDialog = true
+    }
+
+    // Collect one-time UI events from ViewModel (success / error / permission denied)
+    LaunchedEffect(Unit) {
+        viewModel.uiEvent.collectLatest { event ->
+            when (event) {
+                is TrimViewModel.UiEvent.ShowSnackbar -> {
+                    snackbarHostState.showSnackbar(event.message)
+                }
+                is TrimViewModel.UiEvent.TrimSuccess -> {
+                    // optionally show a longer success message
+                    snackbarHostState.showSnackbar("Trim completed successfully")
+                }
+            }
+        }
     }
 
     Scaffold(
@@ -44,7 +66,8 @@ fun TrimScreen(
                 },
                 showNavigationIcon = true
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -60,7 +83,7 @@ fun TrimScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Use the TrimSlider component
+                // Trim slider UI
                 TrimSlider(
                     durationMs = audioFile.duration,
                     startMs = state.startTimeMs,
@@ -75,7 +98,7 @@ fun TrimScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Error display
+                // Error display (persistent)
                 state.error?.let { error ->
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
@@ -97,33 +120,41 @@ fun TrimScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Save button
+                // Save button: clearly disable when trimming, invalid, or trimmed already
                 val trimDurationMs = state.endTimeMs - state.startTimeMs
                 val originalDuration = audioFile.duration
                 val isTrimmed = trimDurationMs < originalDuration
                 val hasCriticalError = state.error != null && !state.error.contains("File too large")
                 Button(
                     onClick = { showSaveDialog = true },
-                    enabled = !state.isTrimming && !hasCriticalError && trimDurationMs >= 30000L && state.trimResult == null && isTrimmed,
+                    enabled = !state.isTrimming && !hasCriticalError && trimDurationMs >= 30_000L && state.trimResult == null && isTrimmed,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(if (state.isTrimming) "Trimming..." else "Save Trimmed File")
                 }
 
                 // Trim result display (if success)
-                state.trimResult?.let { result ->
+                state.trimResult?.let { _ ->
                     Spacer(modifier = Modifier.height(16.dp))
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text("Trim Successful!", style = MaterialTheme.typography.titleMedium)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                "The trimmed file was saved to your library.",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
                         }
                     }
                 }
 
+                // Loading indicator overlay while trimming
                 if (state.isTrimming) {
-                    Spacer(modifier = Modifier.height(16.dp).weight(1f))
+                    Spacer(modifier = Modifier.weight(1f).height(16.dp))
                     Box(
-                        Modifier.fillMaxWidth().padding(8.dp),
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         CustomTrimLoadingIndicator()
@@ -137,7 +168,13 @@ fun TrimScreen(
             } else {
                 // optional empty state
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No audio file selected")
+                    state.error?.let { error ->
+                        Text(
+                            text = error,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    } ?: Text("No audio file selected")
                 }
             }
         }

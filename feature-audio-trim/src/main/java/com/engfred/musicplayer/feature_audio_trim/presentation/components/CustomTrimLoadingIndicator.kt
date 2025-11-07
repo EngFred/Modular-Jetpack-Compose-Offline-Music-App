@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.text.style.TextAlign
 
 @Composable
 fun CustomTrimLoadingIndicator(
@@ -143,6 +144,7 @@ fun CustomTrimLoadingIndicator(
         subtitle?.let {
             Spacer(modifier = Modifier.height(6.dp))
             Text(
+                textAlign = TextAlign.Center,
                 text = it,
                 style = typography.bodySmall,
                 color = colorOnSurfaceVariant

@@ -10,14 +10,6 @@ android {
     namespace = "com.engfred.musicplayer"
     compileSdk = 36
 
-//    splits {
-//        abi {
-//            isEnable = true
-//            reset()  // Clear defaults
-//            include( "arm64-v8a") // Covers 99%+ devices
-//        }
-//    }
-
     defaultConfig {
         applicationId = "com.engfred.musicplayer"
         minSdk = 21
